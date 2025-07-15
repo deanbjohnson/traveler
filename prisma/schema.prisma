@@ -1,0 +1,307 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkUserId String?  @unique // Clerk's user ID - optional for backward compatibility
+  email       String   @unique
+  name        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Travel related data
+  trips       Trip[]
+  bookings    Booking[]
+  preferences UserPreferences?
+
+  @@map("users")
+}
+
+model UserPreferences {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  preferredAirline String?
+  seatPreference   String?
+  mealPreference   String?
+  budgetRange      String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Trip {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  destination String
+  startDate   DateTime
+  endDate     DateTime
+  status      TripStatus @default(PLANNED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+  timeline Timeline? // One-to-one relationship with Timeline
+
+  @@map("trips")
+}
+
+// Timeline Models
+model Timeline {
+  id          String   @id @default(cuid())
+  tripId      String   @unique // One-to-one with Trip
+  title       String?
+  description String?
+  mood        String? // "adventure", "relaxing", "cultural", etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  trip         Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items        TimelineItem[]
+  locations    TimelineLocation[]
+
+  @@map("timelines")
+}
+
+model TimelineItem {
+  id          String   @id @default(cuid())
+  timelineId  String
+  parentId    String?  // For hierarchical structure
+  
+  // Core properties
+  title       String
+  description String?
+  type        TimelineItemType
+  status      TimelineItemStatus @default(PLANNED)
+  
+  // Timing
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int?     // Duration in minutes
+  
+  // Location context
+  locationId  String?
+  
+  // Ordering and hierarchy
+  order       Int      // Order within same parent level
+  level       Int      @default(0) // 0 = top level, 1 = daily, 2 = activity, etc.
+  
+  // Type-specific data
+  flightData  Json?    // DuffelOffer data for flights
+  stayData    Json?    // Hotel/accommodation data
+  activityData Json?   // Activity/tour data
+  
+  // Preferences and alternatives
+  preferences Json?    // User preferences for this item
+  mood        String?  // "adventure", "relaxing", etc.
+  
+  // Metadata
+  isLocked    Boolean  @default(false) // User locked this item
+  isAlternative Boolean @default(false) // Is this an alternative option
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  timeline     Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  parent       TimelineItem? @relation("TimelineHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children     TimelineItem[] @relation("TimelineHierarchy")
+  location     TimelineLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  alternatives TimelineAlternative[]
+
+  @@index([timelineId, parentId, order])
+  @@index([timelineId, type])
+  @@index([startTime])
+  @@map("timeline_items")
+}
+
+model TimelineAlternative {
+  id             String   @id @default(cuid())
+  timelineItemId String
+  
+  // Alternative details
+  title          String
+  description    String?
+  type           TimelineItemType
+  
+  // Timing (alternative timing)
+  startTime      DateTime
+  endTime        DateTime?
+  duration       Int?
+  
+  // Type-specific data
+  flightData     Json?
+  stayData       Json?
+  activityData   Json?
+  
+  // Pricing and comparison
+  price          Float?
+  currency       String?
+  
+  // Alternative metadata
+  reason         String?  // Why this is an alternative
+  score          Float?   // Ranking score
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  timelineItem TimelineItem @relation(fields: [timelineItemId], references: [id], onDelete: Cascade)
+
+  @@index([timelineItemId, score])
+  @@map("timeline_alternatives")
+}
+
+model TimelineLocation {
+  id           String   @id @default(cuid())
+  timelineId   String
+  
+  // Location details
+  name         String
+  city         String?
+  country      String?
+  iataCode     String?  // For airports
+  
+  // Coordinates
+  latitude     Float?
+  longitude    Float?
+  
+  // Location metadata
+  type         LocationType
+  description  String?
+  timezone     String?
+  
+  // Visual/UI properties
+  color        String?  // For timeline visualization
+  icon         String?  // Icon identifier
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  timeline Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  items    TimelineItem[]
+
+  @@index([timelineId, type])
+  @@map("timeline_locations")
+}
+
+model Booking {
+  id          String      @id @default(cuid())
+  userId      String
+  tripId      String?
+  type        BookingType
+  status      BookingStatus @default(PENDING)
+  
+  // Flight specific fields
+  flightNumber String?
+  airline      String?
+  departure    DateTime?
+  arrival      DateTime?
+  departureAirport String?
+  arrivalAirport   String?
+  
+  // Hotel specific fields
+  hotelName    String?
+  checkIn      DateTime?
+  checkOut     DateTime?
+  roomType     String?
+  
+  // Common fields
+  totalAmount  Float?
+  currency     String?
+  
+  // External booking reference
+  externalId   String?
+  bookingData  Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip Trip? @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@map("bookings")
+}
+
+model SearchQuery {
+  id        String   @id @default(cuid())
+  userId    String?
+  query     String
+  type      SearchType
+  results   Json?
+  createdAt DateTime @default(now())
+
+  @@map("search_queries")
+}
+
+// Enums
+enum TripStatus {
+  PLANNED
+  BOOKED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingType {
+  FLIGHT
+  HOTEL
+  RENTAL_CAR
+  ACTIVITY
+  OTHER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum SearchType {
+  FLIGHT
+  HOTEL
+  DESTINATION
+  ACTIVITY
+}
+
+enum TimelineItemType {
+  FLIGHT
+  STAY
+  ACTIVITY
+  DINING
+  TRANSPORT
+  FREE_TIME
+  LOCATION_CHANGE
+  CHECKPOINT
+  CUSTOM
+}
+
+enum TimelineItemStatus {
+  PLANNED
+  BOOKED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ALTERNATIVE
+}
+
+enum LocationType {
+  AIRPORT
+  CITY
+  HOTEL
+  ATTRACTION
+  RESTAURANT
+  TRANSPORT_HUB
+  CUSTOM
+} 
