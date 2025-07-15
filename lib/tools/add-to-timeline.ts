@@ -21,8 +21,6 @@ export const addToTimelineTool = tool({
     - "Book this activity for my vacation"
   `,
   parameters: z.object({
-    tripId: z.string().min(1).describe("The ID of the trip to add items to"),
-
     items: z
       .array(
         z.discriminatedUnion("type", [
@@ -160,14 +158,66 @@ export const addToTimelineTool = tool({
       .optional()
       .default(0)
       .describe("Hierarchy level (0 = top level, 1 = sub-item, etc.)"),
+    tripId: z.string().describe("The trip ID to add items to"),
   }),
 
-  execute: async ({ tripId, items, mood, parentId, level = 0 }) => {
+  execute: async ({ items, mood, parentId, level = 0, tripId }) => {
     const addStartTime = Date.now();
+    const toolCallId = Math.random().toString(36).substring(7);
+
+    console.log(
+      `[ADD-TIMELINE-TOOL-${toolCallId}] === TOOL EXECUTION START ===`
+    );
+    console.log(
+      `[ADD-TIMELINE-TOOL-${toolCallId}] Timestamp: ${new Date().toISOString()}`
+    );
+    console.log(`[ADD-TIMELINE-TOOL-${toolCallId}] Input parameters:`, {
+      tripId,
+      itemsCount: items.length,
+      mood,
+      parentId,
+      level,
+      itemDetails: items.map((item) => ({
+        type: item.type,
+        title: item.title,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        duration: item.duration,
+        hasFlightData: item.type === "FLIGHT" ? !!item.flightData : undefined,
+        hasStayData: item.type === "STAY" ? !!item.stayData : undefined,
+        hasActivityData:
+          item.type !== "FLIGHT" && item.type !== "STAY"
+            ? !!item.activityData
+            : undefined,
+      })),
+    });
 
     try {
       // Convert items to proper format
       const processedItems = items.map((item) => {
+        try {
+          console.log(
+            `[ADD-TIMELINE-TOOL-${toolCallId}] Processing item for server action:`,
+            {
+              type: item.type,
+              title: item.title,
+              hasFlightData:
+                item.type === "FLIGHT" ? !!item.flightData : undefined,
+              flightDataKeys:
+                item.type === "FLIGHT" && item.flightData
+                  ? Object.keys(item.flightData as Record<string, unknown>)
+                  : undefined,
+              flightDataType:
+                item.type === "FLIGHT" ? typeof item.flightData : undefined,
+            }
+          );
+        } catch (logError) {
+          console.log(
+            `[ADD-TIMELINE-TOOL-${toolCallId}] Processing item ${item.type} - logging error:`,
+            logError instanceof Error ? logError.message : String(logError)
+          );
+        }
+
         const baseItem = {
           type: item.type,
           title: item.title,
@@ -180,6 +230,100 @@ export const addToTimelineTool = tool({
 
         switch (item.type) {
           case "FLIGHT":
+            try {
+              console.log(
+                `[ADD-TIMELINE-TOOL-${toolCallId}] FLIGHT item flightData:`,
+                {
+                  hasFlightData: !!item.flightData,
+                  isObject: typeof item.flightData === "object",
+                  isNull: item.flightData === null,
+                  isUndefined: item.flightData === undefined,
+                  flightDataKeys:
+                    item.flightData && typeof item.flightData === "object"
+                      ? Object.keys(item.flightData as Record<string, unknown>)
+                      : undefined,
+                }
+              );
+            } catch (logError) {
+              console.log(
+                `[ADD-TIMELINE-TOOL-${toolCallId}] FLIGHT item flightData logging error:`,
+                logError instanceof Error ? logError.message : String(logError)
+              );
+            }
+
+            // Validate flight data structure
+            const flightData = item.flightData as Record<string, unknown>;
+            if (!flightData || typeof flightData !== "object") {
+              throw new Error("Flight data is required and must be an object");
+            }
+
+            // Check for required DuffelOffer properties
+            const requiredProperties = [
+              "id",
+              "slices",
+              "total_amount",
+              "total_currency",
+              "owner",
+            ];
+            const missingProperties = requiredProperties.filter(
+              (prop) => !(prop in flightData)
+            );
+
+            if (missingProperties.length > 0) {
+              console.error(
+                `[ADD-TIMELINE-TOOL-${toolCallId}] Invalid flight data - missing properties:`,
+                missingProperties
+              );
+              try {
+                console.error(
+                  `[ADD-TIMELINE-TOOL-${toolCallId}] Received flight data keys:`,
+                  Object.keys(flightData)
+                );
+              } catch (logError) {
+                console.error(
+                  `[ADD-TIMELINE-TOOL-${toolCallId}] Could not log flight data keys:`,
+                  logError instanceof Error
+                    ? logError.message
+                    : String(logError)
+                );
+              }
+              throw new Error(
+                `Invalid flight data: missing required properties: ${missingProperties.join(
+                  ", "
+                )}. Flight data must come from findFlight tool results (DuffelOffer format), not generic flight objects.`
+              );
+            }
+
+            // Check if slices is an array with at least one item
+            if (
+              !Array.isArray(flightData.slices) ||
+              flightData.slices.length === 0
+            ) {
+              console.error(
+                `[ADD-TIMELINE-TOOL-${toolCallId}] Invalid flight data - slices must be a non-empty array`
+              );
+              try {
+                console.error(
+                  `[ADD-TIMELINE-TOOL-${toolCallId}] Received flight data keys:`,
+                  Object.keys(flightData)
+                );
+              } catch (logError) {
+                console.error(
+                  `[ADD-TIMELINE-TOOL-${toolCallId}] Could not log flight data keys:`,
+                  logError instanceof Error
+                    ? logError.message
+                    : String(logError)
+                );
+              }
+              throw new Error(
+                "Invalid flight data: slices must be a non-empty array. Flight data must come from findFlight tool results, not generic flight objects."
+              );
+            }
+
+            console.log(
+              `[ADD-TIMELINE-TOOL-${toolCallId}] Flight data validation passed`
+            );
+
             return {
               ...baseItem,
               flightData: item.flightData as unknown as DuffelOffer,
@@ -207,6 +351,25 @@ export const addToTimelineTool = tool({
 
       const addDuration = Date.now() - addStartTime;
 
+      console.log(
+        `[ADD-TIMELINE-TOOL-${toolCallId}] Server action completed:`,
+        {
+          success: result.success,
+          error: result.error,
+          timelineId: result.data?.timelineId,
+          itemIds: result.data?.itemIds,
+          isNewTimeline: result.data?.isNewTimeline,
+          durationMs: addDuration,
+          timelineDataType: result.data?.timeline
+            ? typeof result.data.timeline
+            : "undefined",
+          timelineDataKeys:
+            result.data?.timeline && typeof result.data.timeline === "object"
+              ? Object.keys(result.data.timeline)
+              : "N/A",
+        }
+      );
+
       if (result.success && result.data) {
         // Count different types of items
         const itemCounts = items.reduce((acc, item) => {
@@ -221,7 +384,7 @@ export const addToTimelineTool = tool({
           )
           .join(", ");
 
-        return {
+        const successResponse = {
           success: true,
           timelineId: result.data.timelineId,
           itemIds: result.data.itemIds,
@@ -254,7 +417,42 @@ export const addToTimelineTool = tool({
           },
           timestamp: new Date().toISOString(),
         };
+
+        console.log(`[ADD-TIMELINE-TOOL-${toolCallId}] === TOOL SUCCESS ===`);
+        console.log(
+          `[ADD-TIMELINE-TOOL-${toolCallId}] Returning success response with ${items.length} items`
+        );
+
+        // Test JSON serialization before returning
+        try {
+          JSON.stringify(successResponse);
+          console.log(
+            `[ADD-TIMELINE-TOOL-${toolCallId}] Response JSON serialization: OK`
+          );
+        } catch (jsonError) {
+          console.error(
+            `[ADD-TIMELINE-TOOL-${toolCallId}] JSON serialization error:`,
+            jsonError
+          );
+          console.error(
+            `[ADD-TIMELINE-TOOL-${toolCallId}] Problematic response:`,
+            {
+              ...successResponse,
+              timeline: typeof successResponse.timeline,
+              metadata: typeof successResponse.metadata,
+            }
+          );
+        }
+
+        return successResponse;
       } else {
+        console.log(`[ADD-TIMELINE-TOOL-${toolCallId}] === TOOL FAILURE ===`);
+        console.log(`[ADD-TIMELINE-TOOL-${toolCallId}] Server action failed:`, {
+          error: result.error,
+          tripId,
+          itemsCount: items.length,
+        });
+
         return {
           success: false,
           error: result.error || "Failed to add items to timeline",
@@ -286,6 +484,30 @@ export const addToTimelineTool = tool({
       }
     } catch (error) {
       const addDuration = Date.now() - addStartTime;
+
+      console.error(`[ADD-TIMELINE-TOOL-${toolCallId}] === TOOL EXCEPTION ===`);
+      console.error(
+        `[ADD-TIMELINE-TOOL-${toolCallId}] Exception type:`,
+        error?.constructor?.name
+      );
+      console.error(
+        `[ADD-TIMELINE-TOOL-${toolCallId}] Exception message:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      console.error(
+        `[ADD-TIMELINE-TOOL-${toolCallId}] Exception stack:`,
+        error instanceof Error ? error.stack : "No stack trace available"
+      );
+      console.error(
+        `[ADD-TIMELINE-TOOL-${toolCallId}] Tool duration before error: ${addDuration}ms`
+      );
+      console.error(`[ADD-TIMELINE-TOOL-${toolCallId}] Params:`, {
+        tripId,
+        itemsCount: items.length,
+        mood,
+        parentId,
+        level,
+      });
 
       return {
         success: false,

@@ -98,7 +98,7 @@ interface TimelineItemData {
     children?: TimelineItemData[];
 }
 
-interface TimelineData {
+export interface TimelineData {
     id: string;
     title?: string;
     description?: string;
@@ -108,7 +108,7 @@ interface TimelineData {
 }
 
 interface MainTimelineProps {
-    timeline?: TimelineData;
+    timeline?: TimelineData | null;
     tripId?: string;
     editable?: boolean;
     onUpdate?: (timeline: TimelineData) => void;

@@ -200,6 +200,24 @@ export const findFlightUnifiedTool = tool({
     urgency = "medium",
   }) => {
     const searchStartTime = Date.now();
+    const toolCallId = Math.random().toString(36).substring(7);
+
+    console.log(
+      `[FIND-FLIGHT-TOOL-${toolCallId}] === TOOL EXECUTION START ===`
+    );
+    console.log(
+      `[FIND-FLIGHT-TOOL-${toolCallId}] Timestamp: ${new Date().toISOString()}`
+    );
+    console.log(`[FIND-FLIGHT-TOOL-${toolCallId}] Input parameters:`, {
+      from,
+      to,
+      departure,
+      return: returnSpec,
+      passengers,
+      cabinClass,
+      preferences,
+      urgency,
+    });
 
     try {
       // Determine if this should be a specific or flexible search
@@ -217,7 +235,31 @@ export const findFlightUnifiedTool = tool({
         // Check if return is a duration rather than specific date
         (returnSpec && typeof returnSpec === "number");
 
+      console.log(
+        `[FIND-FLIGHT-TOOL-${toolCallId}] Search type determination:`,
+        {
+          isFlexibleSearch,
+          fromType: typeof from,
+          fromLength: typeof from === "string" ? from.length : "N/A",
+          fromMatches3Letter:
+            typeof from === "string" ? from.match(/^[A-Z]{3}$/) : false,
+          toType: typeof to,
+          toLength: typeof to === "string" ? to.length : "N/A",
+          toMatches3Letter:
+            typeof to === "string" ? to.match(/^[A-Z]{3}$/) : false,
+          departureType: typeof departure,
+          departureMatchesDate:
+            typeof departure === "string"
+              ? departure.match(/^\d{4}-\d{2}-\d{2}$/)
+              : false,
+          returnSpecType: typeof returnSpec,
+          returnIsNumber: typeof returnSpec === "number",
+        }
+      );
+
       if (isFlexibleSearch) {
+        console.log(`[FIND-FLIGHT-TOOL-${toolCallId}] Using FLEXIBLE search`);
+
         // Use flexible search
         const flexibleParams = {
           from,
@@ -264,8 +306,17 @@ export const findFlightUnifiedTool = tool({
           flexibleParams as FlexibleSearchParams
         );
 
+        console.log(
+          `[FIND-FLIGHT-TOOL-${toolCallId}] Flexible search completed:`,
+          {
+            success: result.success,
+            resultsCount: result.success ? result.results.length : 0,
+            error: result.error,
+          }
+        );
+
         if (result.success) {
-          return {
+          const successResponse = {
             success: true,
             searchType: "flexible",
             searchId: result.searchId,
@@ -283,16 +334,28 @@ export const findFlightUnifiedTool = tool({
             searchDurationMs: Date.now() - searchStartTime,
             timestamp: new Date().toISOString(),
           };
+
+          console.log(
+            `[FIND-FLIGHT-TOOL-${toolCallId}] === TOOL SUCCESS (FLEXIBLE) ===`
+          );
+          return successResponse;
         } else {
-          return {
+          const errorResponse = {
             success: false,
             searchType: "flexible",
             error: result.error,
             searchDurationMs: Date.now() - searchStartTime,
             timestamp: new Date().toISOString(),
           };
+
+          console.log(
+            `[FIND-FLIGHT-TOOL-${toolCallId}] === TOOL FAILURE (FLEXIBLE) ===`
+          );
+          return errorResponse;
         }
       } else {
+        console.log(`[FIND-FLIGHT-TOOL-${toolCallId}] Using SPECIFIC search`);
+
         // Use specific search
         const specificParams = {
           from: from as string,
@@ -303,7 +366,24 @@ export const findFlightUnifiedTool = tool({
           returnDate: typeof returnSpec === "string" ? returnSpec : undefined,
         };
 
+        console.log(
+          `[FIND-FLIGHT-TOOL-${toolCallId}] Specific search params:`,
+          specificParams
+        );
+
         const result = await searchFlights(specificParams);
+
+        console.log(
+          `[FIND-FLIGHT-TOOL-${toolCallId}] Specific search completed:`,
+          {
+            success: result.success,
+            offersCount:
+              result.success && result.data
+                ? result.data.offers?.length || 0
+                : 0,
+            error: result.error,
+          }
+        );
 
         if (result.success && result.data) {
           const offers = result.data.offers || [];
@@ -352,7 +432,18 @@ export const findFlightUnifiedTool = tool({
             urgency === "high" ? 5 : urgency === "medium" ? 10 : 15
           );
 
-          return {
+          console.log(`[FIND-FLIGHT-TOOL-${toolCallId}] Offers processing:`, {
+            originalOffers: offers.length,
+            afterFiltering: filteredOffers.length,
+            displayed: limitedOffers.length,
+            filtersApplied: {
+              maxPrice: preferences.maxPrice,
+              maxConnections: preferences.maxConnections,
+              sortBy: preferences.sortBy,
+            },
+          });
+
+          const successResponse = {
             success: true,
             searchType: "specific",
             searchId: result.data.id,
@@ -383,22 +474,51 @@ export const findFlightUnifiedTool = tool({
             searchDurationMs: Date.now() - searchStartTime,
             timestamp: new Date().toISOString(),
           };
+
+          console.log(
+            `[FIND-FLIGHT-TOOL-${toolCallId}] === TOOL SUCCESS (SPECIFIC) ===`
+          );
+          return successResponse;
         } else {
-          return {
+          const errorResponse = {
             success: false,
             searchType: "specific",
             error: result.error || "Flight search failed",
             searchDurationMs: Date.now() - searchStartTime,
             timestamp: new Date().toISOString(),
           };
+
+          console.log(
+            `[FIND-FLIGHT-TOOL-${toolCallId}] === TOOL FAILURE (SPECIFIC) ===`
+          );
+          return errorResponse;
         }
       }
     } catch (error) {
+      const searchDuration = Date.now() - searchStartTime;
+
+      console.error(`[FIND-FLIGHT-TOOL-${toolCallId}] === TOOL EXCEPTION ===`);
+      console.error(
+        `[FIND-FLIGHT-TOOL-${toolCallId}] Exception type:`,
+        error?.constructor?.name
+      );
+      console.error(
+        `[FIND-FLIGHT-TOOL-${toolCallId}] Exception message:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      console.error(
+        `[FIND-FLIGHT-TOOL-${toolCallId}] Exception stack:`,
+        error instanceof Error ? error.stack : "No stack trace available"
+      );
+      console.error(
+        `[FIND-FLIGHT-TOOL-${toolCallId}] Tool duration before error: ${searchDuration}ms`
+      );
+
       return {
         success: false,
         error:
           error instanceof Error ? error.message : "Unknown error occurred",
-        searchDurationMs: Date.now() - searchStartTime,
+        searchDurationMs: searchDuration,
         timestamp: new Date().toISOString(),
       };
     }

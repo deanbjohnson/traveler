@@ -1,22 +1,74 @@
-import { google } from "@ai-sdk/google";
+import { cohere } from "@ai-sdk/cohere";
 import { streamText } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { tools } from "@/lib/tools";
+import { tools as originalTools } from "@/lib/tools";
 import { ensureUserExists } from "@/lib/db";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+  const requestStartTime = Date.now();
+  const requestId = Math.random().toString(36).substring(7);
+
+  console.log(`[CHAT-${requestId}] === REQUEST START ===`);
+  console.log(`[CHAT-${requestId}] Timestamp: ${new Date().toISOString()}`);
+
   try {
-    const { messages } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (jsonError) {
+      console.error(`[CHAT-${requestId}] JSON parse error in request body:`, {
+        error:
+          jsonError instanceof Error ? jsonError.message : String(jsonError),
+        stack: jsonError instanceof Error ? jsonError.stack : undefined,
+      });
+      return new Response("Invalid JSON in request body", { status: 400 });
+    }
+
+    console.log(`[CHAT-${requestId}] Request body received:`, {
+      messagesCount: body.messages?.length || 0,
+      tripId: body.tripId,
+      lastMessagePreview:
+        body.messages?.[body.messages.length - 1]?.content?.substring(0, 100) +
+        "...",
+      bodyKeys: Object.keys(body),
+    });
+
+    const { messages, tripId } = body;
+
+    if (!tripId) {
+      console.error(`[CHAT-${requestId}] ERROR: Missing tripId in request`);
+      console.log(
+        `[CHAT-${requestId}] Request body:`,
+        JSON.stringify(body, null, 2)
+      );
+      return new Response("tripId is required", { status: 400 });
+    }
+
+    console.log(`[CHAT-${requestId}] Processing request for tripId: ${tripId}`);
 
     // Get the authenticated user from Clerk
+    console.log(`[CHAT-${requestId}] Checking authentication...`);
+    const authStartTime = Date.now();
     const { userId } = await auth();
+    const authDuration = Date.now() - authStartTime;
+
+    console.log(`[CHAT-${requestId}] Auth result:`, {
+      userId: userId || "NOT_AUTHENTICATED",
+      authDurationMs: authDuration,
+    });
 
     // Ensure user exists in database if authenticated
     if (userId) {
+      console.log(`[CHAT-${requestId}] Ensuring user exists in database...`);
+      const userEnsureStartTime = Date.now();
       await ensureUserExists(userId);
+      const userEnsureDuration = Date.now() - userEnsureStartTime;
+      console.log(
+        `[CHAT-${requestId}] User ensure completed in ${userEnsureDuration}ms`
+      );
     }
 
     // Get current date in mm/dd/yyyy format
@@ -26,8 +78,91 @@ export async function POST(req: Request) {
       year: "numeric",
     });
 
+    console.log(`[CHAT-${requestId}] Current date: ${currentDate}`);
+
+    // Wrap tools to add JSON validation
+    const wrappedTools = Object.fromEntries(
+      Object.entries(originalTools).map(([name, tool]) => [
+        name,
+        {
+          ...tool,
+          execute: async (...args: unknown[]) => {
+            try {
+              const result = await (
+                tool.execute as (...args: unknown[]) => Promise<unknown>
+              )(...args);
+
+              // Test JSON serialization
+              try {
+                JSON.stringify(result);
+                console.log(
+                  `[CHAT-${requestId}] Tool ${name} result JSON validation: OK`
+                );
+              } catch (jsonError) {
+                console.error(
+                  `[CHAT-${requestId}] Tool ${name} result JSON serialization error:`,
+                  {
+                    error:
+                      jsonError instanceof Error
+                        ? jsonError.message
+                        : String(jsonError),
+                    resultType: typeof result,
+                    resultKeys:
+                      result && typeof result === "object"
+                        ? Object.keys(result)
+                        : "N/A",
+                  }
+                );
+
+                // Return a safe, serializable error response
+                return {
+                  success: false,
+                  error: `Tool ${name} returned non-serializable data`,
+                  details:
+                    "The tool result contained circular references or non-serializable values",
+                  timestamp: new Date().toISOString(),
+                };
+              }
+
+              return result;
+            } catch (error) {
+              console.error(
+                `[CHAT-${requestId}] Tool ${name} execution error:`,
+                {
+                  error: error instanceof Error ? error.message : String(error),
+                  stack: error instanceof Error ? error.stack : undefined,
+                }
+              );
+
+              return {
+                success: false,
+                error:
+                  error instanceof Error ? error.message : "Unknown tool error",
+                timestamp: new Date().toISOString(),
+              };
+            }
+          },
+        },
+      ])
+    );
+
+    // Use the wrapped tools with JSON validation
+    const tools = wrappedTools;
+    console.log(`[CHAT-${requestId}] Available tools:`, Object.keys(tools));
+
+    console.log(`[CHAT-${requestId}] Initializing streamText with:`, {
+      model: "gemini-2.5-flash",
+      maxSteps: 10,
+      messagesCount: messages.length,
+      toolsCount: Object.keys(tools).length,
+      tripId,
+      userId: userId || "guest",
+    });
+
+    const streamStartTime = Date.now();
     const result = streamText({
-      model: google("gemini-2.5-flash"),
+      model: cohere("command-a-03-2025"),
+      maxSteps: 10,
       system: `You are an intelligent travel assistant with advanced tools that can handle any type of travel request, from very specific to very general. Your goal is to understand user intentions and automatically use the right tools with the right parameters.
 
 ## Understanding User Objectives
@@ -40,18 +175,151 @@ export async function POST(req: Request) {
 
 **For accommodations**: Handle specific cities, date ranges, guest counts, and preferences automatically.
 
-**For itinerary management**: Always add relevant items to the user's trip itinerary when they show interest in flights, hotels, or activities.
+**For itinerary management**: Always add relevant items to the user's trip timeline when they show interest in flights, hotels, or activities.
 
 ## Tool Usage Guidelines
 
-**Flight Search**: Use the unified \`findFlight\`
+**Flight Search**: Use the unified findFlight tool
 - For specific searches: Use exact airport codes (JFK, LAX) and specific dates (2024-12-25)
 - For flexible searches: Use regions (asia, europe), metro areas (new-york, tokyo), relative dates (next-month), and trip durations
 - Always infer missing details intelligently (default to economy class, 1 passenger, round-trip unless specified)
 
-**Stay Search**: Use \`findStay\` for accommodation requests with location, dates, and guest details.
+**Stay Search**: Use findStay for accommodation requests with location, dates, and guest details.
 
-**Itinerary Management**: Use \`addToItinerary\` to save any flights, hotels, or activities the user expresses interest in.
+**Timeline Management**: Use addToTimeline to save any flights, hotels, or activities the user expresses interest in. This is critical for building the user's itinerary. 
+
+CRITICAL WORKFLOW FOR FLIGHTS:
+- You MUST first search for flights using findFlight tool to get actual flight offers
+- You CANNOT create generic flight objects - you must use the complete flight offer data from search results
+- When adding flights to timeline, use the EXACT flightData object returned from findFlight (DuffelOffer format)
+- The flightData must contain the full flight structure with slices, segments, origin/destination airports, etc.
+
+NEVER create flight objects manually - always use actual search results from findFlight tool.
+
+## Data Structure Requirements
+
+### DuffelOffer Structure (Required for addToTimeline flights)
+Flight data from findFlight returns DuffelOffer objects with this EXACT structure:
+\`\`\`typescript
+{
+  id: string,                    // Unique offer ID
+  total_amount: string,          // Price as string (e.g., "187.53")
+  total_currency: string,        // Currency code (e.g., "USD")
+  tax_amount?: string,           // Tax amount
+  tax_currency?: string,         // Tax currency
+  slices: [                      // Array of flight segments
+    {
+      id: string,
+      origin: {
+        id: string,
+        iata_code: string,       // Airport code (e.g., "JFK")
+        name: string             // Airport name
+      },
+      destination: {
+        id: string,
+        iata_code: string,       // Airport code (e.g., "LAX")
+        name: string             // Airport name
+      },
+      departure_datetime: string, // ISO datetime
+      arrival_datetime: string,   // ISO datetime
+      duration: string,           // ISO duration (e.g., "PT2H30M")
+      segments: [                 // Individual flight segments
+        {
+          id: string,
+          aircraft: { name: string },
+          operating_carrier: {
+            name: string,         // Airline name
+            iata_code: string     // Airline code
+          },
+          marketing_carrier: {
+            name: string,
+            iata_code: string
+          },
+          duration: string,
+          origin: {
+            iata_code: string,
+            name: string
+          },
+          destination: {
+            iata_code: string,
+            name: string
+          },
+          departure_datetime: string,
+          arrival_datetime: string
+        }
+      ]
+    }
+  ],
+  passengers: [
+    {
+      id: string,
+      type: string               // "adult", "child", "infant"
+    }
+  ],
+  owner: {
+    name: string,                // Airline name
+    iata_code: string            // Airline code
+  },
+  expires_at: string,            // ISO datetime
+  created_at: string,            // ISO datetime
+  updated_at: string             // ISO datetime
+}
+\`\`\`
+
+### Stay Data Structure (for addToTimeline stays)
+Stay data from findStay returns accommodation objects with properties like:
+\`\`\`typescript
+{
+  id: string,
+  name: string,
+  location: {
+    latitude: number,
+    longitude: number,
+    address: string
+  },
+  rates: [
+    {
+      total_amount: string,
+      currency: string,
+      cancellation_policy: object
+    }
+  ],
+  amenities: string[],
+  photos: string[]
+}
+\`\`\`
+
+### addToTimeline Item Structure
+When calling addToTimeline, items must have this structure:
+\`\`\`typescript
+{
+  type: "FLIGHT" | "STAY" | "ACTIVITY" | "DINING" | "TRANSPORT" | "FREE_TIME" | "CUSTOM",
+  title: string,                          // e.g., "Flight JFK → LAX"
+  description?: string,                   // Optional description
+  startTime: string,                      // ISO datetime (e.g., "2024-08-25T20:29:00")
+  endTime?: string,                       // ISO datetime (optional)
+  duration?: number,                      // Duration in minutes (optional)
+  
+  // For FLIGHT items - REQUIRED:
+  flightData: DuffelOffer,                // Complete DuffelOffer object from findFlight
+  
+  // For STAY items - REQUIRED:
+  stayData: Record<string, unknown>,      // Complete stay object from findStay
+  
+  // For other items - OPTIONAL:
+  activityData?: Record<string, unknown>, // Activity-specific data
+  
+  locationId?: string                     // Optional location ID
+}
+\`\`\`
+
+### Guest Structure (for findStay)
+\`\`\`typescript
+{
+  type: "adult" | "child",
+  age?: number                            // Required for children (0-17)
+}
+\`\`\`
 
 ## Response Strategy
 
@@ -59,8 +327,25 @@ export async function POST(req: Request) {
 2. **Use tools immediately** - don't ask for clarification on obvious details
 3. **Make intelligent assumptions** based on context (if they say "next month", calculate the actual month)
 4. **Present results clearly** with key information highlighted
-5. **Automatically add items** to itinerary when user shows interest
+5. **Automatically add items** to the timeline when a user shows interest (e.g., "that flight looks good" or "book this hotel"). This is a primary function.
 6. **Offer helpful suggestions** for next steps or alternatives
+
+## Important Workflow Notes
+
+- If a user says "add a flight to my timeline" without specifying which flight, you should:
+  1. First ask where they want to go and when
+  2. Search for flights using findFlight
+  3. Present options to the user
+  4. Once they select a specific flight, use addToTimeline to save it
+- You cannot add generic items to the timeline - you need actual flight/hotel data from search results
+- CRITICAL: When a user says "add it to my timeline" or "add that flight" after you've shown flight results, you MUST immediately use the addToTimeline tool with the flight data from the most recent search
+- When you present flight options and the user picks one (e.g., "the first one", "the cheapest one", "add it"), you MUST use addToTimeline immediately
+
+FLIGHT DATA REQUIREMENTS:
+- Flight data MUST come from findFlight tool results (DuffelOffer objects)
+- Flight data MUST contain: id, slices[], total_amount, total_currency, owner
+- Each slice MUST contain: origin, destination, departure_datetime, arrival_datetime, duration, segments[]
+- DO NOT create flight objects with generic properties like "airline", "price", "departure" - use actual API data structure
 
 ## Key Behaviors
 
@@ -71,18 +356,64 @@ export async function POST(req: Request) {
 - **Comprehensive help**: Suggest related searches, alternative dates, nearby airports when appropriate
 
 Current date: ${currentDate}
+Current trip ID: ${tripId} (include this as the "tripId" parameter whenever you call the addToTimeline tool)
 ${
   userId ? `User: Authenticated (${userId})` : "User: Guest (not authenticated)"
 }
 
-Remember: You have access to powerful tools that can handle complex travel requests. Use them proactively to provide comprehensive, helpful responses.`,
+Remember: You have access to powerful tools that can handle complex travel requests. Use them proactively to provide comprehensive, helpful responses.
+
+EXAMPLE WORKFLOW:
+User: "Find flights from NYC to SF in August"
+You: [Use findFlight tool to search] "Here are the flights I found..."
+User: "Add the cheapest one to my timeline" or "add it to my timeline"
+You: [MUST use addToTimeline tool with the flight data] "I've added the Hawaiian Airlines flight on August 19 for $187.53 to your timeline!"`,
       tools,
       messages,
     });
 
-    return result.toDataStreamResponse();
+    const streamInitDuration = Date.now() - streamStartTime;
+    console.log(
+      `[CHAT-${requestId}] StreamText initialized in ${streamInitDuration}ms`
+    );
+
+    const totalRequestDuration = Date.now() - requestStartTime;
+    console.log(
+      `[CHAT-${requestId}] Total request processing time: ${totalRequestDuration}ms`
+    );
+    console.log(`[CHAT-${requestId}] === REQUEST PROCESSING COMPLETE ===`);
+
+    try {
+      const response = result.toDataStreamResponse();
+      console.log(`[CHAT-${requestId}] Response stream created successfully`);
+      return response;
+    } catch (streamError) {
+      console.error(`[CHAT-${requestId}] Stream response error:`, {
+        error:
+          streamError instanceof Error
+            ? streamError.message
+            : String(streamError),
+        stack: streamError instanceof Error ? streamError.stack : undefined,
+      });
+      return new Response("Failed to create response stream", { status: 500 });
+    }
   } catch (error) {
-    console.error("Chat API error:", error);
+    const totalRequestDuration = Date.now() - requestStartTime;
+    console.error(`[CHAT-${requestId}] === FATAL ERROR ===`);
+    console.error(`[CHAT-${requestId}] Error type:`, error?.constructor?.name);
+    console.error(
+      `[CHAT-${requestId}] Error message:`,
+      error instanceof Error ? error.message : String(error)
+    );
+    console.error(
+      `[CHAT-${requestId}] Error stack:`,
+      error instanceof Error ? error.stack : "No stack trace available"
+    );
+    console.error(
+      `[CHAT-${requestId}] Request duration before error: ${totalRequestDuration}ms`
+    );
+    console.error(`[CHAT-${requestId}] Timestamp: ${new Date().toISOString()}`);
+
     return new Response("Internal server error", { status: 500 });
   }
 }

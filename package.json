@@ -13,6 +13,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@ai-sdk/cohere": "^1.2.10",
     "@ai-sdk/google": "^1.2.22",
     "@clerk/nextjs": "^6.23.3",
     "@duffel/api": "^4.14.1",
