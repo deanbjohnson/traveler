@@ -61,7 +61,6 @@ interface AddToTimelineResult {
   data?: {
     timelineId: string;
     itemIds: string[];
-    timeline: Record<string, unknown> | null;
     isNewTimeline: boolean;
   };
   error?: string;
@@ -758,33 +757,12 @@ export async function addToTimeline(
       totalDurationMs: totalActionDuration,
     });
 
-    // Create a clean, serializable timeline object
-    const cleanTimeline = updatedTimeline
-      ? {
-          id: updatedTimeline.id,
-          title: updatedTimeline.title,
-          description: updatedTimeline.description,
-          mood: updatedTimeline.mood,
-          itemsCount:
-            updatedTimeline.items && Array.isArray(updatedTimeline.items)
-              ? updatedTimeline.items.length
-              : 0,
-          createdAt: updatedTimeline.createdAt?.toISOString(),
-          updatedAt: updatedTimeline.updatedAt?.toISOString(),
-        }
-      : null;
-
-    console.log(
-      `[ADD-TIMELINE-${actionId}] Clean timeline object:`,
-      cleanTimeline
-    );
-
     return {
       success: true,
       data: {
         timelineId: timelineId,
         itemIds: createdItemIds,
-        timeline: cleanTimeline,
+        // Remove the timeline object completely
         isNewTimeline,
       },
     };

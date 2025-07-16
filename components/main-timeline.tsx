@@ -155,23 +155,25 @@ const statusColorMap = {
     ALTERNATIVE: "bg-purple-100 text-purple-700",
 };
 
-function formatTime(date: Date): string {
-    return date.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
+function formatTime(date: Date | string): string {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     });
-}
-
-function formatDate(date: Date): string {
-    return date.toLocaleDateString([], {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
+  }
+  
+function formatDate(date: Date | string): string {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleDateString([], {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
     });
-}
+  }
 
-function formatDuration(minutes: number): string {
+  function formatDuration(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0) {
