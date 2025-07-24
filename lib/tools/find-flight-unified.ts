@@ -6,6 +6,67 @@ import {
   FlexibleSearchParams,
 } from "@/app/server/actions/flexible-flight-search";
 
+// Helper to clean and sanitize Duffel offers for timeline
+function cleanDuffelOffer(offer: any) {
+  return {
+    id: offer.id,
+    price: {
+      amount: offer.total_amount,
+      currency: offer.total_currency,
+    },
+    airline: {
+      name: offer.owner?.name || "Unknown Airline",
+      code: offer.owner?.iata_code || "XX",
+    },
+    route: {
+      from: {
+        code: offer.slices[0]?.origin?.iata_code || "XXX",
+        name: offer.slices[0]?.origin?.name || "Unknown Airport",
+        city: offer.slices[0]?.origin?.city_name,
+      },
+      to: {
+        code: offer.slices[0]?.destination?.iata_code || "XXX",
+        name: offer.slices[0]?.destination?.name || "Unknown Airport",
+        city: offer.slices[0]?.destination?.city_name,
+      },
+    },
+    timing: {
+      departure: offer.slices[0]?.departure_datetime,
+      arrival: offer.slices[0]?.arrival_datetime,
+      duration: offer.slices[0]?.duration,
+    },
+    segments: offer.slices[0]?.segments?.map((seg: any) => ({
+      from: seg.origin?.iata_code,
+      to: seg.destination?.iata_code,
+      airline: seg.operating_carrier?.name,
+      departure: seg.departure_datetime,
+      arrival: seg.arrival_datetime,
+    })) || [],
+    timelineData: {
+      id: offer.id,
+      total_amount: offer.total_amount,
+      total_currency: offer.total_currency,
+      slices: offer.slices.map((slice: any) => ({
+        origin: {
+          iata_code: slice.origin?.iata_code,
+          name: slice.origin?.name,
+        },
+        destination: {
+          iata_code: slice.destination?.iata_code,
+          name: slice.destination?.name,
+        },
+        departure_datetime: slice.departure_datetime,
+        arrival_datetime: slice.arrival_datetime,
+        duration: slice.duration,
+      })),
+      owner: {
+        name: offer.owner?.name,
+        iata_code: offer.owner?.iata_code,
+      },
+    },
+  };
+}
+
 export const findFlightUnifiedTool = tool({
   description: `
     Intelligent flight search that automatically handles any type of request - from very specific to very general.
@@ -320,17 +381,9 @@ export const findFlightUnifiedTool = tool({
             success: true,
             searchType: "flexible",
             searchId: result.searchId,
-            results: result.results,
+            results: result.results, // No timelineData for flexible
             metadata: result.metadata,
-            message: `Found ${
-              result.results.length
-            } flexible flight options using intelligent search. ${
-              result.metadata.priceRange
-                ? `Price range: ${
-                    result.metadata.priceRange.currency
-                  } ${result.metadata.priceRange.min.toLocaleString()} - ${result.metadata.priceRange.max.toLocaleString()}.`
-                : ""
-            }`,
+            message: `Found ${result.results.length} flexible flight options using intelligent search. ${result.metadata.priceRange ? `Price range: ${result.metadata.priceRange.currency} ${result.metadata.priceRange.min.toLocaleString()} - ${result.metadata.priceRange.max.toLocaleString()}.` : ""}`,
             searchDurationMs: Date.now() - searchStartTime,
             timestamp: new Date().toISOString(),
           };
@@ -443,17 +496,19 @@ export const findFlightUnifiedTool = tool({
             },
           });
 
+          // CRITICAL: Clean all offers for timeline compatibility
+          const cleanedOffers = limitedOffers.map(cleanDuffelOffer);
           const successResponse = {
             success: true,
             searchType: "specific",
             searchId: result.data.id,
             numberOfOffers: filteredOffers.length,
-            offers: limitedOffers,
+            offers: cleanedOffers, // timelineData included
             metadata: {
               totalOffersAvailable: offers.length,
               offersAfterFiltering: filteredOffers.length,
-              offersDisplayed: limitedOffers.length,
-              hasMoreOffers: filteredOffers.length > limitedOffers.length,
+              offersDisplayed: cleanedOffers.length,
+              hasMoreOffers: filteredOffers.length > cleanedOffers.length,
               searchPerformedAt: new Date().toISOString(),
               tripType: specificParams.returnDate ? "round-trip" : "one-way",
               filtersApplied: {
@@ -462,15 +517,7 @@ export const findFlightUnifiedTool = tool({
                 sortBy: preferences.sortBy,
               },
             },
-            message: `Found ${filteredOffers.length} flight${
-              filteredOffers.length === 1 ? "" : "s"
-            } for your ${
-              specificParams.returnDate ? "round-trip" : "one-way"
-            } search from ${from} to ${to}.${
-              filteredOffers.length > limitedOffers.length
-                ? ` Showing top ${limitedOffers.length} results.`
-                : ""
-            }`,
+            message: `Found ${filteredOffers.length} flight${filteredOffers.length === 1 ? "" : "s"} for your ${specificParams.returnDate ? "round-trip" : "one-way"} search from ${from} to ${to}.${filteredOffers.length > limitedOffers.length ? ` Showing top ${limitedOffers.length} results.` : ""}`,
             searchDurationMs: Date.now() - searchStartTime,
             timestamp: new Date().toISOString(),
           };

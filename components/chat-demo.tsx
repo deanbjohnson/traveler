@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useChat } from "ai/react";
+import { useRouter } from "next/navigation";
 import { Chat } from "@/components/ui/chat";
 import type { Message } from "ai";
 
@@ -11,6 +12,8 @@ interface ChatDemoProps {
 }
 
 export function ChatDemo({ tripId, onToolCallFinished }: ChatDemoProps) {
+  const router = useRouter();
+
   const {
     messages,
     input,
@@ -22,17 +25,33 @@ export function ChatDemo({ tripId, onToolCallFinished }: ChatDemoProps) {
     body: {
       tripId,
     },
+    onFinish: async (message) => {
+      // Check if any tool calls were timeline-related
+      const toolInvocations = message.toolInvocations || [];
+      const hasTimelineUpdate = toolInvocations.some(
+        (call: any) => call.toolName === 'addToTimeline'
+      );
+      
+      if (hasTimelineUpdate) {
+        console.log('✅ Timeline update detected - refreshing with router.refresh()');
+        router.refresh();
+      }
+    },
   });
 
   const prevMessagesRef = useRef<Message[]>([]);
 
   useEffect(() => {
-    // Check if the last message is from a tool and the previous message was not
-    if (
-      messages.length > prevMessagesRef.current.length &&
-      messages[messages.length - 1]?.role === "tool"
-    ) {
-      onToolCallFinished?.();
+    // Check if messages length increased
+    if (messages.length > prevMessagesRef.current.length) {
+      const lastMessage = messages[messages.length - 1];
+      const messageAny = lastMessage as any;
+      
+      if (messageAny?.role === "tool" || 
+          messageAny?.toolInvocations?.length > 0) {
+        console.log('🔧 Tool message detected');
+        onToolCallFinished?.();
+      }
     }
     prevMessagesRef.current = messages;
   }, [messages, onToolCallFinished]);
@@ -52,4 +71,4 @@ export function ChatDemo({ tripId, onToolCallFinished }: ChatDemoProps) {
       />
     </div>
   );
-} 
+}

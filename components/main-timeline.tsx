@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
     Timeline,
     TimelineContent,
@@ -117,6 +118,7 @@ interface MainTimelineProps {
     onDeleteItem?: (itemId: string) => void;
     onSelectAlternative?: (itemId: string, alternativeId: string) => void;
     onChangeMood?: (mood: string) => void;
+    onItemAdded?: () => void;
 }
 
 // Icon mapping for different item types
@@ -200,6 +202,19 @@ function TimelineItemComponent({
     const [isExpanded, setIsExpanded] = useState(level < 2);
     const [showAlternatives, setShowAlternatives] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+
+    // DEBUG: Log individual item details (only to console, not in render)
+    useEffect(() => {
+        console.log(`🔍 TIMELINE-ITEM DEBUG - Rendering item:`, {
+            id: item.id,
+            type: item.type,
+            title: item.title,
+            level: level,
+            hasFlightData: !!item.flightData,
+            hasChildren: !!(item.children && item.children.length > 0),
+            source: 'INDIVIDUAL_ITEM_RENDER'
+        });
+    }, [item.id, item.type, item.title, level, item.flightData, item.children]);
 
     const Icon = typeIconMap[item.type];
     const hasChildren = item.children && item.children.length > 0;
@@ -375,52 +390,144 @@ function TimelineItemComponent({
 }
 
 export default function MainTimeline({
-    timeline,
+    timeline: propTimeline,
     editable = false,
     onCreateItem,
     onUpdateItem,
     onDeleteItem,
     onSelectAlternative,
     onChangeMood,
+    tripId,
+    onItemAdded,
 }: MainTimelineProps) {
+    // HYDRATION-SAFE: Use useEffect for all console logging
+    const [isClient, setIsClient] = useState(false);
+    const router = useRouter();
+    
+    useEffect(() => {
+        setIsClient(true);
+        
+        // All debug logging moved to useEffect (client-only)
+        console.log(`\n🔍 MAIN-TIMELINE DEBUG - Component mount`);
+        console.log(`🔍 Timestamp:`, new Date().toISOString());
+        console.log(`🔍 Props timeline:`, !!propTimeline);
+        console.log(`🔍 Timeline items count:`, propTimeline?.items?.length || 0);
+    }, [propTimeline]);
+
+    // SIMPLIFIED: Just use props timeline (no context)
+    const timeline = propTimeline;
+
     const [selectedMood, setSelectedMood] = useState(timeline?.mood || "");
+
+    // Manual refresh function for debugging
+    const handleManualRefresh = async () => {
+        console.log(`🔍 Manual refresh triggered - reloading page`);
+        window.location.reload();
+    };
+
+    // Example: Call router.refresh() after adding a new item
+    const handleItemAdded = () => {
+        if (onItemAdded) {
+            onItemAdded();
+        } else {
+            router.refresh();
+        }
+    };
 
     if (!timeline) {
         return (
-            <div className="flex items-center justify-center h-64 text-gray-500">
-                <div className="text-center">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-lg font-medium">No timeline created yet</p>
-                    <p className="text-sm">Create your first timeline to start planning your trip</p>
+            <div className="space-y-4">
+                {/* Debug Panel - HYDRATION SAFE */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="text-sm font-medium text-yellow-800 mb-2">
+                        🔍 Debug Info - No Timeline Data
+                    </div>
+                    <div className="text-xs text-yellow-700 space-y-1">
+                        <div>Data Source: Props Only</div>
+                        <div>Props Timeline: {propTimeline ? 'Provided' : 'None'}</div>
+                        <div>Final Timeline: {timeline ? 'Available' : 'None'}</div>
+                    </div>
+                    <Button 
+                        onClick={handleManualRefresh}
+                        className="mt-2"
+                        size="sm"
+                        variant="outline"
+                    >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Manual Refresh
+                    </Button>
+                </div>
+
+                {/* Empty State */}
+                <div className="flex items-center justify-center h-64 text-gray-500">
+                    <div className="text-center">
+                        <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                        <p className="text-lg font-medium">No timeline created yet</p>
+                        <p className="text-sm">Create your first timeline to start planning your trip</p>
+                    </div>
                 </div>
             </div>
         );
     }
 
     // Group items by hierarchy (top-level items first)
-    const topLevelItems = timeline.items
-        .filter(item => item.level === 0)
-        .sort((a, b) => a.order - b.order);
+    const topLevelItems = (timeline.items || [])
+        .filter((item: TimelineItemData) => item.level === 0)
+        .sort((a: TimelineItemData, b: TimelineItemData) => a.order - b.order);
 
     const handleItemUpdate = (itemId: string, updates: Partial<TimelineItemData>) => {
+        if (isClient) {
+            console.log(`🔍 Item update requested:`, { itemId, updates });
+        }
         onUpdateItem?.(itemId, updates);
     };
 
     const handleItemDelete = (itemId: string) => {
+        if (isClient) {
+            console.log(`🔍 Item delete requested:`, itemId);
+        }
         onDeleteItem?.(itemId);
     };
 
     const handleAlternativeSelect = (itemId: string, alternativeId: string) => {
+        if (isClient) {
+            console.log(`🔍 Alternative select requested:`, { itemId, alternativeId });
+        }
         onSelectAlternative?.(itemId, alternativeId);
     };
 
     const handleMoodChange = (mood: string) => {
+        if (isClient) {
+            console.log(`🔍 Mood change requested:`, mood);
+        }
         setSelectedMood(mood);
         onChangeMood?.(mood);
     };
 
     return (
         <div className="space-y-6">
+            {/* Debug Panel - HYDRATION SAFE */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-green-800 mb-2">
+                    🔍 Debug Info - Timeline Loaded
+                </div>
+                <div className="text-xs text-green-700 space-y-1">
+                    <div>Data Source: Props</div>
+                    <div>Timeline ID: {timeline.id}</div>
+                    <div>Items Count: {timeline.items?.length || 0}</div>
+                    <div>Top-level Items: {topLevelItems.length}</div>
+                </div>
+                <Button 
+                    onClick={handleManualRefresh}
+                    className="mt-2"
+                    size="sm"
+                    variant="outline"
+                >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Manual Refresh
+                </Button>
+            </div>
+
             {/* Timeline Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -452,7 +559,14 @@ export default function MainTimeline({
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => onCreateItem?.({})}
+                            onClick={() => {
+                                if (onCreateItem) {
+                                    onCreateItem({});
+                                    handleItemAdded();
+                                } else {
+                                    handleItemAdded();
+                                }
+                            }}
                         >
                             <Plus className="h-4 w-4 mr-1" />
                             Add Item
@@ -463,7 +577,7 @@ export default function MainTimeline({
 
             {/* Timeline Content */}
             <Timeline defaultValue={1} className="relative">
-                {topLevelItems.map((item) => (
+                {topLevelItems.map((item: TimelineItemData) => (
                     <TimelineItemComponent
                         key={item.id}
                         item={item}
@@ -485,13 +599,25 @@ export default function MainTimeline({
                         Start building your itinerary by adding flights, hotels, and activities
                     </p>
                     {editable && (
-                        <Button onClick={() => onCreateItem?.({})}>
+                        <Button onClick={() => {
+                            if (onCreateItem) {
+                                onCreateItem({});
+                                handleItemAdded();
+                            } else {
+                                handleItemAdded();
+                            }
+                         }}>
                             <Plus className="h-4 w-4 mr-1" />
                             Create First Item
                         </Button>
                     )}
                 </div>
             )}
+
+            {/* HYDRATION SAFE: No dynamic timestamps in render */}
+            <div className="text-xs text-gray-400 mt-8">
+                Debug: main-timeline | Status: {isClient ? 'Client Ready' : 'Server Rendered'}
+            </div>
         </div>
     )
 }

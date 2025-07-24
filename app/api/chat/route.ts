@@ -20,8 +20,7 @@ export async function POST(req: Request) {
       body = await req.json();
     } catch (jsonError) {
       console.error(`[CHAT-${requestId}] JSON parse error in request body:`, {
-        error:
-          jsonError instanceof Error ? jsonError.message : String(jsonError),
+        error: jsonError instanceof Error ? jsonError.message : String(jsonError),
         stack: jsonError instanceof Error ? jsonError.stack : undefined,
       });
       return new Response("Invalid JSON in request body", { status: 400 });
@@ -80,64 +79,162 @@ export async function POST(req: Request) {
 
     console.log(`[CHAT-${requestId}] Current date: ${currentDate}`);
 
-    // Wrap tools to add JSON validation
+    // Deep JSON inspection helper
+    function deepInspectForJSON(obj: any, path: string = 'root', maxDepth: number = 3, currentDepth: number = 0): string[] {
+      const errors: string[] = [];
+      
+      if (currentDepth > maxDepth) return errors;
+      if (obj === null || obj === undefined || typeof obj !== 'object') return errors;
+
+      if (Array.isArray(obj)) {
+        obj.forEach((item, index) => {
+          errors.push(...deepInspectForJSON(item, `${path}[${index}]`, maxDepth, currentDepth + 1));
+        });
+        return errors;
+      }
+
+      for (const [key, value] of Object.entries(obj)) {
+        try {
+          JSON.stringify(value);
+        } catch (keyError) {
+          const errorMsg = keyError instanceof Error ? keyError.message : String(keyError);
+          errors.push(`${path}.${key}: ${errorMsg}`);
+          errors.push(...deepInspectForJSON(value, `${path}.${key}`, maxDepth, currentDepth + 1));
+        }
+      }
+      
+      return errors;
+    }
+
     const wrappedTools = Object.fromEntries(
       Object.entries(originalTools).map(([name, tool]) => [
         name,
         {
           ...tool,
           execute: async (...args: unknown[]) => {
+            console.log(`[CHAT-${requestId}] 🔧 Tool ${name} starting execution...`);
+            
             try {
               const result = await (
                 tool.execute as (...args: unknown[]) => Promise<unknown>
               )(...args);
-
-              // Test JSON serialization
+    
+              console.log(`[CHAT-${requestId}] 🔧 Tool ${name} execution completed`);
+    
+              // RAW JSON DEBUGGING - Let's see the actual string that's failing
               try {
-                JSON.stringify(result);
-                console.log(
-                  `[CHAT-${requestId}] Tool ${name} result JSON validation: OK`
-                );
+                const jsonString = JSON.stringify(result);
+                console.log(`[CHAT-${requestId}] ✅ Tool ${name} JSON validation: OK (${jsonString.length} chars)`);
+                
+                if (name === 'addToTimeline') {
+                  console.log(`[CHAT-${requestId}] 📋 AddToTimeline success summary`);
+                }
+                
+                return result;
               } catch (jsonError) {
-                console.error(
-                  `[CHAT-${requestId}] Tool ${name} result JSON serialization error:`,
-                  {
-                    error:
-                      jsonError instanceof Error
-                        ? jsonError.message
-                        : String(jsonError),
-                    resultType: typeof result,
-                    resultKeys:
-                      result && typeof result === "object"
-                        ? Object.keys(result)
-                        : "N/A",
+                console.error(`[CHAT-${requestId}] ❌ TOOL ${name} JSON SERIALIZATION ERROR:`);
+                console.error(`[CHAT-${requestId}] Error message:`, jsonError instanceof Error ? jsonError.message : String(jsonError));
+                
+                // LOG THE RAW OBJECT STRUCTURE
+                console.log(`[CHAT-${requestId}] 🔍 RAW RESULT TYPE:`, typeof result);
+                console.log(`[CHAT-${requestId}] 🔍 RAW RESULT CONSTRUCTOR:`, result?.constructor?.name);
+                
+                if (result && typeof result === 'object') {
+                  console.log(`[CHAT-${requestId}] 🔍 TOP-LEVEL KEYS:`, Object.keys(result));
+                  
+                  // Test each top-level property
+                  for (const [key, value] of Object.entries(result)) {
+                    try {
+                      const propJson = JSON.stringify(value);
+                      console.log(`[CHAT-${requestId}] ✅ Property "${key}": OK (${propJson.length} chars)`);
+                    } catch (propError) {
+                      console.error(`[CHAT-${requestId}] ❌ Property "${key}": FAILED`);
+                      console.error(`[CHAT-${requestId}] Property error:`, propError instanceof Error ? propError.message : String(propError));
+                      
+                      // DRILL DOWN INTO THE FAILING PROPERTY
+                      console.log(`[CHAT-${requestId}] 🔍 Property "${key}" details:`, {
+                        type: typeof value,
+                        constructor: value?.constructor?.name,
+                        isArray: Array.isArray(value),
+                        length: Array.isArray(value) ? value.length : 'N/A',
+                        keys: value && typeof value === 'object' ? Object.keys(value).slice(0, 20) : 'N/A'
+                      });
+    
+                      // If it's an array, check each item
+                      if (Array.isArray(value)) {
+                        console.log(`[CHAT-${requestId}] 🔍 Checking array "${key}" items...`);
+                        value.slice(0, 10).forEach((item, index) => {
+                          try {
+                            JSON.stringify(item);
+                            console.log(`[CHAT-${requestId}] ✅ ${key}[${index}]: OK`);
+                          } catch (itemError) {
+                            console.error(`[CHAT-${requestId}] ❌ ${key}[${index}]: FAILED - ${itemError}`);
+                            
+                            // LOG THE PROBLEMATIC ITEM
+                            console.log(`[CHAT-${requestId}] 🚨 PROBLEMATIC ITEM ${key}[${index}]:`, {
+                              type: typeof item,
+                              constructor: item?.constructor?.name,
+                              keys: item && typeof item === 'object' ? Object.keys(item) : 'primitive'
+                            });
+    
+                            // If it's an object, check its properties
+                            if (item && typeof item === 'object') {
+                              for (const [subKey, subValue] of Object.entries(item)) {
+                                try {
+                                  JSON.stringify(subValue);
+                                  console.log(`[CHAT-${requestId}] ✅ ${key}[${index}].${subKey}: OK`);
+                                } catch (subError) {
+                                  console.error(`[CHAT-${requestId}] 💥 FOUND THE CULPRIT: ${key}[${index}].${subKey}`);
+                                  console.error(`[CHAT-${requestId}] 💥 CULPRIT ERROR:`, subError);
+                                  console.log(`[CHAT-${requestId}] 💥 CULPRIT VALUE TYPE:`, typeof subValue);
+                                  console.log(`[CHAT-${requestId}] 💥 CULPRIT VALUE CONSTRUCTOR:`, subValue?.constructor?.name);
+                                  
+                                  // Try to log a safe representation
+                                  try {
+                                    console.log(`[CHAT-${requestId}] 💥 CULPRIT VALUE (toString):`, String(subValue));
+                                  } catch (stringError) {
+                                    console.log(`[CHAT-${requestId}] 💥 CULPRIT VALUE: Cannot even convert to string!`);
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        });
+                      }
+    
+                      // If it's an object, check its properties
+                      if (value && typeof value === 'object' && !Array.isArray(value)) {
+                        console.log(`[CHAT-${requestId}] 🔍 Checking object "${key}" properties...`);
+                        const entries = Object.entries(value).slice(0, 20);
+                        for (const [subKey, subValue] of entries) {
+                          try {
+                            JSON.stringify(subValue);
+                            console.log(`[CHAT-${requestId}] ✅ ${key}.${subKey}: OK`);
+                          } catch (subError) {
+                            console.error(`[CHAT-${requestId}] 💥 FOUND THE CULPRIT: ${key}.${subKey}`);
+                            console.error(`[CHAT-${requestId}] 💥 CULPRIT ERROR:`, subError);
+                            console.log(`[CHAT-${requestId}] 💥 CULPRIT VALUE TYPE:`, typeof subValue);
+                            console.log(`[CHAT-${requestId}] 💥 CULPRIT VALUE:`, String(subValue));
+                          }
+                        }
+                      }
+                    }
                   }
-                );
-
-                // Return a safe, serializable error response
+                }
+    
+                // Return a completely safe object
                 return {
                   success: false,
                   error: `Tool ${name} returned non-serializable data`,
-                  details:
-                    "The tool result contained circular references or non-serializable values",
+                  details: jsonError instanceof Error ? jsonError.message : String(jsonError),
                   timestamp: new Date().toISOString(),
                 };
               }
-
-              return result;
             } catch (error) {
-              console.error(
-                `[CHAT-${requestId}] Tool ${name} execution error:`,
-                {
-                  error: error instanceof Error ? error.message : String(error),
-                  stack: error instanceof Error ? error.stack : undefined,
-                }
-              );
-
+              console.error(`[CHAT-${requestId}] Tool ${name} execution error:`, error);
               return {
                 success: false,
-                error:
-                  error instanceof Error ? error.message : "Unknown tool error",
+                error: error instanceof Error ? error.message : "Unknown tool error",
                 timestamp: new Date().toISOString(),
               };
             }
@@ -145,13 +242,13 @@ export async function POST(req: Request) {
         },
       ])
     );
-
+    
     // Use the wrapped tools with JSON validation
     const tools = wrappedTools;
     console.log(`[CHAT-${requestId}] Available tools:`, Object.keys(tools));
 
     console.log(`[CHAT-${requestId}] Initializing streamText with:`, {
-      model: "gemini-2.5-flash",
+      model: "command-a-03-2025",
       maxSteps: 10,
       messagesCount: messages.length,
       toolsCount: Object.keys(tools).length,
@@ -358,8 +455,8 @@ FLIGHT DATA REQUIREMENTS:
 Current date: ${currentDate}
 Current trip ID: ${tripId} (include this as the "tripId" parameter whenever you call the addToTimeline tool)
 ${
-  userId ? `User: Authenticated (${userId})` : "User: Guest (not authenticated)"
-}
+        userId ? `User: Authenticated (${userId})` : "User: Guest (not authenticated)"
+      }
 
 Remember: You have access to powerful tools that can handle complex travel requests. Use them proactively to provide comprehensive, helpful responses.
 
@@ -389,10 +486,7 @@ You: [MUST use addToTimeline tool with the flight data] "I've added the Hawaiian
       return response;
     } catch (streamError) {
       console.error(`[CHAT-${requestId}] Stream response error:`, {
-        error:
-          streamError instanceof Error
-            ? streamError.message
-            : String(streamError),
+        error: streamError instanceof Error ? streamError.message : String(streamError),
         stack: streamError instanceof Error ? streamError.stack : undefined,
       });
       return new Response("Failed to create response stream", { status: 500 });
