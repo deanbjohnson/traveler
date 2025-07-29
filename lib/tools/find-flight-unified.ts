@@ -50,10 +50,12 @@ function cleanDuffelOffer(offer: any) {
         origin: {
           iata_code: slice.origin?.iata_code,
           name: slice.origin?.name,
+          city_name: slice.origin?.city_name,
         },
         destination: {
           iata_code: slice.destination?.iata_code,
           name: slice.destination?.name,
+          city_name: slice.destination?.city_name,
         },
         departure_datetime: slice.departure_datetime,
         arrival_datetime: slice.arrival_datetime,

@@ -7,6 +7,7 @@ import {
   createTimelineItem,
   getTimelineByTripId,
   createTimelineLocation,
+  prisma,
 } from "@/lib/db";
 
 // Import Prisma types if available
@@ -55,7 +56,7 @@ function sanitizeFlightData(flightData: any): any {
         name: String(slice?.origin?.name || 'Unknown')
       },
       destination: {
-        iata_code: String(slice?.destination?.iata_code || 'XXX'), 
+        iata_code: String(slice?.destination?.iata_code || 'XXX'),
         name: String(slice?.destination?.name || 'Unknown')
       },
       departure_datetime: String(slice?.departure_datetime || new Date().toISOString()),
@@ -121,13 +122,71 @@ export async function addToTimeline({
       // Generate timeline title based on first flight destination
       const firstFlight = items.find(item => item.type === "FLIGHT");
       let timelineTitle = "Trip Timeline";
+      let destinationForTitle: string | undefined = undefined;
       
       if (firstFlight?.flightData) {
         try {
           const flightData = firstFlight.flightData as any;
-          if (flightData.slices?.[0]?.destination?.name) {
-            const destination = flightData.slices[0].destination.name;
-            timelineTitle = `Trip to ${destination}`;
+          console.log(`[ADD-TIMELINE-${actionId}] 🔍 DEBUG: Flight data structure:`, {
+            hasSlices: !!flightData.slices,
+            slicesLength: flightData.slices?.length || 0,
+            firstSlice: flightData.slices?.[0] ? {
+              hasDestination: !!flightData.slices[0].destination,
+              destinationName: flightData.slices[0].destination?.name,
+              destinationCity: flightData.slices[0].destination?.city_name,
+              destinationCode: flightData.slices[0].destination?.iata_code,
+              fullDestination: flightData.slices[0].destination
+            } : 'No first slice'
+          });
+          
+          // Try to extract destination from multiple sources
+          let destination: string | undefined;
+          
+          if (flightData.slices?.[0]?.destination) {
+            const dest = flightData.slices[0].destination;
+            
+            console.log(`[ADD-TIMELINE-${actionId}] 🔍 DEBUG: Destination object:`, dest);
+            
+            // Try destination name first
+            if (dest.name && dest.name.trim() && !dest.name.toLowerCase().includes('unknown')) {
+              destination = dest.name;
+              console.log(`[ADD-TIMELINE-${actionId}] 🔍 Using destination name: ${destination}`);
+            }
+            // Try destination city if name is generic
+            else if (dest.city_name && dest.city_name.trim()) {
+              destination = dest.city_name;
+              console.log(`[ADD-TIMELINE-${actionId}] 🔍 Using destination city: ${destination}`);
+            }
+            // Try destination IATA code as last resort
+            else if (dest.iata_code && dest.iata_code.trim() && dest.iata_code !== 'XXX') {
+              destination = dest.iata_code;
+              console.log(`[ADD-TIMELINE-${actionId}] 🔍 Using destination code: ${destination}`);
+            }
+          }
+          
+          if (destination) {
+            // Filter out generic/placeholder destination names
+            const genericNames = [
+              "to be determined", "tbd", "unknown", "undefined", "null", 
+              "n/a", "not specified", "pending", "tba", "to be announced",
+              "unknown airport", "xxx"
+            ];
+            
+            const isGenericName = genericNames.some(generic => 
+              destination.toLowerCase().includes(generic.toLowerCase())
+            );
+            
+            console.log(`[ADD-TIMELINE-${actionId}] 🔍 DEBUG: Destination "${destination}" isGeneric: ${isGenericName}`);
+            
+            if (!isGenericName && destination.trim().length > 0) {
+              timelineTitle = `Trip to ${destination}`;
+              destinationForTitle = destination;
+              console.log(`[ADD-TIMELINE-${actionId}] ✅ Extracted destination: ${destination}`);
+            } else {
+              console.log(`[ADD-TIMELINE-${actionId}] ⚠️ Skipping generic destination: ${destination}`);
+            }
+          } else {
+            console.log(`[ADD-TIMELINE-${actionId}] ⚠️ No valid destination found in flight data`);
           }
         } catch (error) {
           console.warn(`[ADD-TIMELINE-${actionId}] Could not extract destination for title:`, error);
@@ -140,6 +199,31 @@ export async function addToTimeline({
         mood: mood || "adventure",
       }) as TimelineWithItems;
       
+      // --- NEW LOGIC: Update trip title if blank or default ---
+      if (destinationForTitle) {
+        // Fetch the trip to check its current title
+        const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+        if (trip) {
+          const isDefault = !trip.title || ["", "My New Trip", "Untitled Trip", "Trip"].includes(trip.title.trim());
+          if (isDefault) {
+            await prisma.trip.update({
+              where: { id: tripId },
+              data: { title: `Trip to ${destinationForTitle}` },
+            });
+            // Revalidate homepage so dashboard updates
+            try {
+              const { revalidatePath } = await import("next/cache");
+              const { revalidateTag } = await import("next/cache");
+              revalidatePath("/");
+              revalidateTag(`user-trips-${userId}`);
+              revalidateTag('trips');
+            } catch (e) {
+              console.warn("[ADD-TIMELINE] Could not revalidatePath after trip title update", e);
+            }
+            console.log(`[ADD-TIMELINE-${actionId}] ✅ Trip title auto-updated to: Trip to ${destinationForTitle}`);
+          }
+        }
+      }
       isNewTimeline = true;
       console.log(`[ADD-TIMELINE-${actionId}] ✅ Created new timeline: ${timeline.id}`);
     } else {

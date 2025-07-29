@@ -81,7 +81,7 @@ export const addToTimelineTool = tool({
       const timelineItem = {
         type: "FLIGHT" as const,
         title: `Flight ${flightData.route.from.code} → ${flightData.route.to.code} with ${flightData.airline.name}`,
-        description: `${flightData.airline.name} flight from ${flightData.route.from.name} to ${flightData.route.to.name}. Duration: ${flightData.timing.duration}. Price: ${flightData.price.currency} ${flightData.price.amount}`,
+        description: `${flightData.airline.name} flight from ${flightData.route.from.name} to ${flightData.route.to.name}. Duration: ${formatISODuration(flightData.timing.duration)}. Price: ${flightData.price.currency} ${flightData.price.amount}`,
         startTime: new Date(flightData.timing.departure),
         endTime: new Date(flightData.timing.arrival),
         duration: calculateDurationMinutes(flightData.timing.departure, flightData.timing.arrival),
@@ -164,5 +164,28 @@ function calculateDurationMinutes(departure: string, arrival: string): number {
     return Math.round((arrTime - depTime) / (1000 * 60)); // Convert to minutes
   } catch {
     return 120; // Default 2 hours if calculation fails
+  }
+}
+
+// Helper function to convert ISO duration to readable format
+function formatISODuration(isoDuration: string): string {
+  try {
+    // Parse ISO 8601 duration format (e.g., "PT6H7M")
+    const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+    if (match) {
+      const hours = parseInt(match[1] || '0');
+      const minutes = parseInt(match[2] || '0');
+      
+      if (hours > 0 && minutes > 0) {
+        return `${hours}h ${minutes}m`;
+      } else if (hours > 0) {
+        return `${hours}h`;
+      } else if (minutes > 0) {
+        return `${minutes}m`;
+      }
+    }
+    return isoDuration; // Fallback to original if parsing fails
+  } catch {
+    return isoDuration; // Fallback to original if parsing fails
   }
 }

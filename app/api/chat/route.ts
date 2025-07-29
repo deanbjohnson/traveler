@@ -79,6 +79,21 @@ export async function POST(req: Request) {
 
     console.log(`[CHAT-${requestId}] Current date: ${currentDate}`);
 
+    // Check if this is a simple summary request (no tools needed)
+    const lastMessage = messages[messages.length - 1]?.content || '';
+    const isSummaryRequest = lastMessage.toLowerCase().includes('summarize') || 
+                            lastMessage.toLowerCase().includes('summary') ||
+                            lastMessage.toLowerCase().includes('analyze this trip');
+
+    console.log(`[CHAT-${requestId}] Request type detection:`, {
+      lastMessage: lastMessage.substring(0, 100) + '...',
+      hasSummarize: lastMessage.toLowerCase().includes('summarize'),
+      hasSummary: lastMessage.toLowerCase().includes('summary'),
+      hasAnalyze: lastMessage.toLowerCase().includes('analyze this trip'),
+      isSummaryRequest: isSummaryRequest,
+      requestType: isSummaryRequest ? 'Summary Request' : 'Tool Request'
+    });
+
     // Deep JSON inspection helper
     function deepInspectForJSON(obj: any, path: string = 'root', maxDepth: number = 3, currentDepth: number = 0): string[] {
       const errors: string[] = [];
@@ -247,20 +262,27 @@ export async function POST(req: Request) {
     const tools = wrappedTools;
     console.log(`[CHAT-${requestId}] Available tools:`, Object.keys(tools));
 
+    console.log(`[CHAT-${requestId}] Tool configuration:`, {
+      isSummaryRequest: isSummaryRequest,
+      toolsToUse: isSummaryRequest ? 'none (undefined)' : Object.keys(tools),
+      toolsCount: isSummaryRequest ? 0 : Object.keys(tools).length
+    });
+
     console.log(`[CHAT-${requestId}] Initializing streamText with:`, {
       model: "command-a-03-2025",
       maxSteps: 10,
       messagesCount: messages.length,
-      toolsCount: Object.keys(tools).length,
+      toolsCount: isSummaryRequest ? 0 : Object.keys(tools).length,
       tripId,
       userId: userId || "guest",
     });
 
     const streamStartTime = Date.now();
-    const result = streamText({
-      model: cohere("command-a-03-2025"),
-      maxSteps: 10,
-      system: `You are an intelligent travel assistant with advanced tools that can handle any type of travel request, from very specific to very general. Your goal is to understand user intentions and automatically use the right tools with the right parameters.
+    
+    // Create system prompt based on request type
+    const systemPrompt = isSummaryRequest 
+      ? `You are an intelligent travel assistant. You are being asked to provide a natural, conversational summary of trip data. Simply analyze the provided data and give a helpful summary without using any tools. Focus on being friendly and informative.`
+      : `You are an intelligent travel assistant with advanced tools that can handle any type of travel request, from very specific to very general. Your goal is to understand user intentions and automatically use the right tools with the right parameters.
 
 ## Understanding User Objectives
 
@@ -464,8 +486,13 @@ EXAMPLE WORKFLOW:
 User: "Find flights from NYC to SF in August"
 You: [Use findFlight tool to search] "Here are the flights I found..."
 User: "Add the cheapest one to my timeline" or "add it to my timeline"
-You: [MUST use addToTimeline tool with the flight data] "I've added the Hawaiian Airlines flight on August 19 for $187.53 to your timeline!"`,
-      tools,
+You: [MUST use addToTimeline tool with the flight data] "I've added the Hawaiian Airlines flight on August 19 for $187.53 to your timeline!"`;
+
+    const result = streamText({
+      model: cohere("command-a-03-2025"),
+      maxSteps: 10,
+      tools: isSummaryRequest ? undefined : tools, // No tools for summary requests
+      system: systemPrompt,
       messages,
     });
 

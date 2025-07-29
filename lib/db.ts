@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { currentUser } from "@clerk/nextjs/server";
+import { unstable_cache } from "next/cache";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -134,30 +135,39 @@ export async function createTrip(
 }
 
 export async function getUserTrips(clerkUserId: string) {
-  const internalUserId = await getInternalUserId(clerkUserId);
+  return unstable_cache(
+    async (clerkUserId: string) => {
+      const internalUserId = await getInternalUserId(clerkUserId);
 
-  return await prisma.trip.findMany({
-    where: { userId: internalUserId },
-    include: {
-      bookings: true,
-      timeline: {
+      return await prisma.trip.findMany({
+        where: { userId: internalUserId },
         include: {
-          items: {
+          bookings: true,
+          timeline: {
             include: {
-              alternatives: true,
-              location: true,
-              children: true,
+              items: {
+                include: {
+                  alternatives: true,
+                  location: true,
+                  children: true,
+                },
+                orderBy: [{ level: "asc" }, { order: "asc" }],
+              },
+              locations: true,
             },
-            orderBy: [{ level: "asc" }, { order: "asc" }],
           },
-          locations: true,
         },
-      },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
     },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+    [`user-trips-${clerkUserId}`],
+    {
+      tags: [`user-trips-${clerkUserId}`, 'trips'],
+      revalidate: false, // No cache, always fresh
+    }
+  )(clerkUserId);
 }
 
 export async function createBooking(data: {

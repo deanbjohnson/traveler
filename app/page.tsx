@@ -5,9 +5,12 @@ import { getUserTrips, ensureUserExists } from "@/lib/db"
 import { SignInButton } from "@clerk/nextjs"
 import { format } from "date-fns"
 import { CreateTripButton } from "@/components/create-trip-button"
+import { DeleteTripButton } from "@/components/ui/delete-trip-button"
+import { RenameTripButton } from "@/components/ui/rename-trip-button";
+import { TripDashboard } from "@/components/ui/trip-dashboard";
 
 export default async function Home() {
-  const { userId } = await auth()
+  const { userId } = await auth();
 
   // If not authenticated, show welcome message
   if (!userId) {
@@ -33,7 +36,7 @@ export default async function Home() {
 
   // Ensure user exists in database and get their trips
   await ensureUserExists(userId)
-  const trips = await getUserTrips(userId)
+  const trips = await getUserTrips(userId);
 
   // If no trips, show empty state
   if (trips.length === 0) {
@@ -61,7 +64,7 @@ export default async function Home() {
 
   // Show list of trips
   return (
-    <main className="flex-1 py-8">
+    <main className="flex-1 py-8 px-6">
       <div className="container max-w-4xl">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -75,48 +78,7 @@ export default async function Home() {
           </CreateTripButton>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {trips.map((trip) => (
-            <Link key={trip.id} href={`/discover/${trip.id}`}>
-              <div className="group cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold group-hover:text-primary transition-colors">
-                      {trip.title}
-                    </h3>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-md ${trip.status === 'PLANNED' ? 'bg-blue-100 text-blue-800' :
-                        trip.status === 'BOOKED' ? 'bg-green-100 text-green-800' :
-                          trip.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
-                            trip.status === 'COMPLETED' ? 'bg-gray-100 text-gray-800' :
-                              'bg-red-100 text-red-800'
-                      }`}>
-                      {trip.status.toLowerCase()}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {trip.destination}
-                  </p>
-
-                  {trip.description && (
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {trip.description}
-                    </p>
-                  )}
-
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>
-                      {format(new Date(trip.startDate), 'MMM d')} - {format(new Date(trip.endDate), 'MMM d, yyyy')}
-                    </span>
-                    <span className="text-xs">
-                      {trip.bookings.length} booking{trip.bookings.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <TripDashboard trips={trips} />
       </div>
     </main>
   )
