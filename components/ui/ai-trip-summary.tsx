@@ -38,43 +38,41 @@ export function AITripSummary({ timeline, tripData, tripId }: AITripSummaryProps
         } : null
       }));
 
-      console.log("🤖 Timeline data being sent:", timelineData);
-      console.log("🤖 Trip data being sent:", tripData);
+      // Create a prompt for the AI
+      const prompt = `Please analyze this trip data and provide a natural, helpful summary of the trip. Here's the timeline data:
 
-      // Validate data before sending
-      if (!timelineData || timelineData.length === 0) {
-        console.log("🤖 No timeline data to analyze");
-        setSummary("No timeline items yet. Start planning your trip to see an AI-generated summary!");
-        return;
-      }
+${JSON.stringify(timelineData, null, 2)}
 
-      // Check if data is JSON-safe
-      try {
-        JSON.stringify(timelineData);
-        JSON.stringify(tripData);
-        console.log("🤖 Data validation passed - JSON safe");
-      } catch (jsonError) {
-        console.error("🤖 Data validation failed:", jsonError);
-        setSummary("Unable to generate AI summary due to data format issues.");
-        return;
-      }
+Trip details: ${JSON.stringify(tripData, null, 2)}
 
-      // Try a much simpler prompt first to test if the AI is working
-      const simplePrompt = `Summarize this trip in 2 sentences: ${timelineData.length} items, ${timelineData.filter((item: any) => item.type === 'FLIGHT').length} flights.`;
-      
-      console.log("🤖 Testing with simple prompt:", simplePrompt);
+Please provide a concise, natural summary that includes:
+- Where the person is traveling
+- Key flights and their details
+- Accommodations if any
+- Activities if any
+- Trip duration (only if you can determine it from actual flights/events, not from default trip dates)
+- Any notable details
 
-      console.log("🤖 Sending request to dedicated summarize endpoint");
+IMPORTANT: Do not assume trip duration from default trip start/end dates. Only mention duration if you can calculate it from actual timeline items (like return flights, hotel stays, etc.). For one-way flights without return flights or accommodations, do not mention trip duration.
 
-      // Call the dedicated summarize API to generate the summary
-      const response = await fetch('/api/summarize', {
+Make it conversational and helpful, like you're explaining the trip to a friend. Keep it under 3 sentences.`;
+
+      console.log("🤖 Sending request to AI with prompt:", prompt);
+
+      // Call the chat API to generate the summary
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          timelineData: timelineData,
-          tripData: tripData
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          tripId: tripId
         }),
       });
 
