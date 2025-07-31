@@ -8,34 +8,22 @@ interface AITripSummaryProps {
   tripId: string;
 }
 
-export function AITripSummary({ timeline, tripData, tripId }: AITripSummaryProps) {
+export function AITripSummaryNew({ timeline, tripData, tripId }: AITripSummaryProps) {
   // VERSION 2.0.1 - Force cache refresh
   const VERSION = "2.0.1";
   
   const [summary, setSummary] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
-  // State for caching - use sessionStorage to persist across remounts
-  const [cachedSummary, setCachedSummary] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem(`ai-summary-${tripId}`);
-      return stored ? JSON.parse(stored) : null;
-    }
-    return null;
-  });
-  const [timelineHash, setTimelineHash] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(`timeline-hash-${tripId}`) || '';
-    }
-    return '';
-  });
+  const [cachedSummary, setCachedSummary] = useState<string | null>(null);
+  const [timelineHash, setTimelineHash] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false); // Prevent multiple simultaneous calls
 
   // Debug component lifecycle
   useEffect(() => {
-    console.log("🤖 AITripSummary component MOUNTED - VERSION", VERSION);
+    console.log("🤖 AITripSummaryNew component MOUNTED - VERSION", VERSION);
     return () => {
-      console.log("🤖 AITripSummary component UNMOUNTED");
+      console.log("🤖 AITripSummaryNew component UNMOUNTED");
     };
   }, []);
 
@@ -132,7 +120,7 @@ export function AITripSummary({ timeline, tripData, tripId }: AITripSummaryProps
       }));
 
       // Create a much shorter prompt for the AI
-      const prompt = `Summarize this trip in 2-3 sentences:
+      const prompt = `[VERSION ${VERSION}] Summarize this trip in 2-3 sentences:
 
 Flights: ${timelineData.filter((item: any) => item.type === 'FLIGHT').map((f: any) => `${f.from}→${f.to} on ${new Date(f.startTime).toLocaleDateString()} (${f.airline}, ${f.price})`).join(', ') || 'None'}
 Stays: ${timelineData.filter((item: any) => item.type === 'STAY').map((s: any) => `${s.name} on ${new Date(s.startTime).toLocaleDateString()}`).join(', ') || 'None'}
@@ -156,7 +144,7 @@ Be conversational and mention destination, key flights with dates, and any notab
             }
           ],
           tripId: tripId,
-          model: 'command-a-03-2025' // Use default model for now
+          model: 'command-r-plus' // Use cheaper model for summaries
         }),
       });
 
@@ -218,13 +206,6 @@ Be conversational and mention destination, key flights with dates, and any notab
               // End of stream markers
               console.log("🤖 End of stream detected");
               break;
-            } else if (line.startsWith('3:')) {
-              // Handle error responses like "3:"An error occurred.""
-              const errorMatch = line.match(/3:"([^"]*)"/);
-              if (errorMatch && errorMatch[1]) {
-                console.log("🤖 Error response detected:", errorMatch[1]);
-                aiResponse += errorMatch[1];
-              }
             }
           }
         }
@@ -243,17 +224,11 @@ Be conversational and mention destination, key flights with dates, and any notab
 
         console.log("🤖 Cleaned AI response:", cleanedResponse);
         
-                            // Cache the successful response
-                    setCachedSummary(cleanedResponse);
-                    setTimelineHash(currentHash);
-                    setSummary(cleanedResponse);
-                    
-                    // Also save to sessionStorage for persistence across remounts
-                    if (typeof window !== 'undefined') {
-                      sessionStorage.setItem(`ai-summary-${tripId}`, JSON.stringify(cleanedResponse));
-                      sessionStorage.setItem(`timeline-hash-${tripId}`, currentHash);
-                    }
-                    console.log("🤖 Caching AI summary (with sessionStorage)");
+        // Cache the successful response
+        setCachedSummary(cleanedResponse);
+        setTimelineHash(currentHash);
+        setSummary(cleanedResponse);
+        console.log("🤖 Caching AI summary");
       } else {
         throw new Error('Empty AI response');
       }
@@ -311,77 +286,46 @@ Be conversational and mention destination, key flights with dates, and any notab
     generateAISummary(true);
   };
 
-    if (isLoading) {
+  if (isLoading) {
     return (
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-white">AI Trip Summary</h3>
-          </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">AI Trip Summary</h3>
           <button
             onClick={handleManualRefresh}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-200 shadow-md"
+            className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
           >
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Generating...
-            </div>
+            Refresh
           </button>
         </div>
-        <div className="space-y-3">
-          <div className="h-4 bg-slate-600 rounded-lg animate-pulse"></div>
-          <div className="h-4 bg-slate-600 rounded-lg animate-pulse w-3/4"></div>
-          <div className="h-4 bg-slate-600 rounded-lg animate-pulse w-1/2"></div>
+        <div className="text-sm text-gray-600">
+          <div className="animate-pulse">Generating AI summary...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold text-white">AI Trip Summary</h3>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">AI Trip Summary</h3>
         <button
           onClick={handleManualRefresh}
           disabled={isLoading}
-          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-200 shadow-md flex items-center gap-2"
+          className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
           Refresh
         </button>
       </div>
       
       {error && (
-        <div className="mb-4 p-4 bg-red-900/50 border border-red-700 rounded-lg backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-red-200">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-medium">Error:</span>
-            <span className="text-sm">{error}</span>
-          </div>
+        <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+          Error: {error}
         </div>
       )}
       
-      <div className="text-base text-slate-200 leading-relaxed font-medium">
+      <div className="text-sm text-gray-700 leading-relaxed">
         {summary}
       </div>
     </div>

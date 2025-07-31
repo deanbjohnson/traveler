@@ -6,6 +6,7 @@ import { Calendar, MapPin, Clock, Plane, Hotel, Car } from "lucide-react";
 import MainTimeline from "@/components/main-timeline";
 import { ChatDemo } from "@/components/chat-demo";
 import { AITripSummary } from "@/components/ui/ai-trip-summary";
+import { TripMap } from "@/components/ui/trip-map";
 import type { TimelineData } from "@/components/main-timeline";
 
 interface TripTabsProps {
@@ -15,7 +16,7 @@ interface TripTabsProps {
 }
 
 export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
-  const [activeTab, setActiveTab] = useState<'timeline' | 'overview'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'overview' | 'map'>('timeline');
 
   const tabs = [
     {
@@ -29,6 +30,12 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
       label: 'Trip Overview',
       icon: MapPin,
       description: 'Trip details and summary'
+    },
+    {
+      id: 'map',
+      label: 'Map View',
+      icon: MapPin,
+      description: 'Interactive map of your trip'
     }
   ];
 
@@ -44,7 +51,7 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'timeline' | 'overview')}
+                onClick={() => setActiveTab(tab.id as 'timeline' | 'overview' | 'map')}
                 className={cn(
                   "flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors",
                   isActive
@@ -115,17 +122,20 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
                     <p className="text-gray-400 text-center py-8">No timeline items yet. Start planning your trip!</p>
                   )}
                 </div>
-
-                {/* Placeholder for Future Map */}
-                <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
-                  <h3 className="text-lg font-semibold mb-4">Trip Map</h3>
-                  <div className="bg-gray-700/50 rounded-lg p-8 text-center">
-                    <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-400">Map view coming soon!</p>
-                    <p className="text-sm text-gray-500 mt-2">Interactive map showing your flight routes and destinations</p>
-                  </div>
-                </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'map' && (
+          <div className="h-full overflow-auto bg-gray-900">
+            <div className="p-6">
+              <div className="text-sm text-gray-400 mb-6">
+                {tabs.find(t => t.id === 'map')?.description}
+              </div>
+              
+              {/* Trip Map */}
+              <TripMap timeline={timeline} />
             </div>
           </div>
         )}

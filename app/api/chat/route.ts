@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       bodyKeys: Object.keys(body),
     });
 
-    const { messages, tripId } = body;
+    const { messages, tripId, model } = body;
 
     if (!tripId) {
       console.error(`[CHAT-${requestId}] ERROR: Missing tripId in request`);
@@ -247,8 +247,10 @@ export async function POST(req: Request) {
     const tools = wrappedTools;
     console.log(`[CHAT-${requestId}] Available tools:`, Object.keys(tools));
 
+    const selectedModel = model || "command-a-03-2025";
+    
     console.log(`[CHAT-${requestId}] Initializing streamText with:`, {
-      model: "command-a-03-2025",
+      model: selectedModel,
       maxSteps: 10,
       messagesCount: messages.length,
       toolsCount: Object.keys(tools).length,
@@ -258,7 +260,7 @@ export async function POST(req: Request) {
 
     const streamStartTime = Date.now();
     const result = streamText({
-      model: cohere("command-a-03-2025"),
+      model: cohere(selectedModel),
       maxSteps: 10,
       system: `You are an intelligent travel assistant with advanced tools that can handle any type of travel request, from very specific to very general. Your goal is to understand user intentions and automatically use the right tools with the right parameters.
 
