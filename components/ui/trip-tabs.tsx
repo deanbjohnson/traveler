@@ -2,11 +2,17 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Calendar, MapPin, Clock, Plane, Hotel, Car } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, MapPin, Clock, Plane, Hotel, Car, CreditCard, CheckCircle, Search, X } from "lucide-react";
 import MainTimeline from "@/components/main-timeline";
 import { ChatDemo } from "@/components/chat-demo";
 import { AITripSummary } from "@/components/ui/ai-trip-summary";
 import { TripMap } from "@/components/ui/trip-map";
+import { BudgetDiscoveryTab } from "@/components/ui/budget-discovery-tab";
+import { FlightDetailsModal } from "@/components/ui/flight-details-modal";
+import { BookingFormModal } from "@/components/ui/booking-form-modal";
+import { deleteTimelineItemAction } from "@/app/server/actions/delete-timeline-item";
+import { bookTimelineFlight, bookAllTimelineFlights } from "@/app/server/actions/book-timeline-flight";
 import type { TimelineData } from "@/components/main-timeline";
 
 interface TripTabsProps {
@@ -16,14 +22,85 @@ interface TripTabsProps {
 }
 
 export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
-  const [activeTab, setActiveTab] = useState<'timeline' | 'overview' | 'map'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'overview' | 'map' | 'budget-discovery'>('timeline');
+  const [selectedFlightData, setSelectedFlightData] = useState<any>(null);
+  const [selectedFlightTitle, setSelectedFlightTitle] = useState<string>('');
+  const [showFlightDetails, setShowFlightDetails] = useState(false);
+  const [bookingItems, setBookingItems] = useState<Set<string>>(new Set());
+  const [isBooking, setIsBooking] = useState(false);
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [bookingItemId, setBookingItemId] = useState<string | null>(null);
+  const [isBookingAll, setIsBookingAll] = useState(false);
+
+  const handleBookItem = (itemId: string) => {
+    setBookingItemId(itemId);
+    setIsBookingAll(false);
+    setShowBookingForm(true);
+  };
+
+  const handleBookAll = () => {
+    setBookingItemId(null);
+    setIsBookingAll(true);
+    setShowBookingForm(true);
+  };
+
+  const handleBookingSubmit = async (passengerInfo: any, paymentInfo: any) => {
+    setIsBooking(true);
+    try {
+      if (isBookingAll) {
+        const result = await bookAllTimelineFlights(tripId, passengerInfo);
+        if (result.success) {
+          const allItemIds = timeline?.items?.map(item => item.id) || [];
+          setBookingItems(new Set(allItemIds));
+          console.log('Booked all items:', result);
+        } else {
+          console.error('Booking all failed:', result);
+          // Show a more helpful error message for expired offers
+          if (result.results?.some(r => r.error?.includes('expired'))) {
+            alert('Some flight offers have expired. Please search for flights again to get fresh offers.');
+          } else {
+            alert('Booking failed. Please try again.');
+          }
+        }
+      } else if (bookingItemId) {
+        const result = await bookTimelineFlight({
+          tripId,
+          itemId: bookingItemId,
+          passengerDetails: passengerInfo,
+        });
+        if (result.success) {
+          setBookingItems(prev => new Set([...prev, bookingItemId]));
+          console.log(`Booked item: ${bookingItemId}`, result);
+        } else {
+          console.error('Booking failed:', result.error);
+          // Show a more helpful error message for expired offers
+          if (result.error?.includes('expired')) {
+            alert('This flight offer has expired. Please search for flights again to get fresh offers.');
+          } else {
+            alert(`Booking failed: ${result.error}`);
+          }
+        }
+      }
+      setShowBookingForm(false);
+    } catch (error) {
+      console.error('Booking failed:', error);
+    } finally {
+      setIsBooking(false);
+    }
+  };
 
   const tabs = [
     {
       id: 'timeline',
-      label: 'Timeline',
+      label: 'Chat',
       icon: Clock,
-      description: 'View your trip itinerary'
+      description: 'Chat with AI and view timeline'
+    },
+    {
+      id: 'budget-discovery',
+      label: 'Budget Discovery',
+      icon: Search,
+      description: 'Discover amazing flight deals'
     },
     {
       id: 'overview',
@@ -51,7 +128,7 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'timeline' | 'overview' | 'map')}
+                onClick={() => setActiveTab(tab.id as 'timeline' | 'overview' | 'map' | 'budget-discovery')}
                 className={cn(
                   "flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors",
                   isActive
@@ -75,11 +152,28 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
               {/* Chat Demo */}
               <ChatDemo tripId={tripId} />
             </div>
-            <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="flex-1 min-w-0 overflow-y-auto">
               {/* Timeline */}
-              <MainTimeline timeline={timeline} tripId={tripId} />
+              <MainTimeline 
+                timeline={timeline} 
+                tripId={tripId}
+                editable
+                onDeleteItem={async (itemId: string) => {
+                  const res = await deleteTimelineItemAction({ tripId, itemId });
+                  if (res.success) {
+                    // soft refresh so UI updates
+                    try { location.reload(); } catch (_) {}
+                  } else {
+                    console.error('Failed to delete item', res.error);
+                  }
+                }}
+              />
             </div>
           </div>
+        )}
+        
+        {activeTab === 'budget-discovery' && (
+          <BudgetDiscoveryTab tripId={tripId} timeline={timeline} />
         )}
         
         {activeTab === 'overview' && (
@@ -96,50 +190,143 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
 
                 {/* Timeline Items Summary */}
                 <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
-                  <h3 className="text-lg font-semibold mb-4">Timeline Items</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Timeline Items</h3>
+                    {timeline?.items && timeline.items.length > 0 && (
+                      <Button
+                        onClick={handleBookAll}
+                        disabled={isBooking}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {isBooking ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Booking All...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Book All ({timeline.items.length})
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   {timeline?.items && timeline.items.length > 0 ? (
                     <div className="space-y-3">
-                      {timeline.items.map((item: any) => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            {item.type === 'FLIGHT' && <Plane className="h-4 w-4 text-blue-400" />}
-                            {item.type === 'STAY' && <Hotel className="h-4 w-4 text-green-400" />}
-                            {item.type === 'TRANSPORT' && <Car className="h-4 w-4 text-yellow-400" />}
-                            <div>
-                              <p className="font-medium">{item.title}</p>
-                              <p className="text-sm text-gray-400">
-                                {new Date(item.startTime).toLocaleDateString()} at {new Date(item.startTime).toLocaleTimeString()}
-                              </p>
+                      {timeline.items
+                        .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                        .map((item: any) => (
+                          <div 
+                            key={item.id} 
+                            className={cn(
+                              "flex items-center justify-between p-3 bg-gray-700/50 rounded-lg",
+                              item.type === "FLIGHT" && item.flightData && "cursor-pointer transition-colors"
+                            )}
+                            onClick={() => {
+                              if (item.type === "FLIGHT" && item.flightData) {
+                                setSelectedFlightData(item.flightData);
+                                setSelectedFlightTitle(item.title);
+                                setShowFlightDetails(true);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-shrink-0">
+                                {item.type === "FLIGHT" && <Plane className="h-4 w-4 text-blue-400" />}
+                                {item.type === "STAY" && <Hotel className="h-4 w-4 text-green-400" />}
+                                {item.type === "TRANSPORT" && <Car className="h-4 w-4 text-yellow-400" />}
+                                {item.type === "ACTIVITY" && <Calendar className="h-4 w-4 text-purple-400" />}
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-gray-200">{item.title}</h4>
+                                {item.description && (
+                                  <p className="text-sm text-gray-400">{item.description}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2"
+                                 onMouseEnter={(e) => {
+                                   const parent = (e.currentTarget.parentElement as HTMLElement);
+                                   parent?.classList.remove('hover:bg-gray-600/50');
+                                 }}
+                                 onMouseLeave={(e) => {
+                                   const parent = (e.currentTarget.parentElement as HTMLElement);
+                                   // no-op; parent has no hover now
+                                 }}
+                            >
+                              {bookingItems.has(item.id) && (
+                                <CheckCircle className="h-4 w-4 text-green-400" />
+                              )}
+                              {/* Remove button */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const res = await deleteTimelineItemAction({ tripId, itemId: item.id });
+                                  if (res.success) {
+                                    try { location.reload(); } catch (_) {}
+                                  }
+                                }}
+                                className="h-6 w-6 p-0 text-red-400 hover:text-red-500"
+                                aria-label="Remove item"
+                                title="Remove item"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              {item.type === "FLIGHT" && item.flightData && !bookingItems.has(item.id) && (
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBookItem(item.id);
+                                  }}
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  Book
+                                </Button>
+                              )}
                             </div>
                           </div>
-                          <span className="text-xs px-2 py-1 bg-gray-600 rounded-full text-gray-300">
-                            {item.type.toLowerCase()}
-                          </span>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400 text-center py-8">No timeline items yet. Start planning your trip!</p>
+                    <p className="text-gray-400">No items in timeline yet.</p>
                   )}
                 </div>
               </div>
             </div>
           </div>
         )}
-
+        
         {activeTab === 'map' && (
-          <div className="h-full overflow-auto bg-gray-900">
-            <div className="p-6">
-              <div className="text-sm text-gray-400 mb-6">
-                {tabs.find(t => t.id === 'map')?.description}
-              </div>
-              
-              {/* Trip Map */}
-              <TripMap timeline={timeline} />
-            </div>
+          <div className="h-full overflow-y-auto">
+            <TripMap timeline={timeline} />
           </div>
         )}
       </div>
+
+      {/* Flight Details Modal */}
+      {showFlightDetails && selectedFlightData && (
+        <FlightDetailsModal
+          flightData={selectedFlightData}
+          itemTitle={selectedFlightTitle}
+          isOpen={showFlightDetails}
+          onClose={() => setShowFlightDetails(false)}
+        />
+      )}
+
+      {/* Booking Form Modal */}
+      {showBookingForm && (
+        <BookingFormModal
+          isOpen={showBookingForm}
+          onClose={() => setShowBookingForm(false)}
+          onSubmit={handleBookingSubmit}
+          isBooking={isBooking}
+          isBookingAll={isBookingAll}
+        />
+      )}
     </div>
   );
 } 

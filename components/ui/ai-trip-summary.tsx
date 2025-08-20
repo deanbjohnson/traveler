@@ -289,15 +289,15 @@ Be conversational and mention destination, key flights with dates, and any notab
     
     if (flights.length > 0) {
       summary += `${flights.length} flight${flights.length > 1 ? 's' : ''}`;
-    }
+      }
     
     if (stays.length > 0) {
       summary += `${summary.includes('flight') ? ', ' : ''}${stays.length} accommodation${stays.length > 1 ? 's' : ''}`;
-    }
+      }
     
     if (activities.length > 0) {
       summary += `${summary.includes('flight') || summary.includes('accommodation') ? ', ' : ''}${activities.length} activit${activities.length > 1 ? 'ies' : 'y'}`;
-    }
+      }
 
     if (flights.length === 0 && stays.length === 0 && activities.length === 0) {
       summary = "No timeline items yet. Start planning your trip to see an AI-generated summary!";
@@ -312,9 +312,9 @@ Be conversational and mention destination, key flights with dates, and any notab
   };
 
     if (isLoading) {
-    return (
+  return (
       <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg">
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -341,8 +341,8 @@ Be conversational and mention destination, key flights with dates, and any notab
           <div className="h-4 bg-slate-600 rounded-lg animate-pulse"></div>
           <div className="h-4 bg-slate-600 rounded-lg animate-pulse w-3/4"></div>
           <div className="h-4 bg-slate-600 rounded-lg animate-pulse w-1/2"></div>
-        </div>
-      </div>
+          </div>
+            </div>
     );
   }
 
@@ -367,7 +367,7 @@ Be conversational and mention destination, key flights with dates, and any notab
           </svg>
           Refresh
         </button>
-      </div>
+            </div>
       
       {error && (
         <div className="mb-4 p-4 bg-red-900/50 border border-red-700 rounded-lg backdrop-blur-sm">

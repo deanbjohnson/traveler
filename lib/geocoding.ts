@@ -1,4 +1,4 @@
-// Airport coordinates database for common airports
+// Airport coordinates database for common airports (baseline, small bundle)
 const airportCoordinates: Record<string, { lat: number; lng: number; name: string }> = {
   // Major US airports
   "JFK": { lat: 40.6413, lng: -73.7781, name: "John F. Kennedy International Airport" },
@@ -207,9 +207,38 @@ const airportCoordinates: Record<string, { lat: number; lng: number; name: strin
   "MTY": { lat: 25.7785, lng: -100.1069, name: "Monterrey International Airport" },
 };
 
+// Lazy-loaded, extended airport DB (fetched on demand from public/airports.min.json)
+let dynamicAirportDb: Record<string, { lat: number; lng: number; name: string }> | null = null;
+let dynamicAirportDbLoading: Promise<void> | null = null;
+
+export async function ensureAirportsLoaded(): Promise<void> {
+  if (dynamicAirportDb) return;
+  if (dynamicAirportDbLoading) return dynamicAirportDbLoading;
+  dynamicAirportDbLoading = (async () => {
+    try {
+      const res = await fetch("/airports.min.json", { cache: "force-cache" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && typeof data === "object") {
+        // Normalize keys to uppercase
+        const normalized: Record<string, { lat: number; lng: number; name: string }> = {};
+        Object.entries<any>(data).forEach(([k, v]) => {
+          if (v && typeof v.lat === "number" && typeof v.lng === "number") {
+            normalized[k.toUpperCase()] = { lat: v.lat, lng: v.lng, name: v.name || k.toUpperCase() };
+          }
+        });
+        dynamicAirportDb = normalized;
+      }
+    } catch (_) {
+      // swallow
+    }
+  })();
+  return dynamicAirportDbLoading;
+}
+
 export function getAirportCoordinates(airportCode: string): { lat: number; lng: number; name: string } | null {
   const code = airportCode.toUpperCase();
-  return airportCoordinates[code] || null;
+  return airportCoordinates[code] || (dynamicAirportDb ? dynamicAirportDb[code] || null : null);
 }
 
 export function getAirportName(airportCode: string): string | null {

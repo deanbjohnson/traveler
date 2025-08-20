@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plane, Hotel, MapPin, Clock, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getAirportCoordinates } from "@/lib/geocoding";
+import { getAirportCoordinates, ensureAirportsLoaded } from "@/lib/geocoding";
 
 // Set your Mapbox access token
-mapboxgl.accessToken = "pk.eyJ1IjoiZGVhbmJlcmxpbiIsImEiOiJjbWRsNng4cDExNzlrMnJwcHdnejZuMnJiIn0.Vs0YPhIcNjJ70yg-ouQFDQ";
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
 interface TimelineItemData {
   id: string;
@@ -185,12 +185,15 @@ export function TripMap({ timeline, className }: TripMapProps) {
     markersRef.current.clear();
     routesRef.current.clear();
 
-    const { coordinates, routes } = extractCoordinatesAndRoutes(timeline.items);
+    // Ensure extended airport DB is available before extracting
+    (async () => {
+      await ensureAirportsLoaded();
+      const { coordinates, routes } = extractCoordinatesAndRoutes(timeline.items);
 
-    if (coordinates.length === 0) {
-      console.log("No coordinates found in timeline items");
-      return;
-    }
+      if (coordinates.length === 0) {
+        console.log("No coordinates found in timeline items");
+        return;
+      }
 
     // Calculate bounds
     const bounds = new mapboxgl.LngLatBounds();
@@ -198,14 +201,14 @@ export function TripMap({ timeline, className }: TripMapProps) {
       bounds.extend(coords);
     });
 
-    // Fit map to bounds
-    map.current.fitBounds(bounds, {
-      padding: 50,
-      maxZoom: 15,
-    });
+      // Fit map to bounds
+      map.current.fitBounds(bounds, {
+        padding: 50,
+        maxZoom: 15,
+      });
 
-    // Add routes first (so they appear behind markers)
-    routes.forEach((route, index) => {
+      // Add routes first (so they appear behind markers)
+      routes.forEach((route, index) => {
       const routeId = `route-${route.item.id}`;
       
       // Add route source
@@ -237,11 +240,11 @@ export function TripMap({ timeline, className }: TripMapProps) {
         },
       });
 
-      routesRef.current.set(route.item.id, { routeId, sourceId: routeId });
-    });
+        routesRef.current.set(route.item.id, { routeId, sourceId: routeId });
+      });
 
-    // Add markers for each coordinate
-    coordinates.forEach(({ item, coordinates: coords, type }) => {
+      // Add markers for each coordinate
+      coordinates.forEach(({ item, coordinates: coords, type }) => {
       // Create marker element
       const markerEl = document.createElement("div");
       markerEl.className = "marker";
@@ -290,10 +293,10 @@ export function TripMap({ timeline, className }: TripMapProps) {
         </div>
       `);
 
-      marker.setPopup(popup);
+        marker.setPopup(popup);
 
       // Add click handler
-      markerEl.addEventListener("click", () => {
+        markerEl.addEventListener("click", () => {
         if (selectedItem?.id === item.id) {
           // If clicking the same item, deselect it
           setSelectedItem(null);
@@ -304,14 +307,15 @@ export function TripMap({ timeline, className }: TripMapProps) {
       });
 
       // Add hover handlers
-      markerEl.addEventListener("mouseenter", () => {
+        markerEl.addEventListener("mouseenter", () => {
         setHoveredItem(item);
       });
 
-      markerEl.addEventListener("mouseleave", () => {
-        setHoveredItem(null);
+        markerEl.addEventListener("mouseleave", () => {
+          setHoveredItem(null);
+        });
       });
-    });
+    })();
   }, [mapLoaded, timeline.items]);
 
   // Effect to handle highlighting on hover/selection
@@ -445,7 +449,7 @@ export function TripMap({ timeline, className }: TripMapProps) {
           <CardTitle>Timeline Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-96 overflow-y-auto">
             {timeline.items.length > 0 ? (
               timeline.items.map((item) => {
                 const Icon = typeIconMap[item.type];
@@ -454,9 +458,9 @@ export function TripMap({ timeline, className }: TripMapProps) {
                     key={item.id}
                     className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
                       selectedItem?.id === item.id 
-                        ? "bg-blue-100 border border-blue-300" 
+                        ? "bg-blue-100 border border-blue-300 text-gray-900" 
                         : hoveredItem?.id === item.id 
-                        ? "bg-gray-100 border border-gray-300" 
+                        ? "bg-gray-100 border border-gray-300 text-gray-900" 
                         : "hover:bg-gray-50"
                     }`}
                     onClick={() => {
@@ -475,8 +479,13 @@ export function TripMap({ timeline, className }: TripMapProps) {
                       <Icon className="h-4 w-4 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{item.title}</p>
-                      <p className="text-xs text-gray-600">
+                      <p className={`font-medium text-sm truncate ${
+                        selectedItem?.id === item.id || hoveredItem?.id === item.id ? "text-gray-900" : ""
+                      }`}>{item.title}</p>
+                      <p className={`text-xs ${
+                        selectedItem?.id === item.id ? "text-gray-700" : 
+                        hoveredItem?.id === item.id ? "text-gray-700" : "text-gray-600"
+                      }`}>
                         {formatDate(item.startTime)} at {formatTime(item.startTime)}
                       </p>
                     </div>

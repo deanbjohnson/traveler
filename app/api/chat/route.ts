@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       bodyKeys: Object.keys(body),
     });
 
-    const { messages, tripId, model } = body;
+    const { messages, tripId, model, currentFlightResults } = body;
 
     if (!tripId) {
       console.error(`[CHAT-${requestId}] ERROR: Missing tripId in request`);
@@ -248,7 +248,7 @@ export async function POST(req: Request) {
     console.log(`[CHAT-${requestId}] Available tools:`, Object.keys(tools));
 
     const selectedModel = model || "command-a-03-2025";
-    
+
     console.log(`[CHAT-${requestId}] Initializing streamText with:`, {
       model: selectedModel,
       maxSteps: 10,
@@ -259,6 +259,42 @@ export async function POST(req: Request) {
     });
 
     const streamStartTime = Date.now();
+    // Wrap tools to inject tripId param automatically for tools that accept it
+    const toolsWithTripId = Object.fromEntries(
+      Object.entries(tools).map(([name, t]) => [
+        name,
+        {
+          ...t,
+          execute: async (...args: any[]) => {
+            console.log(`[CHAT-${requestId}] 🔧 Tool ${name} starting execution...`);
+            try {
+              // Inject tripId if supported
+              try {
+                const first = args?.[0];
+                if (first && typeof first === 'object' && !('tripId' in first)) {
+                  (first as any).tripId = tripId;
+                }
+              } catch (_) {}
+
+              const rawResult = await (t.execute as any)(...args);
+
+              // Ensure result is JSON-serializable
+              const jsonString = JSON.stringify(rawResult);
+              console.log(`[CHAT-${requestId}] ✅ Tool ${name} JSON validation: OK (${jsonString.length} chars)`);
+              return JSON.parse(jsonString);
+            } catch (jsonError) {
+              console.error(`[CHAT-${requestId}] ❌ Tool ${name} result not serializable:`, jsonError instanceof Error ? jsonError.message : String(jsonError));
+              return {
+                success: false,
+                error: `Tool ${name} returned non-serializable data`,
+                timestamp: new Date().toISOString(),
+              };
+            }
+          },
+        },
+      ])
+    );
+
     const result = streamText({
       model: cohere(selectedModel),
       maxSteps: 10,
@@ -267,10 +303,11 @@ export async function POST(req: Request) {
 ## Understanding User Objectives
 
 **For flight searches**, you can handle:
-- **Specific requests**: "Find flights from JFK to LAX on December 25th" → Use exact airport codes and dates
-- **General requests**: "I want to go somewhere warm in Asia for a week next month" → Use regions, relative dates, and trip duration
-- **Mixed requests**: "Find cheap flights from New York to anywhere in Europe in March" → Combine specific origins with flexible destinations
-- **Complex requests**: "Show me options from California to Tokyo area, departing in the next 2 months for a 10-day trip" → Use metro areas, date ranges, and duration
+- **Specific requests**: "Find flights from JFK to LAX on December 25th" → Use findFlight with exact airport codes and dates
+- **General requests**: "I want to go somewhere warm in Asia for a week next month" → Use findFlight with regions, relative dates, and trip duration
+- **Mixed requests**: "Find cheap flights from New York to anywhere in Europe in March" → Use findFlight with specific origins and flexible destinations
+- **Complex requests**: "Show me options from California to Tokyo area, departing in the next 2 months for a 10-day trip" → Use findFlight with metro areas, date ranges, and duration
+- **Budget discovery requests**: "Find the best deals to anywhere interesting in the next 6 months" → Use budgetDiscovery tool for comprehensive deal hunting
 
 **For accommodations**: Handle specific cities, date ranges, guest counts, and preferences automatically.
 
@@ -278,22 +315,58 @@ export async function POST(req: Request) {
 
 ## Tool Usage Guidelines
 
-**Flight Search**: Use the unified findFlight tool
+**Flight Search (findFlight)**: Use for specific or semi-specific searches
 - For specific searches: Use exact airport codes (JFK, LAX) and specific dates (2024-12-25)
 - For flexible searches: Use regions (asia, europe), metro areas (new-york, tokyo), relative dates (next-month), and trip durations
 - Always infer missing details intelligently (default to economy class, 1 passenger, round-trip unless specified)
+
+**Budget Discovery (budgetDiscovery)**: Use for comprehensive deal hunting and discovery
+- Perfect for: "Find cheap flights to anywhere warm", "Show me the best deals to Asia", "What are the cheapest flights to Europe in the next 6 months?"
+- Also for: "golf trip out of jfk", "beach vacation deals", "food destination flights", "cultural city trips"
+- When users want to discover amazing deals without being too specific about dates or destinations
+- When users mention activities/interests (golf, beach, food, culture, etc.) rather than specific cities
+- When users say "anywhere", "interesting", "best deals", "cheap flights to anywhere"
+
+CRITICAL: For budgetDiscovery, you MUST:
+1. First generate a list of 15-20 relevant destinations based on the user's query
+2. Include the IATA airport code for each destination
+3. Call budgetDiscovery with the destinations array
+
+Example budgetDiscovery call:
+\`\`\`json
+{
+  "from": "JFK",
+  "destinationSuggestion": "golf trip out of jfk",
+  "destinations": [
+    {"name": "Scottsdale", "airport": "PHX", "country": "United States", "category": "golf"},
+    {"name": "Palm Springs", "airport": "PSP", "country": "United States", "category": "golf"},
+    {"name": "Myrtle Beach", "airport": "MYR", "country": "United States", "category": "golf"},
+    {"name": "Pebble Beach", "airport": "MRY", "country": "United States", "category": "golf"},
+    {"name": "Orlando", "airport": "MCO", "country": "United States", "category": "golf"},
+    {"name": "Las Vegas", "airport": "LAS", "country": "United States", "category": "golf"},
+    {"name": "Hilton Head", "airport": "HHH", "country": "United States", "category": "golf"},
+    {"name": "San Diego", "airport": "SAN", "country": "United States", "category": "golf"},
+    {"name": "Austin", "airport": "AUS", "country": "United States", "category": "golf"},
+    {"name": "Phoenix", "airport": "PHX", "country": "United States", "category": "golf"}
+  ],
+  "timeFrame": "6-months",
+  "tripType": "round-trip",
+  "passengers": 1,
+  "cabinClass": "economy"
+}
+\`\`\`
 
 **Stay Search**: Use findStay for accommodation requests with location, dates, and guest details.
 
 **Timeline Management**: Use addToTimeline to save any flights, hotels, or activities the user expresses interest in. This is critical for building the user's itinerary. 
 
 CRITICAL WORKFLOW FOR FLIGHTS:
-- You MUST first search for flights using findFlight tool to get actual flight offers
+- You MUST first search for flights using findFlight OR budgetDiscovery tool to get actual flight offers
 - You CANNOT create generic flight objects - you must use the complete flight offer data from search results
 - When adding flights to timeline, use the EXACT flightData object returned from findFlight (DuffelOffer format)
 - The flightData must contain the full flight structure with slices, segments, origin/destination airports, etc.
 
-NEVER create flight objects manually - always use actual search results from findFlight tool.
+NEVER create flight objects manually - always use actual search results from findFlight or budgetDiscovery tools.
 
 ## Data Structure Requirements
 
@@ -433,7 +506,7 @@ When calling addToTimeline, items must have this structure:
 
 - If a user says "add a flight to my timeline" without specifying which flight, you should:
   1. First ask where they want to go and when
-  2. Search for flights using findFlight
+  2. Search for flights using findFlight or budgetDiscovery
   3. Present options to the user
   4. Once they select a specific flight, use addToTimeline to save it
 - You cannot add generic items to the timeline - you need actual flight/hotel data from search results
@@ -441,7 +514,7 @@ When calling addToTimeline, items must have this structure:
 - When you present flight options and the user picks one (e.g., "the first one", "the cheapest one", "add it"), you MUST use addToTimeline immediately
 
 FLIGHT DATA REQUIREMENTS:
-- Flight data MUST come from findFlight tool results (DuffelOffer objects)
+- Flight data MUST come from findFlight or budgetDiscovery tool results (DuffelOffer objects)
 - Flight data MUST contain: id, slices[], total_amount, total_currency, owner
 - Each slice MUST contain: origin, destination, departure_datetime, arrival_datetime, duration, segments[]
 - DO NOT create flight objects with generic properties like "airline", "price", "departure" - use actual API data structure
@@ -450,6 +523,7 @@ FLIGHT DATA REQUIREMENTS:
 
 - **Be proactive**: If someone says "I want to go to Japan", immediately search for flights to tokyo area
 - **Handle ambiguity**: "Cheap flights to Europe" → search for europe region with sortBy: "cheapest"
+- **Budget discovery**: When users say things like "find me the best deals", "show me cheap flights to anywhere", "what are the best flight deals", "golf trip", "beach vacation", use the budgetDiscovery tool
 - **Context awareness**: Remember previous searches and user preferences in the conversation
 - **Natural language**: Parse human expressions like "next month", "for a week", "somewhere warm"
 - **Comprehensive help**: Suggest related searches, alternative dates, nearby airports when appropriate
@@ -466,8 +540,14 @@ EXAMPLE WORKFLOW:
 User: "Find flights from NYC to SF in August"
 You: [Use findFlight tool to search] "Here are the flights I found..."
 User: "Add the cheapest one to my timeline" or "add it to my timeline"
-You: [MUST use addToTimeline tool with the flight data] "I've added the Hawaiian Airlines flight on August 19 for $187.53 to your timeline!"`,
-      tools,
+You: [MUST use addToTimeline tool with the flight data] "I've added the Hawaiian Airlines flight on August 19 for $187.53 to your timeline!"
+
+EXAMPLE BUDGET DISCOVERY WORKFLOW:
+User: "golf trip out of jfk"
+You: [Use budgetDiscovery tool with golf destinations] "I'll search for golf destinations from JFK. Here are the best deals I found..."
+User: "Add the Scottsdale flight to my timeline"
+You: [MUST use addToTimeline tool with the flight data] "I've added the flight to Scottsdale for $XXX to your timeline!"`,
+      tools: toolsWithTripId,
       messages,
     });
 

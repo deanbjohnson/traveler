@@ -29,7 +29,6 @@ import {
     Utensils,
     MapPinned,
     Bookmark,
-    Plus,
     Edit,
     X,
     Check,
@@ -37,6 +36,7 @@ import {
     ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FlightDetailsModal } from "@/components/ui/flight-details-modal";
 
 // Type definitions based on our schema
 type TimelineItemType = "FLIGHT" | "STAY" | "ACTIVITY" | "DINING" | "TRANSPORT" | "FREE_TIME" | "LOCATION_CHANGE" | "CHECKPOINT" | "CUSTOM";
@@ -202,6 +202,8 @@ function TimelineItemComponent({
     const [isExpanded, setIsExpanded] = useState(level < 2);
     const [showAlternatives, setShowAlternatives] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [showFlightDetails, setShowFlightDetails] = useState(false);
+    const [isActionsHover, setIsActionsHover] = useState(false);
 
     // DEBUG: Log individual item details (only to console, not in render)
     useEffect(() => {
@@ -229,8 +231,21 @@ function TimelineItemComponent({
                     {item.startTime && <div className="text-xs">{formatTime(item.startTime)}</div>}
                 </TimelineDate>
                 <div className="flex-1 min-w-0">
-                    <Card className={cn("shadow-sm", level > 0 && "bg-gray-50/50")}>
-                        <CardHeader className="pb-3">
+                    <Card 
+                        className={cn(
+                            "shadow-sm transition-all duration-200 group/card mr-3",
+                            level > 0 && "bg-gray-50/50",
+                            item.type === "FLIGHT" && item.flightData && (
+                                !isActionsHover ? "cursor-pointer hover:shadow-md hover:bg-gray-100/10" : "cursor-pointer"
+                            )
+                        )}
+                        onClick={() => {
+                            if (item.type === "FLIGHT" && item.flightData) {
+                                setShowFlightDetails(true);
+                            }
+                        }}
+                    >
+                        <CardHeader className="pb-2 px-4 py-3">
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                     {hasChildren && (
@@ -251,7 +266,7 @@ function TimelineItemComponent({
                                         <Icon className="h-4 w-4 text-gray-600" />
                                         <Badge
                                             variant="outline"
-                                            className={cn("text-xs", typeColorMap[item.type])}
+                                            className={cn("text-xs px-2 py-0.5", typeColorMap[item.type])}
                                         >
                                             {item.type.toLowerCase()}
                                         </Badge>
@@ -259,39 +274,27 @@ function TimelineItemComponent({
                                     <TimelineTitle className="truncate">{item.title}</TimelineTitle>
                                     <Badge
                                         variant="outline"
-                                        className={cn("text-xs ml-auto", statusColorMap[item.status])}
+                                        className={cn("text-xs px-2 py-0.5 ml-auto", statusColorMap[item.status])}
                                     >
                                         {item.status.toLowerCase()}
                                     </Badge>
                                 </div>
                                 {editable && (
-                                    <div className="flex items-center gap-1 ml-2">
-                                        {hasAlternatives && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setShowAlternatives(!showAlternatives)}
-                                                className="h-6 w-6 p-0"
-                                            >
-                                                <RefreshCw className="h-3 w-3" />
-                                            </Button>
-                                        )}
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setIsEditing(!isEditing)}
-                                            className="h-6 w-6 p-0"
-                                        >
-                                            <Edit className="h-3 w-3" />
-                                        </Button>
+                                    <div
+                                      className="flex items-center gap-1 ml-2 group/actions"
+                                      onMouseEnter={() => setIsActionsHover(true)}
+                                      onMouseLeave={() => setIsActionsHover(false)}
+                                    >
                                         {!item.isLocked && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={onDelete}
-                                                className="h-6 w-6 p-0 text-red-500"
+                                                onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
+                                                className="h-6 w-6 p-0 text-red-500 relative z-10"
+                                                aria-label="Delete item"
+                                                title="Delete item"
                                             >
-                                                <X className="h-3 w-3" />
+                                                <X className="h-3 w-3 pointer-events-none" />
                                             </Button>
                                         )}
                                     </div>
@@ -299,10 +302,10 @@ function TimelineItemComponent({
                             </div>
                         </CardHeader>
                         {(item.description || item.location || item.duration) && (
-                            <CardContent className="pt-0">
+                            <CardContent className="pt-0 px-4 pb-3">
                                 <TimelineContent className="space-y-2">
                                     {item.description && (
-                                        <p className="text-sm text-gray-600">{item.description}</p>
+                                        <p className="text-xs text-gray-600">{item.description}</p>
                                     )}
                                     <div className="flex items-center gap-4 text-xs text-gray-500">
                                         {item.location && (
@@ -385,6 +388,16 @@ function TimelineItemComponent({
                     ))}
                 </div>
             )}
+
+            {/* Flight Details Modal */}
+            {item.type === "FLIGHT" && item.flightData && (
+                <FlightDetailsModal
+                    isOpen={showFlightDetails}
+                    onClose={() => setShowFlightDetails(false)}
+                    flightData={item.flightData}
+                    itemTitle={item.title}
+                />
+            )}
         </TimelineItem>
     );
 }
@@ -437,27 +450,6 @@ export default function MainTimeline({
     if (!timeline) {
         return (
             <div className="space-y-4">
-                {/* Debug Panel - HYDRATION SAFE */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="text-sm font-medium text-yellow-800 mb-2">
-                        🔍 Debug Info - No Timeline Data
-                    </div>
-                    <div className="text-xs text-yellow-700 space-y-1">
-                        <div>Data Source: Props Only</div>
-                        <div>Props Timeline: {propTimeline ? 'Provided' : 'None'}</div>
-                        <div>Final Timeline: {timeline ? 'Available' : 'None'}</div>
-                    </div>
-                    <Button 
-                        onClick={handleManualRefresh}
-                        className="mt-2"
-                        size="sm"
-                        variant="outline"
-                    >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Manual Refresh
-                    </Button>
-                </div>
-
                 {/* Empty State */}
                 <div className="flex items-center justify-center h-64 text-gray-500">
                     <div className="text-center">
@@ -470,10 +462,16 @@ export default function MainTimeline({
         );
     }
 
-    // Group items by hierarchy (top-level items first)
+    // Group items by hierarchy (top-level items first) and sort by start time
     const topLevelItems = (timeline.items || [])
         .filter((item: TimelineItemData) => item.level === 0)
-        .sort((a: TimelineItemData, b: TimelineItemData) => a.order - b.order);
+        .sort((a: TimelineItemData, b: TimelineItemData) => {
+            // Sort by start time first
+            const timeComparison = a.startTime.getTime() - b.startTime.getTime();
+            if (timeComparison !== 0) return timeComparison;
+            // If times are equal, fall back to order
+            return a.order - b.order;
+        });
 
     const handleItemUpdate = (itemId: string, updates: Partial<TimelineItemData>) => {
         if (isClient) {
@@ -506,30 +504,10 @@ export default function MainTimeline({
 
     return (
         <div className="space-y-6">
-            {/* Debug Panel - HYDRATION SAFE */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-green-800 mb-2">
-                    🔍 Debug Info - Timeline Loaded
-                </div>
-                <div className="text-xs text-green-700 space-y-1">
-                    <div>Data Source: Props</div>
-                    <div>Timeline ID: {timeline.id}</div>
-                    <div>Items Count: {timeline.items?.length || 0}</div>
-                    <div>Top-level Items: {topLevelItems.length}</div>
-                </div>
-                <Button 
-                    onClick={handleManualRefresh}
-                    className="mt-2"
-                    size="sm"
-                    variant="outline"
-                >
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Manual Refresh
-                </Button>
-            </div>
+
 
             {/* Timeline Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mt-4">
                 <div>
                     <h2 className="text-2xl font-bold">
                         {timeline.title || "Trip Timeline"}
@@ -538,45 +516,10 @@ export default function MainTimeline({
                         <p className="text-gray-600 mt-1">{timeline.description}</p>
                     )}
                 </div>
-                {editable && (
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2">
-                            <Heart className="h-4 w-4 text-gray-500" />
-                            <select
-                                value={selectedMood}
-                                onChange={(e) => handleMoodChange(e.target.value)}
-                                className="text-sm border rounded px-2 py-1"
-                            >
-                                <option value="">Select mood...</option>
-                                <option value="adventure">Adventure</option>
-                                <option value="relaxing">Relaxing</option>
-                                <option value="cultural">Cultural</option>
-                                <option value="business">Business</option>
-                                <option value="romantic">Romantic</option>
-                                <option value="family">Family</option>
-                            </select>
-                        </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                if (onCreateItem) {
-                                    onCreateItem({});
-                                    handleItemAdded();
-                                } else {
-                                    handleItemAdded();
-                                }
-                            }}
-                        >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add Item
-                        </Button>
-                    </div>
-                )}
             </div>
 
             {/* Timeline Content */}
-            <Timeline defaultValue={1} className="relative">
+            <Timeline defaultValue={1} className="relative space-y-2 px-2">
                 {topLevelItems.map((item: TimelineItemData) => (
                     <TimelineItemComponent
                         key={item.id}

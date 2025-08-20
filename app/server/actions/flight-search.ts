@@ -234,6 +234,15 @@ export async function searchFlights(
 
     // Create offer request with timeout
     console.log("📡 Making Duffel API call...");
+    console.log("📡 API call parameters:", {
+      from,
+      to,
+      date,
+      returnDate,
+      passengers,
+      cabinClass,
+      slices
+    });
 
     const offerRequestResponse = (await Promise.race([
       duffel.offerRequests.create({
@@ -268,6 +277,15 @@ export async function searchFlights(
     };
   } catch (error) {
     console.error("Flight search error:", error);
+    
+    // Log more details about the error
+    if (error && typeof error === 'object' && 'meta' in error) {
+      console.error("Duffel API error details:", {
+        meta: (error as any).meta,
+        errors: (error as any).errors,
+        headers: (error as any).headers
+      });
+    }
 
     // Provide more specific error messages based on error type
     if (error instanceof Error) {

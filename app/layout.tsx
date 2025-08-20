@@ -6,8 +6,8 @@ import {
   SignUpButton,
   SignedIn,
   SignedOut,
-  UserButton,
 } from "@clerk/nextjs";
+import ClientUserButton from "../components/ClientUserButton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -70,14 +70,14 @@ export default function RootLayout({
                       </SignUpButton>
                     </SignedOut>
                     <SignedIn>
-                      <UserButton
-                        afterSignOutUrl="/"
-                        appearance={{
-                          elements: {
-                            avatarBox: "w-8 h-8",
-                          },
-                        }}
-                      />
+                      <div suppressHydrationWarning>
+                        <ClientUserButton
+                          afterSignOutUrl="/"
+                          appearance={{
+                            elements: { avatarBox: "w-8 h-8" },
+                          }}
+                        />
+                      </div>
                     </SignedIn>
                   </div>
                 </nav>
