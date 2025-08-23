@@ -34,6 +34,7 @@ import {
     Check,
     ChevronRight,
     ChevronDown,
+    Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlightDetailsModal } from "@/components/ui/flight-details-modal";

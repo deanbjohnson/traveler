@@ -1,0 +1,57 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { prisma } from '@/lib/db';
+
+export async function GET(request: NextRequest) {
+  try {
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Find user by Clerk ID
+    const user = await prisma.user.findFirst({
+      where: { clerkUserId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get pending flights for the user
+    const pendingFlights = await prisma.pendingFlight.findMany({
+      where: { 
+        userId: user.id,
+        status: { in: ['PENDING_REVIEW', 'APPROVED'] }
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        assignedTrip: {
+          select: {
+            id: true,
+            title: true,
+            destination: true
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({ 
+      pendingFlights: pendingFlights.map(flight => ({
+        id: flight.id,
+        emailSubject: flight.emailSubject,
+        emailFrom: flight.emailFrom,
+        emailDate: flight.emailDate.toISOString(),
+        parsedData: flight.parsedData,
+        status: flight.status,
+        assignedTripId: flight.assignedTripId,
+        assignedTrip: flight.assignedTrip
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error fetching pending flights:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

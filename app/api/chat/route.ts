@@ -318,6 +318,7 @@ export async function POST(req: Request) {
 **Flight Search (findFlight)**: Use for specific or semi-specific searches
 - For specific searches: Use exact airport codes (JFK, LAX) and specific dates (2024-12-25)
 - For flexible searches: Use regions (asia, europe), metro areas (new-york, tokyo), relative dates (next-month), and trip durations
+- For multiple flights to a specific location: Use findFlight with date ranges (e.g., "next 6 months") to get multiple flight options to one destination
 - Always infer missing details intelligently (default to economy class, 1 passenger, round-trip unless specified)
 
 **Budget Discovery (budgetDiscovery)**: Use for comprehensive deal hunting and discovery
@@ -327,8 +328,13 @@ export async function POST(req: Request) {
 - When users mention activities/interests (golf, beach, food, culture, etc.) rather than specific cities
 - When users say "anywhere", "interesting", "best deals", "cheap flights to anywhere"
 
+**Location-Specific Multiple Flights (findFlight)**: Use when users want multiple flight options to a specific destination
+- Perfect for: "Find 10 flights to Miami", "Show me flights to Paris over the next 6 months", "What are the flight options to Tokyo?"
+- Use findFlight with date ranges (e.g., "next 6 months") to get multiple flight options to one destination
+- This is different from budgetDiscovery which searches multiple destinations
+
 CRITICAL: For budgetDiscovery, you MUST:
-1. First generate a list of 15-20 relevant destinations based on the user's query
+1. First generate a list of exactly 10 relevant destinations based on the user's query
 2. Include the IATA airport code for each destination
 3. Call budgetDiscovery with the destinations array
 

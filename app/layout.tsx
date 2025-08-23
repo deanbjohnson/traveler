@@ -11,6 +11,7 @@ import ClientUserButton from "../components/ClientUserButton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PendingFlightsNotification } from "@/components/ui/pending-flights-notification";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -56,6 +57,9 @@ export default function RootLayout({
                   <Link href="/discover">
                     <Button variant="ghost">Discover</Button>
                   </Link>
+                  <SignedIn>
+                    <PendingFlightsNotification />
+                  </SignedIn>
                   <div className="flex items-center space-x-2">
                     <SignedOut>
                       <SignInButton mode="modal">

@@ -86,7 +86,7 @@ function cleanDuffelOffer(offer: any) {
 // Helper function to generate date ranges for budget discovery
 function generateBudgetDiscoveryDates(timeFrame: string) {
   const now = new Date();
-  const startDate = addMonths(now, 1); // Start from next month
+  const startDate = addMonths(now, 1); // Start from next month to diversify
   
   let endDate: Date;
   switch (timeFrame) {
@@ -103,14 +103,12 @@ function generateBudgetDiscoveryDates(timeFrame: string) {
       endDate = addMonths(now, 5); // Default to 5 months
   }
 
-  // Generate date ranges every 2 months for shorter searches, every 3 months for longer searches
-  const interval = timeFrame === "12-months" ? 3 : 2;
+  // Generate contiguous monthly ranges to avoid clustering
+  const monthsToCover = timeFrame === "12-months" ? 12 : timeFrame === "6-months" ? 6 : 3;
   const dates: Array<{ start: string; end: string }> = [];
-  
-  for (let i = 0; i < Math.ceil((endDate.getTime() - startDate.getTime()) / (interval * 30 * 24 * 60 * 60 * 1000)); i++) {
-    const monthStart = addMonths(startDate, i * interval);
+  for (let i = 0; i < monthsToCover; i++) {
+    const monthStart = addMonths(startDate, i);
     const monthEnd = endOfMonth(monthStart);
-    
     dates.push({
       start: monthStart.toISOString().split('T')[0],
       end: monthEnd.toISOString().split('T')[0],
@@ -153,7 +151,7 @@ function formatDate(dateString: string): string {
 }
 
 export const budgetDiscoveryTool = tool({
-  description: `AI-Powered Budget Discovery Flight Search. The model should provide up to 20 concrete destinations (city + primary IATA airport) based on the user's query; this tool will then fetch the top results for each.`,
+  description: `AI-Powered Budget Discovery Flight Search. The model should provide up to 20 concrete destinations (city + primary IATA airport) based on the user's query; this tool will then fetch the cheapest direct flight for each destination.`,
   parameters: z.object({
     from: z.string().describe("Origin airport code or 'anywhere' for flexible origin"),
     destinationSuggestion: z.string().describe("Natural language request that informed the AI's destination shortlist (for logging only)"),
@@ -177,7 +175,6 @@ export const budgetDiscoveryTool = tool({
     passengers: z.number().default(1).describe("Number of passengers"),
     cabinClass: z.enum(["economy", "premium_economy", "business", "first"]).default("economy").describe("Cabin class"),
     preferences: z.record(z.any()).optional().describe("Additional preferences"),
-    resultLimit: z.number().default(100).describe("Max number of total results to return after sorting"),
   }),
   execute: async ({ 
     from, 
@@ -190,8 +187,7 @@ export const budgetDiscoveryTool = tool({
     maxBudget, 
     passengers = 1, 
     cabinClass = "economy", 
-    preferences = {}, 
-    resultLimit = 100 
+    preferences = {} 
   }: any) => {
     const toolCallId = Math.random().toString(36).substring(7);
     console.log(`[BUDGET-DISCOVERY-${toolCallId}] Starting AI-powered budget discovery search`);
@@ -199,17 +195,17 @@ export const budgetDiscoveryTool = tool({
     console.log(`[BUDGET-DISCOVERY-${toolCallId}] Destinations provided by model:`, destinations.map((d: {name: string; airport: string}) => `${d.name} (${d.airport})`));
 
     const startTime = Date.now();
-    const allResults: any[] = [];
+    const locationResults: Array<{
+      destination: any;
+      flight: any;
+      price: number;
+    }> = [];
     const destinationsSearched: string[] = [];
     const dateRangesSearched = generateBudgetDiscoveryDates(timeFrame);
 
     try {
-      // Phase 2: Smart Flight Search
-      // Search only the AI-suggested destinations for top 5 flights each
-      const maxSearchTime = 8 * 60 * 1000; // 8 minutes timeout
-      
-      // Limit to 10 destinations to prevent API overload
-      const plannedDestinations = Math.min(5, destinations.length);
+      // Limit to exactly 10 destinations for Google Flights-style deals
+      const plannedDestinations = Math.min(10, destinations.length);
       const limitedDestinations = destinations.slice(0, plannedDestinations);
 
       if (tripId) {
@@ -224,11 +220,6 @@ export const budgetDiscoveryTool = tool({
       
       let idx = 0;
       for (const destination of limitedDestinations) {
-        if (Date.now() - startTime > maxSearchTime) {
-          console.log(`[BUDGET-DISCOVERY-${toolCallId}] Time limit reached, stopping search`);
-          break;
-        }
-
         console.log(`[BUDGET-DISCOVERY-${toolCallId}] Searching flights to ${destination.name} (${destination.airport})`);
         if (tripId) {
           setProgress(tripId, {
@@ -242,40 +233,54 @@ export const budgetDiscoveryTool = tool({
           const flexibleParams = {
             from: from === "anywhere" ? ["JFK", "LAX", "ORD", "ATL", "DFW", "SFO", "MIA", "BOS", "SEA", "DEN"] : [from],
             to: [destination.airport],
-            dateRanges: dateRangesSearched.slice(0, 1), // Use only 1 date range to reduce API calls
+            // Use a continuous window across all generated months to diversify dates
+            dateWindow: {
+              start: dateRangesSearched[0]?.start,
+              end: dateRangesSearched[dateRangesSearched.length - 1]?.end,
+            },
             tripType,
             passengers,
             cabinClass,
-            maxResults: 3, // Reduce to 3 flights per destination
+            maxResults: 10, // Get more results to find the cheapest direct flight
+            maxConnections: 0, // Only direct flights
+            priceSort: "cheapest", // Sort by price to get cheapest first
             ...preferences,
           };
 
           const searchResult = await flexibleFlightSearch(flexibleParams);
           
           if (searchResult.success && searchResult.results && searchResult.results.length > 0) {
-            // Debug: Log the first result structure
-            console.log(`[BUDGET-DISCOVERY-${toolCallId}] First result structure:`, JSON.stringify(searchResult.results[0], null, 2));
+            // Find the cheapest direct flight for this destination
+            const directFlights = searchResult.results.filter((flight: any) => flight.connections === 0);
             
-            // The flexibleFlightSearch already returns the correct FlightOption structure
-            // We just need to add the destination context
-            const enhancedResults = searchResult.results.map((flightOption: any) => ({
-              ...flightOption,
-              destinationContext: destination.category || "AI",
-              destinationAirport: {
-                iata_code: destination.airport,
-                city_name: destination.name,
-                country_name: destination.country || "",
-              },
-            }));
-            
-            if (enhancedResults.length > 0) {
-              allResults.push(...enhancedResults);
+            if (directFlights.length > 0) {
+              const cheapestFlight = directFlights[0]; // Already sorted by price
+              
+              // Add destination context to the flight
+              const enhancedFlight = {
+                ...cheapestFlight,
+                destinationContext: destination.category || "AI",
+                destinationAirport: {
+                  iata_code: destination.airport,
+                  city_name: destination.name,
+                  country_name: destination.country || "",
+                },
+              };
+              
+              locationResults.push({
+                destination,
+                flight: enhancedFlight,
+                price: enhancedFlight.price.total,
+              });
+              
               destinationsSearched.push(destination.name);
-              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found ${enhancedResults.length} flights to ${destination.name}`);
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest direct flight to ${destination.name}: $${enhancedFlight.price.total}`);
+            } else {
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] No direct flights found to ${destination.name}`);
             }
           }
 
-          // Rate limiting delay - increased to prevent API overload
+          // Rate limiting delay
           await new Promise(resolve => setTimeout(resolve, 3000)); // 3 seconds between calls
           idx += 1;
           if (tripId) {
@@ -292,10 +297,10 @@ export const budgetDiscoveryTool = tool({
         }
       }
 
-      // Sort results by price (lowest first) and limit
-      const sortedResults = allResults
-        .sort((a, b) => a.price.total - b.price.total)
-        .slice(0, resultLimit);
+      // Maintain original destination order, but each location shows its cheapest direct flight
+      const sortedResults = locationResults
+        .slice(0, 10) // Take exactly 10 locations in original order
+        .map(item => item.flight);
 
       const searchDuration = Date.now() - startTime;
       if (tripId) {

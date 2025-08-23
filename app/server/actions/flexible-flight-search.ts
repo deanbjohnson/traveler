@@ -536,6 +536,16 @@ export async function flexibleFlightSearch(
     ]);
 
     const dates = generateDateWindows(params.dateWindow);
+    // Sample dates evenly across the full window to prevent clustering around early days
+    const evenlySampleDates = (all: string[], budget: number): string[] => {
+      if (budget >= all.length) return all;
+      const picks: string[] = [];
+      const step = (all.length - 1) / Math.max(1, budget - 1);
+      for (let i = 0; i < budget; i++) {
+        picks.push(all[Math.round(i * step)]);
+      }
+      return Array.from(new Set(picks));
+    };
 
     console.log(
       `📍 Found ${origins.length} origin airports, ${destinations.length} destination airports`
@@ -554,7 +564,12 @@ export async function flexibleFlightSearch(
     let combinationCount = 0;
     for (const origin of origins) {
       for (const destination of destinations) {
-        for (const date of dates) {
+        const perPair = Math.max(
+          1,
+          Math.floor(maxCombinations / Math.max(1, origins.length * destinations.length))
+        );
+        const sampledDates = evenlySampleDates(dates, perPair);
+        for (const date of sampledDates) {
           if (combinationCount >= maxCombinations) break;
 
           const returnDate =

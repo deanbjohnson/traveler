@@ -242,6 +242,86 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     } catch (_) {}
   }, [timeline]);
 
+  // Track which locations have been expanded to show multiple flights (persisted)
+  const [expandedLocationsForSearch, setExpandedLocationsForSearch] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`bd-loc-expanded-${tripId}`);
+      if (saved) {
+        try { return new Set<string>(JSON.parse(saved)); } catch (_) {}
+      }
+    }
+    return new Set<string>();
+  });
+  const [locationFlightResults, setLocationFlightResults] = useState<Record<string, FlightResult[]>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`bd-loc-results-${tripId}`);
+      if (saved) {
+        try {
+          const parsed: Record<string, any[]> = JSON.parse(saved);
+          const restored: Record<string, FlightResult[]> = {};
+          for (const [loc, flights] of Object.entries(parsed)) {
+            // For initial restoration, we can use the data as-is since it was already normalized when saved
+            restored[loc] = (flights || []).map((flight: any) => ({
+              id: flight.id || '',
+              searchId: flight.searchId || '',
+              route: flight.route || { origin: '', destination: '' },
+              dates: flight.dates || { departure: '', return: undefined },
+              price: flight.price || { total: 0, currency: 'USD' },
+              duration: flight.duration || { outbound: 'PT0H0M', return: undefined, total: 'PT0H0M' },
+              airlines: flight.airlines || [],
+              connections: flight.connections || 0,
+              offer: flight.offer || null,
+              score: flight.score || 0,
+              destinationContext: flight.destinationContext || 'Unknown',
+              destinationAirport: flight.destinationAirport || { iata_code: '', city_name: '', country_name: '' },
+              airline: flight.airline,
+              timing: flight.timing,
+              segments: flight.segments,
+              timelineData: flight.timelineData,
+            } as FlightResult));
+          }
+          return restored;
+        } catch (_) {}
+      }
+    }
+    return {};
+  });
+  
+  // Track loading state for "Show 10 more" buttons
+  const [loadingMoreFlights, setLoadingMoreFlights] = useState<Set<string>>(new Set());
+  
+  // Track sorting state for each location
+  const [locationSortBy, setLocationSortBy] = useState<Record<string, 'price' | 'date'>>({});
+  const [locationSortOrder, setLocationSortOrder] = useState<Record<string, 'asc' | 'desc'>>({});
+  
+  // Track when we're adding flight details to avoid triggering loading state
+  const isAddingFlightDetails = useRef(false);
+  
+  // Track scroll position to maintain it when switching tabs
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const savedScrollPosition = useRef<number>(0);
+  
+  // Separate state for system messages (flight details) that shouldn't trigger AI responses
+  const [systemMessages, setSystemMessages] = useState<Array<{
+    id: string;
+    content: string;
+    timestamp: Date;
+  }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`bd-system-messages-${tripId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+        } catch (_) {}
+      }
+    }
+    return [];
+  });
+
   // Persist UI state
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -272,13 +352,139 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
   // Persist added flights state
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    console.log('💾 Persisting addedFlightIds:', Array.from(addedFlightIds));
     localStorage.setItem(`bd-added-${tripId}`, JSON.stringify(Array.from(addedFlightIds)));
   }, [addedFlightIds, tripId]);
 
-  // Save results to localStorage whenever they change
+  // Persist expanded location state
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(`bd-loc-expanded-${tripId}`, JSON.stringify(Array.from(expandedLocationsForSearch)));
+  }, [expandedLocationsForSearch, tripId]);
+
+  // Persist per-location flight results (compressed)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const compact: Record<string, any[]> = {};
+      for (const [loc, flights] of Object.entries(locationFlightResults)) {
+        compact[loc] = compressFlightData(flights);
+      }
+      const dataString = JSON.stringify(compact);
+      localStorage.setItem(`bd-loc-results-${tripId}`, dataString);
+    } catch (err) {
+      console.warn('Failed to persist location flight results', err);
+    }
+  }, [locationFlightResults, tripId]);
+
+  // Persist system messages
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(`bd-system-messages-${tripId}`, JSON.stringify(systemMessages));
+    } catch (err) {
+      console.warn('Failed to persist system messages', err);
+    }
+  }, [systemMessages, tripId]);
+
+
+
+  // Clean up old localStorage data to prevent quota issues
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      // Check total localStorage usage
+      let totalSize = 0;
+      const budgetDiscoveryKeys = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes('budget-discovery')) {
+          budgetDiscoveryKeys.push(key);
+          totalSize += localStorage.getItem(key)?.length || 0;
+        }
+      }
+      
+      // If total size exceeds 3MB, remove oldest data
+      if (totalSize > 3 * 1024 * 1024) {
+        console.warn('localStorage quota exceeded, cleaning up old budget discovery data');
+        
+        // Remove old data for other trips (keep current trip)
+        budgetDiscoveryKeys.forEach(key => {
+          if (!key.includes(tripId)) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to clean up localStorage:', error);
+    }
+  }, [tripId]);
+
+  // Helper function to compress flight data for localStorage
+  const compressFlightData = (flights: FlightResult[]) => {
+    return flights.map(flight => ({
+      id: flight.id,
+      searchId: flight.searchId,
+      route: flight.route,
+      dates: flight.dates,
+      price: flight.price,
+      duration: flight.duration,
+      airlines: flight.airlines,
+      connections: flight.connections,
+      destinationContext: flight.destinationContext,
+      destinationAirport: flight.destinationAirport,
+      // Only keep essential offer data, remove large objects
+      offer: {
+        id: flight.offer?.id,
+        total_amount: flight.offer?.total_amount,
+        total_currency: flight.offer?.total_currency,
+        owner: flight.offer?.owner,
+        // Keep minimal slice data for timeline compatibility
+        slices: flight.offer?.slices?.map((slice: any) => ({
+          origin: slice.origin,
+          destination: slice.destination,
+          departure_datetime: slice.departure_datetime,
+          arrival_datetime: slice.arrival_datetime,
+          duration: slice.duration,
+        })) || [],
+      },
+      score: flight.score,
+    }));
+  };
+
+  // Save results to localStorage whenever they change (with compression)
   useEffect(() => {
     if (typeof window !== 'undefined' && searchResults.length > 0) {
-      localStorage.setItem(`budget-discovery-results-${tripId}`, JSON.stringify(searchResults));
+      try {
+        const compressedData = compressFlightData(searchResults);
+        const dataString = JSON.stringify(compressedData);
+        
+        // Check if data is too large (localStorage limit is ~5-10MB)
+        if (dataString.length > 4 * 1024 * 1024) { // 4MB limit
+          console.warn('Flight data too large for localStorage, truncating to latest 50 flights');
+          const truncatedData = compressedData.slice(-50); // Keep only latest 50 flights
+          localStorage.setItem(`budget-discovery-results-${tripId}`, JSON.stringify(truncatedData));
+        } else {
+          localStorage.setItem(`budget-discovery-results-${tripId}`, dataString);
+        }
+      } catch (error) {
+        console.error('Failed to save flight results to localStorage:', error);
+        // If still failing, try with even more compression
+        try {
+          const minimalData = searchResults.slice(-20).map(flight => ({
+            id: flight.id,
+            route: flight.route,
+            price: flight.price,
+            destinationContext: flight.destinationContext,
+            destinationAirport: flight.destinationAirport,
+          }));
+          localStorage.setItem(`budget-discovery-results-${tripId}`, JSON.stringify(minimalData));
+        } catch (fallbackError) {
+          console.error('Failed to save even minimal flight data:', fallbackError);
+        }
+      }
     }
   }, [searchResults, tripId]);
 
@@ -343,32 +549,93 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     onFinish: async (message) => {
       // Check if the message contains flight search results
       const messageAny = message as any;
-      if (messageAny?.toolInvocations?.some((call: any) => call.toolName === 'budgetDiscovery' || call.toolName === 'findFlight')) {
+      const hasBudgetDiscovery = messageAny?.toolInvocations?.some((call: any) => call.toolName === 'budgetDiscovery');
+      const hasAddToTimeline = messageAny?.toolInvocations?.some((call: any) => call.toolName === 'addToTimeline');
+      
+      if (hasBudgetDiscovery) {
         console.log('🔍 Flight search results detected');
         setIsLoading(false);
         // Extract flight results from the message
         extractFlightResults(messageAny);
+      } else if (hasAddToTimeline) {
+        console.log('📝 Add to timeline completed');
+        // Clear loading state for addToTimeline calls
+        setIsLoading(false);
+        setProgress(null);
+        // Refresh the router to update timeline after a short delay
+        // This ensures the optimistic UI update has been processed
+        setTimeout(() => {
+          try { 
+            router.refresh(); 
+            console.log('🔄 Router refreshed after add to timeline');
+          } catch (error) {
+            console.warn('Failed to refresh router:', error);
+          }
+        }, 200);
+      } else {
+        // If no specific tool was called, stop the loading state
+        setIsLoading(false);
+        setProgress(null);
       }
 
       // If timeline was modified by a tool, refresh the server components
-      if (messageAny?.toolInvocations?.some((call: any) => call.toolName === 'addToTimeline')) {
+      if (hasAddToTimeline) {
         try { router.refresh(); } catch (_) {}
       }
       
-      // Save messages to localStorage with proper serialization
+      // Save messages to localStorage with proper serialization and error handling
       if (typeof window !== 'undefined') {
-        const allMessages = [...messages, message];
-        localStorage.setItem(`budget-discovery-chat-${tripId}`, JSON.stringify(serializeMessages(allMessages)));
+        try {
+          const allMessages = [...messages, message];
+          const serializedMessages = serializeMessages(allMessages);
+          const messageString = JSON.stringify(serializedMessages);
+          
+          // Check if chat data is too large
+          if (messageString.length > 2 * 1024 * 1024) { // 2MB limit for chat
+            console.warn('Chat data too large for localStorage, keeping only latest 50 messages');
+            const truncatedMessages = allMessages.slice(-50);
+            localStorage.setItem(`budget-discovery-chat-${tripId}`, JSON.stringify(serializeMessages(truncatedMessages)));
+          } else {
+            localStorage.setItem(`budget-discovery-chat-${tripId}`, messageString);
+          }
+        } catch (error) {
+          console.error('Failed to save chat messages to localStorage:', error);
+          // If still failing, try with minimal data
+          try {
+            const minimalMessages = [...messages, message].slice(-20).map(msg => ({
+              role: msg.role,
+              content: msg.content?.substring(0, 500), // Truncate content
+            }));
+            localStorage.setItem(`budget-discovery-chat-${tripId}`, JSON.stringify(minimalMessages));
+          } catch (fallbackError) {
+            console.error('Failed to save even minimal chat data:', fallbackError);
+          }
+        }
       }
     },
     onResponse: (response) => {
-      // Check if a flight search is starting
-      const responseText = response.body?.toString() || '';
-      if (responseText.includes('budgetDiscovery') || responseText.includes('budget-discovery') || 
-          responseText.includes('findFlight') || responseText.includes('find-flight')) {
-        setIsLoading(true);
-        // Initialize progress indicator with a rough estimate
-        setProgress({ current: 0, total: 5, etaMs: 5 * 3000, startedAt: Date.now() });
+      // Skip loading state if we're just adding flight details
+      if (isAddingFlightDetails.current) {
+        return;
+      }
+      
+      // Only set loading state for actual tool calls initiated by user input
+      try {
+        const responseText = response.body?.toString() || '';
+        // Check if this is a real tool call initiated by user input
+        const isUserToolCall = responseText.includes('"toolInvocations"') && 
+                              (responseText.includes('budgetDiscovery') || responseText.includes('findFlight'));
+        
+        // Don't set loading state for addToTimeline calls as they should be quick
+        const isAddToTimeline = responseText.includes('addToTimeline');
+        
+        if (isUserToolCall && !isAddToTimeline) {
+          setIsLoading(true);
+          setRunStartedAt(Date.now());
+          setProgress({ current: 0, total: 5, etaMs: 5 * 3000, startedAt: Date.now() });
+        }
+      } catch (error) {
+        console.warn('Error in onResponse:', error);
       }
     },
     // Load initial messages from localStorage with proper deserialization
@@ -381,20 +648,6 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     })(),
   });
 
-  // Mirror chat status to show progress regardless of text heuristics
-  useEffect(() => {
-    // Mirror chat status to show progress regardless of text heuristics
-    if (status === 'submitted' || status === 'streaming') {
-      setIsLoading(true);
-      // Always re-init progress for a new search
-      const now = Date.now();
-      setRunStartedAt(now);
-      setProgress({ current: 0, total: 5, etaMs: 5 * 3000, startedAt: now });
-    } else if (status === 'ready') {
-      setIsLoading(false);
-      // Do not null progress here if results are still streaming via tool; onFinish will finalize
-    }
-  }, [status]);
 
   // Ensure results restore on mount even if initializer missed due to hydration
   useEffect(() => {
@@ -412,9 +665,68 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         }
       }
     }
+    
+    // Also ensure expanded location results are properly restored
+    const savedExpandedResults = localStorage.getItem(`bd-loc-results-${tripId}`);
+    if (savedExpandedResults && Object.keys(locationFlightResults).length === 0) {
+      try {
+        const parsed: Record<string, any[]> = JSON.parse(savedExpandedResults);
+        const restored: Record<string, FlightResult[]> = {};
+        for (const [loc, flights] of Object.entries(parsed)) {
+          restored[loc] = (flights || []).map((flight: any) => ({
+            id: flight.id || '',
+            searchId: flight.searchId || '',
+            route: flight.route || { origin: '', destination: '' },
+            dates: flight.dates || { departure: '', return: undefined },
+            price: flight.price || { total: 0, currency: 'USD' },
+            duration: flight.duration || { outbound: 'PT0H0M', return: undefined, total: 'PT0H0M' },
+            airlines: flight.airlines || [],
+            connections: flight.connections || 0,
+            offer: flight.offer || null,
+            score: flight.score || 0,
+            destinationContext: flight.destinationContext || 'Unknown',
+            destinationAirport: flight.destinationAirport || { iata_code: '', city_name: '', country_name: '' },
+            airline: flight.airline,
+            timing: flight.timing,
+            segments: flight.segments,
+            timelineData: flight.timelineData,
+          } as FlightResult));
+        }
+        setLocationFlightResults(restored);
+      } catch (error) {
+        console.warn('Failed to restore expanded location results:', error);
+      }
+    }
   // run once on mount and when tripId changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
+
+  // Save scroll position when component unmounts or tab changes
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (chatScrollRef.current) {
+        savedScrollPosition.current = chatScrollRef.current.scrollTop;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload(); // Save on cleanup
+    };
+  }, []);
+
+  // Restore scroll position when component mounts
+  useEffect(() => {
+    if (chatScrollRef.current && savedScrollPosition.current > 0) {
+      // Use setTimeout to ensure the chat has rendered
+      setTimeout(() => {
+        if (chatScrollRef.current) {
+          chatScrollRef.current.scrollTop = savedScrollPosition.current;
+        }
+      }, 100);
+    }
+  }, [messages, systemMessages]);
 
   // Normalize incoming flight result (handles both old cleaned shape and new FlightOption shape)
   const normalizeFlightResult = (raw: any): FlightResult => {
@@ -506,6 +818,20 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
           return Array.from(byId.values());
         });
       };
+
+      // Check if this is a location-specific search by looking at the user message
+      const isLocationSpecificSearch = message.content && 
+        (message.content.includes('Find 10 flights to') || 
+         message.content.includes('Find flights to'));
+      
+      let targetLocation = '';
+      if (isLocationSpecificSearch) {
+        // Extract location name from the search message
+        const match = message.content.match(/Find.*flights to ([^(]+)/);
+        if (match) {
+          targetLocation = match[1].trim();
+        }
+      }
       // Check tool call results first
       if (message.toolInvocations) {
         for (const toolCall of message.toolInvocations) {
@@ -561,9 +887,19 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                     });
                   }
                   
-                  mergeResults(normalized);
-                  console.log(`✅ Extracted flight results from ${toolCall.toolName} tool call:`, flightData.length);
-                    return;
+                  // Handle location-specific search results
+                  if (isLocationSpecificSearch && targetLocation) {
+                    setLocationFlightResults(prev => ({
+                      ...prev,
+                      [targetLocation]: normalized
+                    }));
+                    console.log(`✅ Stored ${normalized.length} flights for location: ${targetLocation}`);
+                  } else {
+                    // Regular budget discovery results
+                    mergeResults(normalized);
+                    console.log(`✅ Extracted flight results from ${toolCall.toolName} tool call:`, flightData.length);
+                  }
+                  return;
                   }
                 } else if (result.success && ((toolCall.toolName === 'findFlight' && result.offers) || (toolCall.toolName === 'budgetDiscovery' && result.results))) {
                   // Handle success case with explicit results/offers
@@ -663,8 +999,19 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     return groups;
   }, {} as Record<string, Record<string, FlightResult[]>>);
 
-  // Sort regions and countries
-  const sortedRegions = Object.entries(groupedFlights)
+  // For each location, keep only the cheapest flight initially (poster flight)
+  const posterFlights = Object.entries(groupedFlights).reduce((acc, [idea, locations]) => {
+    acc[idea] = {};
+    Object.entries(locations).forEach(([location, flights]) => {
+      // Sort flights by price and take the cheapest one as the poster flight
+      const sortedFlights = [...flights].sort((a, b) => a.price.total - b.price.total);
+      acc[idea][location] = [sortedFlights[0]]; // Only show the cheapest flight initially
+    });
+    return acc;
+  }, {} as Record<string, Record<string, FlightResult[]>>);
+
+  // Sort regions and countries (using poster flights for display)
+  const sortedRegions = Object.entries(posterFlights)
     .map(([idea, locations]) => {
       const locationEntries = Object.entries(locations).map(([location, flights]) => ({
         location,
@@ -712,6 +1059,75 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     setExpandedLocations(new Set());
   };
 
+  // Calculate total flights including expanded flights
+  const getTotalFlightCount = () => {
+    let total = searchResults.length;
+    
+    // Add flights from expanded locations
+    for (const [location, flights] of Object.entries(locationFlightResults)) {
+      total += flights.length;
+    }
+    
+    return total;
+  };
+
+  // Sort flights for a specific location
+  const getSortedFlightsForLocation = (location: string) => {
+    const allFlights = [];
+    
+    // Add poster flight (cheapest from initial search)
+    const regionData = sortedRegions.find(r => r.region === 'Snorkeling'); // Assuming snorkeling for now
+    if (regionData) {
+      const locationData = regionData.countries.find(c => c.country === location);
+      if (locationData && locationData.flights.length > 0) {
+        allFlights.push(locationData.flights[0]); // Poster flight
+      }
+    }
+    
+    // Add expanded flights
+    if (locationFlightResults[location]) {
+      allFlights.push(...locationFlightResults[location]);
+    }
+    
+    // Sort based on location-specific settings
+    const sortBy = locationSortBy[location] || 'price';
+    const sortOrder = locationSortOrder[location] || 'asc';
+    
+    return allFlights.sort((a, b) => {
+      let aValue: number, bValue: number;
+      
+      if (sortBy === 'price') {
+        aValue = a.price?.total || 0;
+        bValue = b.price?.total || 0;
+      } else { // date
+        aValue = a.dates?.departure ? new Date(a.dates.departure).getTime() : 0;
+        bValue = b.dates?.departure ? new Date(b.dates.departure).getTime() : 0;
+      }
+      
+      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+  };
+
+  // Calculate total flights for a specific region including expanded flights
+  const getRegionFlightCount = (region: string) => {
+    // Get the base count from the region data
+    const regionData = sortedRegions.find(r => r.region === region);
+    if (!regionData) return 0;
+    
+    let total = regionData.totalFlights;
+    
+    // Add flights from expanded locations within this region
+    for (const [location, flights] of Object.entries(locationFlightResults)) {
+      // Check if this location belongs to the current region
+      const belongsToRegion = regionData.countries.some(country => country.country === location);
+      if (belongsToRegion) {
+        total += flights.length;
+      }
+    }
+    
+    return total;
+  };
+
   const clearHistory = () => {
     if (typeof window !== 'undefined') {
       // Clear localStorage
@@ -744,10 +1160,142 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     console.log('Flight selected:', flight);
   };
 
+  const handleLocationClick = async (locationName: string, destinationAirport: string) => {
+    // Toggle expanded state
+    const isExpanded = expandedLocationsForSearch.has(locationName);
+    setExpandedLocationsForSearch(prev => {
+      const newSet = new Set(prev);
+      if (isExpanded) newSet.delete(locationName); else newSet.add(locationName);
+      return newSet;
+    });
+
+    if (isExpanded) return; // collapsing
+
+    // If already loaded, do nothing
+    if (locationFlightResults[locationName]) return;
+
+    // Fetch more flights directly via API (avoid chat)
+    try {
+      const origin = searchResults[0]?.route?.origin || 'JFK';
+      const res = await fetch('/api/find-flights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin, destination: destinationAirport, months: 6, maxResults: 10 })
+      });
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.results)) {
+        const normalized = data.results.map((r: any) => normalizeFlightResult({
+          ...r,
+          destinationContext: locationName,
+          destinationAirport: { iata_code: destinationAirport, city_name: locationName, country_name: '' },
+        }));
+        setLocationFlightResults(prev => ({ ...prev, [locationName]: normalized }));
+        
+        // Add the expanded flight results to the chat so the AI knows about them
+        const flightDetails = normalized.map((flight: FlightResult) => {
+          const airline = flight.offer?.owner?.name || flight.airline?.name || flight.airlines?.[0] || 'Unknown Airline';
+          const departureDate = flight.dates?.departure ? formatDate(flight.dates.departure) : 'Unknown Date';
+          const price = formatPrice(flight.price.total, flight.price.currency);
+          const duration = formatDuration(flight.duration.outbound);
+          const connections = flight.connections > 0 ? ` (${flight.connections} stop${flight.connections > 1 ? 's' : ''})` : ' (Direct)';
+          
+          return `${airline} flight ${flight.route.origin} → ${flight.route.destination} on ${departureDate} for ${price} - ${duration}${connections}`;
+        }).join('\n');
+        
+        const systemMessage = `I found ${normalized.length} flights to ${locationName}:\n\n${flightDetails}\n\nYou can now reference these flights when adding them to the timeline.`;
+        
+        // Add as a system message (separate from chat to avoid triggering AI responses)
+        const newSystemMessage = {
+          id: `expanded-flights-${locationName}-${Date.now()}`,
+          content: systemMessage,
+          timestamp: new Date()
+        };
+        setSystemMessages(prev => [...prev, newSystemMessage]);
+        
+      } else {
+        console.warn('No results returned for location', locationName, data);
+        setLocationFlightResults(prev => ({ ...prev, [locationName]: [] }));
+      }
+    } catch (error) {
+      console.error('Error fetching more flights to location:', error);
+      setLocationFlightResults(prev => ({ ...prev, [locationName]: [] }));
+    }
+  };
+
+  // Load 10 more flights for an expanded location
+  const handleLoadMoreFlights = async (locationName: string, destinationAirport: string) => {
+    // Set loading state
+    setLoadingMoreFlights(prev => new Set(prev).add(locationName));
+    
+    try {
+      const origin = searchResults[0]?.route?.origin || 'JFK';
+      const res = await fetch('/api/find-flights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin, destination: destinationAirport, months: 6, maxResults: 10 })
+      });
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.results)) {
+        const normalized = data.results.map((r: any) => normalizeFlightResult({
+          ...r,
+          destinationContext: locationName,
+          destinationAirport: { iata_code: destinationAirport, city_name: locationName, country_name: '' },
+        }));
+        setLocationFlightResults(prev => {
+          const existing = prev[locationName] || [];
+          const byId = new Map<string, any>();
+          [...existing, ...normalized].forEach((f) => byId.set(f.id, f));
+          return { ...prev, [locationName]: Array.from(byId.values()) };
+        });
+        
+        // Add the additional flight results to the chat so the AI knows about them
+        const flightDetails = normalized.map((flight: FlightResult) => {
+          const airline = flight.offer?.owner?.name || flight.airline?.name || flight.airlines?.[0] || 'Unknown Airline';
+          const departureDate = flight.dates?.departure ? formatDate(flight.dates.departure) : 'Unknown Date';
+          const price = formatPrice(flight.price.total, flight.price.currency);
+          const duration = formatDuration(flight.duration.outbound);
+          const connections = flight.connections > 0 ? ` (${flight.connections} stop${flight.connections > 1 ? 's' : ''})` : ' (Direct)';
+          
+          return `${airline} flight ${flight.route.origin} → ${flight.route.destination} on ${departureDate} for ${price} - ${duration}${connections}`;
+        }).join('\n');
+        
+        const systemMessage = `I found ${normalized.length} more flights to ${locationName}:\n\n${flightDetails}\n\nYou can now reference these flights when adding them to the timeline.`;
+        
+        // Add as a system message (separate from chat to avoid triggering AI responses)
+        const newSystemMessage = {
+          id: `more-flights-${locationName}-${Date.now()}`,
+          content: systemMessage,
+          timestamp: new Date()
+        };
+        setSystemMessages(prev => [...prev, newSystemMessage]);
+      }
+    } catch (error) {
+      console.error('Error loading more flights:', error);
+    } finally {
+      // Clear loading state
+      setLoadingMoreFlights(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(locationName);
+        return newSet;
+      });
+    }
+  };
+
   const handleAddToTimeline = async (flight: FlightResult, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent triggering the card click
     
     try {
+      // Set flag to prevent loading state from being triggered
+      isAddingFlightDetails.current = true;
+      
+      // IMMEDIATELY mark as added in UI for instant feedback
+      setAddedFlightIds((prev) => {
+        const newSet = new Set<string>(prev);
+        newSet.add(flight.id);
+        console.log('✅ Optimistically marked flight as added:', flight.id, 'New set size:', newSet.size);
+        return newSet;
+      });
+      
       // Get airline name
       const airlineName = flight.offer?.owner?.name || 
                          flight.airline?.name || 
@@ -760,36 +1308,47 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
       const destination = flight.destinationAirport?.city_name || flight.route.destination;
       const origin = flight.route.origin;
       
-      // Create the message to send to the chat
-      const message = `Add the ${airlineName} flight on ${departureDate} to ${destination} from ${origin} to my timeline`;
+      // Get price
+      const price = formatPrice(flight.price.total, flight.price.currency);
+      
+      // Create a more specific message that includes all the details the AI needs
+      const message = `Add this specific flight to my timeline: ${airlineName} flight ${origin} → ${destination} on ${departureDate} for ${price} (Flight ID: ${flight.id})`;
+
+      console.log('📤 Sending add to timeline message:', message);
 
       // Use chat append to send without navigation
       await append({ role: 'user', content: message });
 
-      // Optimistically mark as added in UI
-      setAddedFlightIds((prev) => new Set<string>(prev).add(flight.id));
-      try { router.refresh(); } catch (_) {}
+      console.log('✅ Message sent successfully, flight should be added to timeline');
       
-      console.log('Adding flight to timeline:', {
-        airline: airlineName,
-        date: departureDate,
-        destination,
-        origin,
-        message
-      });
+      // Don't refresh router immediately - let the onFinish callback handle it
+      // This prevents the component from re-rendering and losing the optimistic state
+      
     } catch (error) {
-      console.error('Error adding flight to timeline:', error);
+      console.error('❌ Error adding flight to timeline:', error);
+      // Revert the optimistic update on error
+      setAddedFlightIds((prev) => {
+        const newSet = new Set<string>(prev);
+        newSet.delete(flight.id);
+        console.log('🔄 Reverted optimistic update due to error:', flight.id);
+        return newSet;
+      });
+    } finally {
+      // Clear the flag after a short delay to ensure the response is processed
+      setTimeout(() => {
+        isAddingFlightDetails.current = false;
+      }, 100);
     }
   };
 
   const isLoadingChat = status === "submitted" || status === "streaming";
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full p-4 gap-4">
       {/* Chat Section */}
-      <div className="flex-1 min-w-0 overflow-hidden border-r border-gray-700">
+      <div className="flex-1 min-w-0 overflow-hidden border border-gray-700 rounded-lg bg-gray-900/30">
         <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-gray-700">
+          <div className="p-6 border-b border-gray-700">
             <h2 className="text-lg font-semibold text-gray-200">Budget Discovery Chat</h2>
             <p className="text-sm text-gray-400">
               Ask me to find the best flight deals across months and destinations
@@ -804,9 +1363,14 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
               </ul>
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden" ref={chatScrollRef}>
             <Chat
-              messages={messages}
+              messages={[...messages, ...systemMessages.map(msg => ({
+                role: 'assistant' as const,
+                content: msg.content,
+                id: msg.id,
+                createdAt: msg.timestamp
+              }))]}
               input={input}
               handleInputChange={handleInputChange}
               handleSubmit={handleSubmit}
@@ -819,16 +1383,14 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
       </div>
 
       {/* Flight Results Section */}
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden border border-gray-700 rounded-lg bg-gray-900/30">
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="border-b border-gray-700 p-4 bg-gray-900/50">
+          <div className="border-b border-gray-700 p-6 bg-gray-900/50">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-200">Flight Results</h2>
-                <p className="text-sm text-gray-400">
-                  {sortedAndFilteredResults.length} flights found
-                </p>
+
                 {isLoading && progress && (
                   <div className="mt-2 w-full max-w-md">
                     <div className="h-2 bg-gray-800 rounded">
@@ -844,83 +1406,21 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                 )}
               </div>
               <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-1">
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('list')}
-                  >
-                    List
-                  </Button>
-                  <Button
-                    variant={viewMode === 'grouped' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('grouped')}
-                  >
-                    Grouped
-                  </Button>
-                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowFilters(!showFilters)}
+                  onClick={clearHistory}
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                >
-                  {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                  Clear History
                 </Button>
               </div>
             </div>
 
-            {/* Filters */}
-            {showFilters && (
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <label className="text-sm text-gray-400">Max Price</label>
-                    <input
-                      type="number"
-                      placeholder="Max price"
-                      value={priceFilter || ''}
-                      onChange={(e) => setPriceFilter(e.target.value ? Number(e.target.value) : null)}
-                      className="ml-2 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-400">Destination</label>
-                    <input
-                      type="text"
-                      placeholder="Filter by destination"
-                      value={destinationFilter}
-                      onChange={(e) => setDestinationFilter(e.target.value)}
-                      className="ml-2 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {['price', 'duration', 'date'].map((sort) => (
-                    <Button
-                      key={sort}
-                      variant={sortBy === sort ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSortBy(sort as 'price' | 'duration' | 'date')}
-                    >
-                      {sort.charAt(0).toUpperCase() + sort.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* Results */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -938,31 +1438,8 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
             ) : viewMode === 'grouped' ? (
               <div className="space-y-4">
                 {/* Grouped View Controls */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-md font-semibold text-gray-200">Flights by Idea</h3>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={expandAllLocations}
-                    >
-                      Expand All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={collapseAllLocations}
-                    >
-                      Collapse All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearHistory}
-                    >
-                      Clear History
-                    </Button>
-                  </div>
                 </div>
 
                 {/* Location Groups */}
@@ -977,12 +1454,12 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                         <div className="text-left">
                           <h4 className="font-semibold text-gray-200 capitalize">{region}</h4>
                           <p className="text-sm text-gray-400">
-                            {totalFlights} flights across {countries.length} countries • Avg: {formatPrice(avgPrice, 'USD')}
+                            {getRegionFlightCount(region)} flights across {countries.length} locations • Avg: {formatPrice(avgPrice, 'USD')}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge variant="secondary">{totalFlights}</Badge>
+                        <Badge variant="secondary">{getRegionFlightCount(region)}</Badge>
                         <ChevronDown 
                           className={cn(
                             "h-4 w-4 text-gray-400 transition-transform",
@@ -995,127 +1472,198 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                     {expandedLocations.has(region) && (
                       <div className="p-4 space-y-3 bg-gray-900/30 border-t border-gray-700">
                         <div className="text-sm text-gray-400 mb-2">
-                          {region} • {totalFlights} flights across {countries.length} locations
+                          {region} • {getRegionFlightCount(region)} flights across {countries.length} locations
                         </div>
-                        {countries.map(({ country, flights, count, avgPrice }) => (
-                          <div key={country} className="border border-gray-600 rounded-lg overflow-hidden">
-                            <button
-                              onClick={() => toggleLocation(country)}
-                              className="w-full p-3 bg-gray-700/50 hover:bg-gray-600/50 transition-colors flex items-center justify-between"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <MapPin className="h-4 w-4 text-green-400" />
-                                <div className="text-left">
-                                  <h5 className="font-medium text-gray-200 capitalize">{country}</h5>
-                                  <p className="text-xs text-gray-400">
-                                    {count} flights • Avg: {formatPrice(avgPrice, 'USD')}
-                                  </p>
+                        {countries.map(({ country, flights, count, avgPrice }) => {
+                          const posterFlight = flights[0]; // The cheapest flight (poster flight)
+                          const destinationAirport = posterFlight?.destinationAirport?.iata_code || posterFlight?.route?.destination || '';
+                          const isExpanded = expandedLocationsForSearch.has(country);
+                          
+                          return (
+                            <div key={country} className="border border-gray-600 rounded-lg overflow-hidden">
+                              {/* Location header with poster flight */}
+                              <div
+                                className="w-full p-3 bg-gray-700/50 hover:bg-gray-600/50 cursor-pointer flex items-center justify-between"
+                                onClick={() => handleLocationClick(country, destinationAirport)}
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <MapPin className="h-4 w-4 text-green-400" />
+                                  <div className="text-left">
+                                    <h5 className="font-medium text-gray-200 capitalize">{country}</h5>
+                                    <p className="text-xs text-gray-400">
+                                      Cheapest: {formatPrice(posterFlight?.price?.total || 0, posterFlight?.price?.currency || 'USD')}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Badge variant="secondary" className="text-xs">{count}</Badge>
-                                <ChevronDown 
-                                  className={cn(
-                                    "h-3 w-3 text-gray-400 transition-transform",
-                                    expandedLocations.has(country) && "rotate-180"
-                                  )} 
-                                />
-                              </div>
-                            </button>
-                            
-                            {expandedLocations.has(country) && (
-                              <div className="p-3 space-y-2 bg-gray-800/30 border-t border-gray-600">
-                                <div className="text-xs text-gray-400 mb-2">
-                                  {country} • {count} flights
-                                </div>
-                                {flights.map((flight) => (
-                                  <Card
-                                    key={flight.id}
-                                    className="cursor-pointer hover:bg-gray-700/50 transition-colors border-gray-600 relative"
-                                    onClick={() => handleFlightClick(flight)}
-                                  >
-                                    <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-1">
-                                      {(addedFlightIds.has(flight.id) || timelineFlightFingerprints.has(getFlightFingerprint(flight))) ? (
-                                        <div className="flex items-center gap-1 text-emerald-400 text-xs bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-700">
-                                          <Check className="h-3 w-3" /> Added
-                                        </div>
-                                      ) : (
-                                        <button
-                                          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-0 flex items-center gap-1"
-                                          onClick={(e) => handleAddToTimeline(flight, e)}
-                                        >
-                                          <Plus className="h-3 w-3" />
-                                          Add to Trip
-                                        </button>
-                                      )}
-                                      <Badge variant="outline" className="text-green-400 border-green-400 text-xs">
-                                        {formatPrice(flight.price.total, flight.price.currency)}
-                                      </Badge>
+                                <div className="flex items-center space-x-2">
+                                  {/* Sorting buttons */}
+                                  {isExpanded && (
+                                    <div className="flex items-center space-x-1">
+                                      <Button
+                                        variant={locationSortBy[country] === 'price' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLocationSortBy(prev => ({
+                                            ...prev,
+                                            [country]: 'price'
+                                          }));
+                                        }}
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        Price
+                                      </Button>
+                                      <Button
+                                        variant={locationSortBy[country] === 'date' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLocationSortBy(prev => ({
+                                            ...prev,
+                                            [country]: 'date'
+                                          }));
+                                        }}
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        Date
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLocationSortOrder(prev => ({
+                                            ...prev,
+                                            [country]: prev[country] === 'asc' ? 'desc' : 'asc'
+                                          }));
+                                        }}
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        {locationSortOrder[country] === 'asc' ? '↑' : '↓'}
+                                      </Button>
                                     </div>
-                                    <CardHeader className="pb-2">
-                                      <div className="flex items-center justify-between">
-                                        <CardTitle className="text-sm flex items-center space-x-2">
-                                          <Plane className="h-3 w-3 text-blue-400" />
-                                          <span>
-                                            {flight.route.origin} → {flight.route.destination}
-                                          </span>
-                                        </CardTitle>
-                                      </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-0">
-                                      <div className="grid grid-cols-2 gap-3 text-xs">
-                                        <div className="space-y-1">
-                                          <div className="flex items-center space-x-1 text-gray-400">
-                                            <Calendar className="h-2 w-2" />
-                                            <span>Departure</span>
-                                          </div>
-                                          <p className="text-gray-200">
-                                            {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
-                                          </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                          <div className="flex items-center space-x-1 text-gray-400">
-                                            <Clock className="h-2 w-2" />
-                                            <span>Duration</span>
-                                          </div>
-                                          <p className="text-gray-200">
-                                            {flight.duration?.outbound ? formatDuration(flight.duration.outbound) : 'N/A'}
-                                          </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                          <div className="flex items-center space-x-1 text-gray-400">
-                                            <DollarSign className="h-2 w-2" />
-                                            <span>Airline</span>
-                                          </div>
-                                          <p className="text-gray-200">
-                                            {flight.offer?.owner?.name 
-                                              || flight.airline?.name 
-                                              || (Array.isArray(flight.airlines) && flight.airlines.length > 0 ? flight.airlines[0] : 'N/A')}
-                                           </p>
-                                        </div>
-                                        {flight.connections > 0 ? (
-                                          <div className="space-y-1">
-                                            <div className="flex items-center space-x-1 text-gray-400">
-                                              <span>Connections</span>
-                                            </div>
-                                            <p className="text-gray-200">{flight.connections} stop{flight.connections > 1 ? 's' : ''}</p>
-                                          </div>
-                                        ) : (
-                                          <div className="space-y-1">
-                                            <div className="flex items-center space-x-1 text-gray-400">
-                                              <span>Type</span>
-                                            </div>
-                                            <p className="text-gray-200">Direct</p>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                ))}
+                                  )}
+                                  {isExpanded && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleLoadMoreFlights(country, destinationAirport); }}
+                                      disabled={loadingMoreFlights.has(country)}
+                                      className={`text-xs underline transition-colors ${
+                                        loadingMoreFlights.has(country)
+                                          ? 'text-gray-500 cursor-not-allowed'
+                                          : 'text-blue-400 hover:text-blue-300'
+                                      }`}
+                                    >
+                                      {loadingMoreFlights.has(country) ? (
+                                        <span className="flex items-center gap-1">
+                                          <div className="animate-spin h-3 w-3 border border-gray-400 border-t-transparent rounded-full"></div>
+                                          Loading...
+                                        </span>
+                                      ) : (
+                                        'Show 10 more'
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        ))}
+                              
+                              {/* Show flights only when expanded (poster + extras) */}
+                              {isExpanded && (
+                                <div className="p-3 space-y-2 bg-gray-800/30 border-t border-gray-600">
+                                  <div className="text-xs text-gray-400 mb-2">
+                                    {country} • Flight options
+                                  </div>
+                                                                    <div className="space-y-2">
+                                    {/* Display sorted flights */}
+                                    {getSortedFlightsForLocation(country).map((flight: FlightResult) => (
+                                      <Card
+                                        key={flight.id}
+                                        className="cursor-pointer hover:bg-gray-700/50 transition-colors border-gray-600 relative"
+                                        onClick={() => handleFlightClick(flight)}
+                                      >
+                                        <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-1">
+                                          {(addedFlightIds.has(flight.id) || timelineFlightFingerprints.has(getFlightFingerprint(flight))) ? (
+                                            <div className="flex items-center gap-1 text-emerald-400 text-xs bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-700">
+                                              <Check className="h-3 w-3" /> Added
+                                            </div>
+                                          ) : (
+                                            <button
+                                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-0 flex items-center gap-1"
+                                              onClick={(e) => handleAddToTimeline(flight, e)}
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                              Add to Trip
+                                            </button>
+                                          )}
+                                          <Badge variant="outline" className="text-green-400 border-green-400 text-xs">
+                                            {formatPrice(flight.price.total, flight.price.currency)}
+                                          </Badge>
+                                        </div>
+                                        <CardHeader className="pb-2">
+                                          <div className="flex items-center justify-between">
+                                            <CardTitle className="text-sm flex items-center space-x-2">
+                                              <Plane className="h-3 w-3 text-blue-400" />
+                                              <span>
+                                                {flight.route.origin} → {flight.route.destination}
+                                              </span>
+                                            </CardTitle>
+                                          </div>
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                          <div className="grid grid-cols-2 gap-3 text-xs">
+                                            <div className="space-y-1">
+                                              <div className="flex items-center space-x-1 text-gray-400">
+                                                <Calendar className="h-2 w-2" />
+                                                <span>Departure</span>
+                                              </div>
+                                              <p className="text-gray-200">
+                                                {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <div className="flex items-center space-x-1 text-gray-400">
+                                                <Clock className="h-2 w-2" />
+                                                <span>Duration</span>
+                                              </div>
+                                              <p className="text-gray-200">
+                                                {flight.duration?.outbound ? formatDuration(flight.duration.outbound) : 'N/A'}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <div className="flex items-center space-x-1 text-gray-400">
+                                                <DollarSign className="h-2 w-2" />
+                                                <span>Airline</span>
+                                              </div>
+                                              <p className="text-gray-200">
+                                                {flight.airlines?.length > 0 ? flight.airlines.join(', ') : 'N/A'}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <div className="flex items-center space-x-1 text-gray-400">
+                                                <Plane className="h-2 w-2" />
+                                                <span>Stops</span>
+                                              </div>
+                                              <p className="text-gray-200">
+                                                {flight.connections === 0 ? 'Direct' : `${flight.connections} stop${flight.connections > 1 ? 's' : ''}`}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                    
+                                    {/* Loading state when fetching more flights */}
+                                    {loadingMoreFlights.has(country) && (
+                                      <div className="text-center py-4">
+                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+                                        <p className="text-gray-400 mt-2 text-xs">Searching for more flights to {country}...</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
