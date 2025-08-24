@@ -73,8 +73,16 @@ export async function POST(request: NextRequest) {
     // Extract the sender's email address (the person who forwarded the email)
     const senderEmail = typeof email.from === 'string' ? email.from : email.from?.text || email.from?.addresses?.[0]?.address || 'unknown@example.com';
     
-    // Clean up the email address (remove quotes and angle brackets)
-    const cleanEmail = senderEmail.replace(/["<>]/g, '').trim();
+    // Clean up the email address (remove quotes, angle brackets, and extract just the email part)
+    let cleanEmail = senderEmail.replace(/["<>]/g, '').trim();
+    
+    // If the email contains a name (e.g., "Dean Johnson <deanberlinjohnson@gmail.com>"), extract just the email
+    const emailMatch = cleanEmail.match(/<(.+@.+)>/);
+    if (emailMatch) {
+      cleanEmail = emailMatch[1];
+    }
+    
+    console.log('🔍 Looking for user with email:', cleanEmail);
     
     // First try to find user by email (this will work for users who have signed up)
     let user = await prisma.user.findFirst({
@@ -84,7 +92,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      console.log('No existing user found for email:', cleanEmail);
+      console.log('❌ No existing user found for email:', cleanEmail);
       console.log('Creating temporary user for email forwarding');
       user = await prisma.user.create({
         data: {
@@ -92,8 +100,9 @@ export async function POST(request: NextRequest) {
           name: 'Flight Email User'
         }
       });
+      console.log('✅ Created new user with ID:', user.id);
     } else {
-      console.log('Found existing user for email:', cleanEmail, 'User ID:', user.id);
+      console.log('✅ Found existing user for email:', cleanEmail, 'User ID:', user.id);
     }
 
     // Extract email addresses from Inbound.new's structure
