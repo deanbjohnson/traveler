@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/db';
 
 interface InboundEmail {
@@ -52,16 +51,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No flight data found' }, { status: 400 });
     }
 
-    // Find user by email
-    const user = await prisma.user.findFirst({
+    // Find or create user by email
+    let user = await prisma.user.findFirst({
       where: {
         email: email.to
       }
     });
 
     if (!user) {
-      console.log('No user found for email:', email.to);
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      console.log('Creating new user for email:', email.to);
+      user = await prisma.user.create({
+        data: {
+          email: email.to,
+          name: 'Flight Email User'
+        }
+      });
     }
 
     // Store the parsed flight data for the user to review
