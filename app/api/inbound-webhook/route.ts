@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { parseFlightEmailTool } from '@/lib/tools/parse-flight-email';
 
 interface InboundEmail {
   id: string;
@@ -62,8 +63,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No email data received' }, { status: 400 });
     }
 
-    // Parse flight information from the email
-    const flightData = parseFlightFromEmail(email);
+    // Use AI to intelligently parse flight information from email content
+    console.log('🤖 Using AI to parse flight data from email...');
+    
+    const emailContent = `${email.subject}\n${email.text || email.parsedData?.textBody || ''}\n${email.html || email.parsedData?.htmlBody || ''}`;
+    
+    let flightData;
+    
+    try {
+      // Call the AI parsing tool
+      const parseResult = await parseFlightEmailTool.execute({
+        emailSubject: email.subject || '',
+        emailContent: emailContent
+      });
+      
+      if (!parseResult.success) {
+        console.log('❌ AI parsing failed, falling back to basic parsing');
+        flightData = parseFlightFromEmail(email);
+      } else {
+        console.log('✅ AI parsing successful:', parseResult.data);
+        flightData = parseResult.data;
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in AI parsing:', error);
+      console.log('🔄 Falling back to basic parsing...');
+      flightData = parseFlightFromEmail(email);
+    }
     
     if (!flightData) {
       console.log('No flight data found in email');
