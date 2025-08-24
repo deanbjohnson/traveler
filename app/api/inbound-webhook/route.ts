@@ -73,6 +73,8 @@ export async function POST(request: NextRequest) {
     // Extract the sender's email address (the person who forwarded the email)
     const senderEmail = typeof email.from === 'string' ? email.from : email.from?.text || email.from?.addresses?.[0]?.address || 'unknown@example.com';
     
+    console.log('🔍 Raw sender email:', senderEmail);
+    
     // Clean up the email address (remove quotes, angle brackets, and extract just the email part)
     let cleanEmail = senderEmail.replace(/["<>]/g, '').trim();
     
@@ -80,6 +82,15 @@ export async function POST(request: NextRequest) {
     const emailMatch = cleanEmail.match(/<(.+@.+)>/);
     if (emailMatch) {
       cleanEmail = emailMatch[1];
+      console.log('🔍 Extracted email from angle brackets:', cleanEmail);
+    } else {
+      // Try to extract email using a more general pattern
+      const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
+      const emailExtract = cleanEmail.match(emailPattern);
+      if (emailExtract) {
+        cleanEmail = emailExtract[1];
+        console.log('🔍 Extracted email using pattern:', cleanEmail);
+      }
     }
     
     console.log('🔍 Looking for user with email:', cleanEmail);
