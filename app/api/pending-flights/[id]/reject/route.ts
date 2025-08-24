@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -13,8 +13,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const resolvedParams = await params;
+
     // Find user by Clerk ID
-    const user = await db.user.findFirst({
+    const user = await prisma.user.findFirst({
       where: { clerkUserId: userId }
     });
 
@@ -23,9 +25,9 @@ export async function POST(
     }
 
     // Get the pending flight
-    const pendingFlight = await db.pendingFlight.findFirst({
+    const pendingFlight = await prisma.pendingFlight.findFirst({
       where: { 
-        id: params.id,
+        id: resolvedParams.id,
         userId: user.id
       }
     });
@@ -35,8 +37,8 @@ export async function POST(
     }
 
     // Update pending flight status to rejected
-    await db.pendingFlight.update({
-      where: { id: params.id },
+    await prisma.pendingFlight.update({
+      where: { id: resolvedParams.id },
       data: { status: 'REJECTED' }
     });
 

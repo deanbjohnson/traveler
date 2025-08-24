@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -19,8 +19,10 @@ export async function POST(
       return NextResponse.json({ error: 'Trip ID is required' }, { status: 400 });
     }
 
+    const resolvedParams = await params;
+
     // Find user by Clerk ID
-    const user = await db.user.findFirst({
+    const user = await prisma.user.findFirst({
       where: { clerkUserId: userId }
     });
 
@@ -29,9 +31,9 @@ export async function POST(
     }
 
     // Get the pending flight
-    const pendingFlight = await db.pendingFlight.findFirst({
+    const pendingFlight = await prisma.pendingFlight.findFirst({
       where: { 
-        id: params.id,
+        id: resolvedParams.id,
         userId: user.id
       }
     });
@@ -41,7 +43,7 @@ export async function POST(
     }
 
     // Verify the trip belongs to the user
-    const trip = await db.trip.findFirst({
+    const trip = await prisma.trip.findFirst({
       where: { 
         id: tripId,
         userId: user.id
@@ -56,7 +58,7 @@ export async function POST(
     // Create timeline if it doesn't exist
     let timeline = trip.timeline;
     if (!timeline) {
-      timeline = await db.timeline.create({
+      timeline = await prisma.timeline.create({
         data: {
           tripId: trip.id,
           title: `${trip.title} Timeline`,
@@ -69,7 +71,7 @@ export async function POST(
     const flightData = pendingFlight.parsedData as any;
     
     // Create timeline item for the flight
-    const timelineItem = await db.timelineItem.create({
+    const timelineItem = await prisma.timelineItem.create({
       data: {
         timelineId: timeline.id,
         title: `${flightData.airline || 'Flight'} ${flightData.flightNumber || ''}`,
@@ -98,8 +100,8 @@ export async function POST(
     });
 
     // Update pending flight status
-    await db.pendingFlight.update({
-      where: { id: params.id },
+    await prisma.pendingFlight.update({
+      where: { id: resolvedParams.id },
       data: { 
         status: 'PROCESSED',
         assignedTripId: tripId

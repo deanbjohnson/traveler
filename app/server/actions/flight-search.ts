@@ -77,7 +77,7 @@ const duffel = new Duffel({
 
 // Check if Duffel token is configured
 if (!process.env.DUFFEL_ACCESS_TOKEN) {
-  console.error("❌ DUFFEL_ACCESS_TOKEN environment variable is not set");
+  console.warn("⚠️ DUFFEL_ACCESS_TOKEN environment variable is not set - flight search will be limited");
 }
 
 type CabinClass = "economy" | "premium_economy" | "business" | "first";
@@ -131,6 +131,15 @@ export async function searchFlights(
       error: "Unauthorized",
     };
   }
+
+  // Check if Duffel is configured
+  if (!process.env.DUFFEL_ACCESS_TOKEN) {
+    return {
+      success: false,
+      error: "Flight search service not configured. Please set up Duffel API token.",
+    };
+  }
+
   console.log("🚀 Starting flight search with params:", params);
 
   try {
