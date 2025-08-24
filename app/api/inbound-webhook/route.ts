@@ -6,8 +6,12 @@ interface InboundEmail {
   from: string;
   to: string;
   subject: string;
-  text: string;
-  html: string;
+  text?: string;
+  html?: string;
+  parsedData?: {
+    textBody?: string;
+    htmlBody?: string;
+  };
   headers: Record<string, string>;
   attachments?: Array<{
     filename: string;
@@ -34,7 +38,9 @@ interface ParsedFlightData {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('Inbound webhook received:', JSON.stringify(body, null, 2));
+    console.log('=== FULL WEBHOOK PAYLOAD ===');
+    console.log(JSON.stringify(body, null, 2));
+    console.log('=== END PAYLOAD ===');
 
     // Verify the webhook is from Inbound.new (you should add proper verification)
     const email: InboundEmail = body.email;
@@ -96,7 +102,10 @@ export async function POST(request: NextRequest) {
 }
 
 function parseFlightFromEmail(email: InboundEmail): ParsedFlightData | null {
-  const { subject, text, html } = email;
+  // Handle Inbound.new's parsed data structure
+  const subject = email.subject || '';
+  const text = email.text || email.parsedData?.textBody || '';
+  const html = email.html || email.parsedData?.htmlBody || '';
   
   // Combine text and HTML content for parsing
   const content = `${subject}\n${text}\n${html}`.toLowerCase();
