@@ -70,24 +70,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No flight data found' }, { status: 400 });
     }
 
-    // Extract email address from Inbound.new's structure
-    const emailAddress = typeof email.to === 'string' ? email.to : email.to?.text || email.to?.addresses?.[0]?.address || email.recipient;
+    // Extract the sender's email address (the person who forwarded the email)
+    const senderEmail = typeof email.from === 'string' ? email.from : email.from?.text || email.from?.addresses?.[0]?.address || 'unknown@example.com';
     
-    // Find or create user by email
+    // Clean up the email address (remove quotes and angle brackets)
+    const cleanEmail = senderEmail.replace(/["<>]/g, '').trim();
+    
+    // First try to find user by email (this will work for users who have signed up)
     let user = await prisma.user.findFirst({
       where: {
-        email: emailAddress
+        email: cleanEmail
       }
     });
 
     if (!user) {
-      console.log('Creating new user for email:', email.to);
+      console.log('No existing user found for email:', cleanEmail);
+      console.log('Creating temporary user for email forwarding');
       user = await prisma.user.create({
         data: {
-          email: email.to,
+          email: cleanEmail,
           name: 'Flight Email User'
         }
       });
+    } else {
+      console.log('Found existing user for email:', cleanEmail, 'User ID:', user.id);
     }
 
     // Extract email addresses from Inbound.new's structure

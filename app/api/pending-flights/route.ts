@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
@@ -10,10 +10,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find user by Clerk ID
-    const user = await prisma.user.findFirst({
+    // First try to find user by Clerk ID
+    let user = await prisma.user.findFirst({
       where: { clerkUserId: userId }
     });
+
+    if (!user) {
+      // If no user found by Clerk ID, try to find by email from Clerk user
+      const clerkUser = await currentUser();
+      if (clerkUser?.primaryEmailAddress?.emailAddress) {
+        user = await prisma.user.findFirst({
+          where: { email: clerkUser.primaryEmailAddress.emailAddress }
+        });
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -38,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ 
-      pendingFlights: pendingFlights.map(flight => ({
+      pendingFlights: pendingFlights.map((flight: any) => ({
         id: flight.id,
         emailSubject: flight.emailSubject,
         emailFrom: flight.emailFrom,
