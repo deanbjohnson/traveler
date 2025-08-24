@@ -4,7 +4,14 @@ import { prisma } from '@/lib/db';
 interface InboundEmail {
   id: string;
   from: string;
-  to: string;
+  to: string | {
+    text: string;
+    addresses: Array<{
+      name: string | null;
+      address: string;
+    }>;
+  };
+  recipient?: string;
   subject: string;
   text?: string;
   html?: string;
@@ -57,10 +64,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No flight data found' }, { status: 400 });
     }
 
+    // Extract email address from Inbound.new's structure
+    const emailAddress = typeof email.to === 'string' ? email.to : email.to?.text || email.to?.addresses?.[0]?.address || email.recipient;
+    
     // Find or create user by email
     let user = await prisma.user.findFirst({
       where: {
-        email: email.to
+        email: emailAddress
       }
     });
 
