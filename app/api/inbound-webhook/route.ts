@@ -101,6 +101,14 @@ function parseFlightFromEmail(email: InboundEmail): ParsedFlightData | null {
   // Combine text and HTML content for parsing
   const content = `${subject}\n${text}\n${html}`.toLowerCase();
   
+  // Debug logging
+  console.log('=== DEBUG: Email Content ===');
+  console.log('Subject:', subject);
+  console.log('Text:', text);
+  console.log('HTML:', html);
+  console.log('Combined content:', content);
+  console.log('=== END DEBUG ===');
+  
   // Common patterns for flight booking emails
   const patterns = {
     airline: /(?:airline|carrier|operated by|flight operated by)[:\s]*([a-zA-Z\s]+)/i,
