@@ -11,9 +11,29 @@ export async function GET(request: NextRequest) {
     }
 
     // Find user by Clerk ID
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: { clerkUserId: userId }
     });
+
+    if (!user) {
+      // If no user found by Clerk ID, try to find by email from Clerk user
+      const { currentUser } = await import('@clerk/nextjs/server');
+      const clerkUser = await currentUser();
+      if (clerkUser?.primaryEmailAddress?.emailAddress) {
+        user = await prisma.user.findFirst({
+          where: { email: clerkUser.primaryEmailAddress.emailAddress }
+        });
+        
+        // If we found a user by email but they don't have a clerkUserId, link them
+        if (user && !user.clerkUserId) {
+          console.log('🔗 Linking email user to Clerk user:', user.email, '->', userId);
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { clerkUserId: userId }
+          });
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

@@ -74,10 +74,14 @@ export function PendingFlightsModal({ isOpen, onClose, tripId }: PendingFlightsM
 
   const fetchTrips = async () => {
     try {
+      console.log('🔍 Fetching trips...');
       const response = await fetch('/api/trips');
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Trips fetched:', data.trips);
         setTrips(data.trips);
+      } else {
+        console.error('❌ Failed to fetch trips:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching trips:', error);
@@ -271,7 +275,10 @@ export function PendingFlightsModal({ isOpen, onClose, tripId }: PendingFlightsM
                         <div className="flex-1">
                           <Select
                             value={selectedTrips[flight.id] || ''}
-                            onValueChange={(value) => setSelectedTrips(prev => ({ ...prev, [flight.id]: value }))}
+                            onValueChange={(value) => {
+                              console.log('🎯 Trip selected for flight', flight.id, ':', value);
+                              setSelectedTrips(prev => ({ ...prev, [flight.id]: value }));
+                            }}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select a trip to assign this flight to..." />
@@ -293,6 +300,8 @@ export function PendingFlightsModal({ isOpen, onClose, tripId }: PendingFlightsM
                         >
                           <Check className="h-4 w-4 mr-2" />
                           Assign to Trip
+                          {!selectedTrips[flight.id] && <span className="ml-2 text-xs">(Select a trip)</span>}
+                          {loading && <span className="ml-2 text-xs">(Loading...)</span>}
                         </Button>
                         
                         <Button
