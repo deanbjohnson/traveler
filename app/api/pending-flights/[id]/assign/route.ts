@@ -22,9 +22,29 @@ export async function POST(
     const resolvedParams = await params;
 
     // Find user by Clerk ID
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: { clerkUserId: userId }
     });
+
+    if (!user) {
+      // If no user found by Clerk ID, try to find by email from Clerk user
+      const { currentUser } = await import('@clerk/nextjs/server');
+      const clerkUser = await currentUser();
+      if (clerkUser?.primaryEmailAddress?.emailAddress) {
+        user = await prisma.user.findFirst({
+          where: { email: clerkUser.primaryEmailAddress.emailAddress }
+        });
+        
+        // If we found a user by email but they don't have a clerkUserId, link them
+        if (user && !user.clerkUserId) {
+          console.log('🔗 Linking email user to Clerk user:', user.email, '->', userId);
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { clerkUserId: userId }
+          });
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -70,17 +90,68 @@ export async function POST(
     // Parse flight data
     const flightData = pendingFlight.parsedData as any;
     
+    console.log('🔄 Creating timeline item with flight data:', flightData);
+    
+    // Parse dates properly
+    let startTime = new Date();
+    let endTime: Date | undefined = undefined;
+    
+    if (flightData.departureDate) {
+      try {
+        // Handle different date formats
+        let departureDate = flightData.departureDate;
+        if (typeof departureDate === 'string') {
+          // If it's just a date, add a default time
+          if (departureDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            departureDate = `${departureDate}T10:00:00`;
+          }
+        }
+        startTime = new Date(departureDate);
+      } catch (error) {
+        console.error('Error parsing departure date:', error);
+        startTime = new Date();
+      }
+    }
+    
+    if (flightData.arrivalDate) {
+      try {
+        let arrivalDate = flightData.arrivalDate;
+        if (typeof arrivalDate === 'string') {
+          if (arrivalDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            arrivalDate = `${arrivalDate}T14:00:00`;
+          }
+        }
+        endTime = new Date(arrivalDate);
+      } catch (error) {
+        console.error('Error parsing arrival date:', error);
+      }
+    }
+    
+    // Calculate duration if we have both times
+    let duration: number | undefined = undefined;
+    if (startTime && endTime) {
+      duration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+    }
+    
+    // Get the next order number for this timeline
+    const lastItem = await prisma.timelineItem.findFirst({
+      where: { timelineId: timeline.id },
+      orderBy: { order: 'desc' }
+    });
+    const nextOrder = (lastItem?.order || 0) + 1;
+    
     // Create timeline item for the flight
     const timelineItem = await prisma.timelineItem.create({
       data: {
         timelineId: timeline.id,
-        title: `${flightData.airline || 'Flight'} ${flightData.flightNumber || ''}`,
+        title: `${flightData.airline || 'Flight'} ${flightData.flightNumber || ''}`.trim(),
         description: `Flight from ${flightData.origin || 'Unknown'} to ${flightData.destination || 'Unknown'}`,
         type: 'FLIGHT',
         status: 'BOOKED',
-        startTime: flightData.departureDate ? new Date(flightData.departureDate) : new Date(),
-        endTime: flightData.arrivalDate ? new Date(flightData.arrivalDate) : undefined,
-        order: 0,
+        startTime: startTime,
+        endTime: endTime,
+        duration: duration,
+        order: nextOrder,
         level: 0,
         flightData: {
           airline: flightData.airline,
@@ -98,6 +169,8 @@ export async function POST(
         }
       }
     });
+    
+    console.log('✅ Timeline item created:', timelineItem.id);
 
     // Update pending flight status
     await prisma.pendingFlight.update({
