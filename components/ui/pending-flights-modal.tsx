@@ -124,15 +124,43 @@ export function PendingFlightsModal({ isOpen, onClose, tripId }: PendingFlightsM
 
   const formatFlightInfo = (flight: PendingFlight) => {
     const data = flight.parsedData;
+    
+    // Handle both old and new data structures
+    const airline = data.airline || 'Airline not found';
+    const flightNumber = data.flightNumber || 'Flight number not found';
+    const origin = data.origin || 'Origin not found';
+    const destination = data.destination || 'Destination not found';
+    const departureDate = data.departureDate || 'Date not found';
+    const departureTime = data.departureTime || 'Time not found';
+    const arrivalDate = data.arrivalDate || departureDate;
+    const arrivalTime = data.arrivalTime || 'Time not found';
+    const confirmationCode = data.confirmationCode || data.bookingReference || 'No confirmation code';
+    const passengerName = data.passengerName || 'Passenger not found';
+    
+    // Format departure info
+    let departure = 'Departure not found';
+    if (departureDate !== 'Date not found' && departureTime !== 'Time not found') {
+      departure = `${departureDate} at ${departureTime}`;
+    } else if (departureDate !== 'Date not found') {
+      departure = departureDate;
+    }
+    
+    // Format arrival info
+    let arrival = 'Arrival not found';
+    if (arrivalDate !== 'Date not found' && arrivalTime !== 'Time not found') {
+      arrival = `${arrivalDate} at ${arrivalTime}`;
+    } else if (arrivalDate !== 'Date not found') {
+      arrival = arrivalDate;
+    }
+    
     return {
-      route: data.origin && data.destination ? `${data.origin} → ${data.destination}` : 'Route not found',
-      airline: data.airline || 'Airline not found',
-      flightNumber: data.flightNumber || 'Flight number not found',
-      departure: data.departureDate && data.departureTime ? 
-        `${data.departureDate} at ${data.departureTime}` : 
-        data.departureDate || 'Departure not found',
-      confirmation: data.confirmationCode || data.bookingReference || 'No confirmation code',
-      passenger: data.passengerName || 'Passenger not found'
+      route: `${origin} → ${destination}`,
+      airline,
+      flightNumber,
+      departure,
+      arrival,
+      confirmation: confirmationCode,
+      passenger: passengerName
     };
   };
 
@@ -194,7 +222,7 @@ export function PendingFlightsModal({ isOpen, onClose, tripId }: PendingFlightsM
                   </CardHeader>
                   
                   <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-blue-500" />
                         <div>
@@ -211,6 +239,16 @@ export function PendingFlightsModal({ isOpen, onClose, tripId }: PendingFlightsM
                         </div>
                       </div>
                       
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-red-500" />
+                        <div>
+                          <p className="text-sm font-medium">{flightInfo.arrival}</p>
+                          <p className="text-xs text-gray-500">Arrival</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-purple-500" />
                         <div>
