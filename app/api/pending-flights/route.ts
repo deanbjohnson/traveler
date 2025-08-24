@@ -10,18 +10,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    console.log('🔍 Looking for user with Clerk ID:', userId);
+
     // First try to find user by Clerk ID
     let user = await prisma.user.findFirst({
       where: { clerkUserId: userId }
     });
 
-    if (!user) {
+    if (user) {
+      console.log('✅ Found user by Clerk ID:', user.email);
+    } else {
+      console.log('❌ No user found by Clerk ID, trying email...');
       // If no user found by Clerk ID, try to find by email from Clerk user
       const clerkUser = await currentUser();
       if (clerkUser?.primaryEmailAddress?.emailAddress) {
+        console.log('🔍 Looking for user with email:', clerkUser.primaryEmailAddress.emailAddress);
         user = await prisma.user.findFirst({
           where: { email: clerkUser.primaryEmailAddress.emailAddress }
         });
+        
+        if (user) {
+          console.log('✅ Found user by email:', user.email, 'clerkUserId:', user.clerkUserId);
+          // If we found a user by email but they don't have a clerkUserId, link them
+          if (!user.clerkUserId) {
+            console.log('🔗 Linking email user to Clerk user:', user.email, '->', userId);
+            user = await prisma.user.update({
+              where: { id: user.id },
+              data: { clerkUserId: userId }
+            });
+            console.log('✅ User linked successfully');
+          }
+        } else {
+          console.log('❌ No user found by email either');
+        }
+      } else {
+        console.log('❌ No email found in Clerk user');
       }
     }
 
@@ -29,6 +52,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    console.log('🔍 Looking for pending flights for user ID:', user.id);
+    
     // Get pending flights for the user
     const pendingFlights = await prisma.pendingFlight.findMany({
       where: { 
@@ -46,6 +71,8 @@ export async function GET(request: NextRequest) {
         }
       }
     });
+
+    console.log('📧 Found', pendingFlights.length, 'pending flights');
 
     return NextResponse.json({ 
       pendingFlights: pendingFlights.map((flight: any) => ({
