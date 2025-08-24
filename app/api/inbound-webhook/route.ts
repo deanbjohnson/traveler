@@ -3,7 +3,13 @@ import { prisma } from '@/lib/db';
 
 interface InboundEmail {
   id: string;
-  from: string;
+  from: string | {
+    text: string;
+    addresses: Array<{
+      name: string | null;
+      address: string;
+    }>;
+  };
   to: string | {
     text: string;
     addresses: Array<{
@@ -84,13 +90,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Extract email addresses from Inbound.new's structure
+    const emailFromAddress = typeof email.from === 'string' ? email.from : email.from?.text || email.from?.addresses?.[0]?.address || 'unknown@example.com';
+    
     // Store the parsed flight data for the user to review
     const pendingFlight = await prisma.pendingFlight.create({
       data: {
         userId: user.id,
         emailId: email.id,
         emailSubject: email.subject,
-        emailFrom: email.from,
+        emailFrom: emailFromAddress,
         emailDate: new Date(),
         parsedData: flightData,
         status: 'PENDING_REVIEW'
