@@ -241,7 +241,7 @@ export const budgetDiscoveryTool = tool({
             tripType,
             passengers,
             cabinClass,
-            maxResults: 5, // Reduced from 10 to make search faster
+            maxResults: 1, // Return exactly 1 flight per destination for speed
             maxConnections: 0, // Only direct flights
             priceSort: "cheapest", // Sort by price to get cheapest first
             ...preferences,
