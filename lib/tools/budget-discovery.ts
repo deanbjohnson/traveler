@@ -245,18 +245,19 @@ export const budgetDiscoveryTool = tool({
           
           if (searchResult.success && searchResult.data?.offers && searchResult.data.offers.length > 0) {
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found ${searchResult.data.offers.length} offers for ${destination.name}`);
-            // Find the cheapest direct flight for this destination
-            const directFlights = searchResult.data.offers.filter((offer: any) => {
-              const isDirect = offer.slices && offer.slices.length === 1 && 
-                              offer.slices[0].segments && offer.slices[0].segments.length === 1;
-              if (!isDirect) {
-                console.log(`[BUDGET-DISCOVERY-${toolCallId}] Skipping non-direct flight: ${offer.slices?.length} slices, ${offer.slices?.[0]?.segments?.length} segments`);
-              }
-              return isDirect;
+            // Find the cheapest flight for this destination (any flight, not just direct)
+            const validFlights = searchResult.data.offers.filter((offer: any) => {
+              return offer.slices && offer.slices.length > 0 && 
+                     offer.total_amount && parseFloat(offer.total_amount) > 0;
             });
             
-            if (directFlights.length > 0) {
-              const cheapestFlight = directFlights[0]; // Already sorted by price
+            if (validFlights.length > 0) {
+              // Find the cheapest flight among all valid offers
+              const cheapestFlight = validFlights.reduce((min: any, offer: any) => {
+                const price = parseFloat(offer.total_amount);
+                const minPrice = parseFloat(min.total_amount);
+                return price < minPrice ? offer : min;
+              }, validFlights[0]);
               
               // Add destination context to the flight
               const enhancedFlight = {
@@ -276,15 +277,15 @@ export const budgetDiscoveryTool = tool({
               });
               
               destinationsSearched.push(destination.name);
-              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest direct flight to ${destination.name}: $${enhancedFlight.total_amount}`);
-            } else {
-              console.log(`[BUDGET-DISCOVERY-${toolCallId}] No direct flights found to ${destination.name} - API returned:`, {
-                success: searchResult.success,
-                hasData: !!searchResult.data,
-                offersCount: searchResult.data?.offers?.length || 0,
-                error: searchResult.error
-              });
-            }
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest flight to ${destination.name}: $${enhancedFlight.total_amount}`);
+                          } else {
+                console.log(`[BUDGET-DISCOVERY-${toolCallId}] No valid flights found to ${destination.name} - API returned:`, {
+                  success: searchResult.success,
+                  hasData: !!searchResult.data,
+                  offersCount: searchResult.data?.offers?.length || 0,
+                  error: searchResult.error
+                });
+              }
           }
 
           // Rate limiting delay (reduced from 3 seconds to 1 second)
