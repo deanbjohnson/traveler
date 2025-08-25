@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { flexibleFlightSearch } from "@/app/server/actions/flexible-flight-search";
+import { searchFlights } from "@/app/server/actions/flight-search";
 import { setProgress, resetProgress } from "@/lib/progress";
 import { eachDayOfInterval, addMonths, startOfMonth, endOfMonth } from "date-fns";
 
@@ -230,28 +230,25 @@ export const budgetDiscoveryTool = tool({
         }
         
         try {
-          const flexibleParams = {
-            from: from === "anywhere" ? ["JFK", "LAX", "ORD", "ATL", "DFW", "SFO", "MIA", "BOS", "SEA", "DEN"] : [from],
-            to: [destination.airport],
-            // Use a continuous window across all generated months to diversify dates
-            dateWindow: {
-              start: dateRangesSearched[0]?.start,
-              end: dateRangesSearched[dateRangesSearched.length - 1]?.end,
-            },
-            tripType,
+          // Use a much simpler approach for budget discovery - just search 1 specific date
+          const searchDate = new Date();
+          searchDate.setDate(searchDate.getDate() + 30); // 1 month from now
+          
+          const searchResult = await searchFlights({
+            from: from === "anywhere" ? "JFK" : from,
+            to: destination.airport,
+            date: searchDate.toISOString().split('T')[0],
+            returnDate: tripType === "round-trip" ? new Date(searchDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : undefined,
             passengers,
             cabinClass,
-            maxResults: 1, // Return exactly 1 flight per destination for speed
-            maxConnections: 0, // Only direct flights
-            priceSort: "cheapest", // Sort by price to get cheapest first
-            ...preferences,
-          };
-
-          const searchResult = await flexibleFlightSearch(flexibleParams);
+          });
           
-          if (searchResult.success && searchResult.results && searchResult.results.length > 0) {
+          if (searchResult.success && searchResult.data?.offers && searchResult.data.offers.length > 0) {
             // Find the cheapest direct flight for this destination
-            const directFlights = searchResult.results.filter((flight: any) => flight.connections === 0);
+            const directFlights = searchResult.data.offers.filter((offer: any) => {
+              return offer.slices && offer.slices.length === 1 && 
+                     offer.slices[0].segments && offer.slices[0].segments.length === 1;
+            });
             
             if (directFlights.length > 0) {
               const cheapestFlight = directFlights[0]; // Already sorted by price
@@ -270,11 +267,11 @@ export const budgetDiscoveryTool = tool({
               locationResults.push({
                 destination,
                 flight: enhancedFlight,
-                price: enhancedFlight.price.total,
+                price: parseFloat(enhancedFlight.total_amount),
               });
               
               destinationsSearched.push(destination.name);
-              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest direct flight to ${destination.name}: $${enhancedFlight.price.total}`);
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest direct flight to ${destination.name}: $${enhancedFlight.total_amount}`);
             } else {
               console.log(`[BUDGET-DISCOVERY-${toolCallId}] No direct flights found to ${destination.name}`);
             }
