@@ -103,12 +103,12 @@ function generateBudgetDiscoveryDates(timeFrame: string) {
       endDate = addMonths(now, 5); // Default to 5 months
   }
 
-  // Generate contiguous monthly ranges to avoid clustering
-  const monthsToCover = timeFrame === "12-months" ? 12 : timeFrame === "6-months" ? 6 : 3;
+  // Generate fewer date ranges to avoid timeout (reduced from monthly to quarterly)
+  const monthsToCover = timeFrame === "12-months" ? 4 : timeFrame === "6-months" ? 3 : 2;
   const dates: Array<{ start: string; end: string }> = [];
   for (let i = 0; i < monthsToCover; i++) {
-    const monthStart = addMonths(startDate, i);
-    const monthEnd = endOfMonth(monthStart);
+    const monthStart = addMonths(startDate, i * 2); // Skip every other month
+    const monthEnd = endOfMonth(addMonths(monthStart, 1)); // Cover 2 months at a time
     dates.push({
       start: monthStart.toISOString().split('T')[0],
       end: monthEnd.toISOString().split('T')[0],
@@ -204,8 +204,8 @@ export const budgetDiscoveryTool = tool({
     const dateRangesSearched = generateBudgetDiscoveryDates(timeFrame);
 
     try {
-      // Limit to exactly 10 destinations for Google Flights-style deals
-      const plannedDestinations = Math.min(10, destinations.length);
+      // Limit to 5 destinations to avoid timeout (reduced from 10)
+      const plannedDestinations = Math.min(5, destinations.length);
       const limitedDestinations = destinations.slice(0, plannedDestinations);
 
       if (tripId) {
@@ -241,7 +241,7 @@ export const budgetDiscoveryTool = tool({
             tripType,
             passengers,
             cabinClass,
-            maxResults: 10, // Get more results to find the cheapest direct flight
+            maxResults: 5, // Reduced from 10 to make search faster
             maxConnections: 0, // Only direct flights
             priceSort: "cheapest", // Sort by price to get cheapest first
             ...preferences,
@@ -280,8 +280,8 @@ export const budgetDiscoveryTool = tool({
             }
           }
 
-          // Rate limiting delay
-          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 seconds between calls
+          // Rate limiting delay (reduced from 3 seconds to 1 second)
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between calls
           idx += 1;
           if (tripId) {
             setProgress(tripId, {
@@ -299,7 +299,7 @@ export const budgetDiscoveryTool = tool({
 
       // Maintain original destination order, but each location shows its cheapest direct flight
       const sortedResults = locationResults
-        .slice(0, 10) // Take exactly 10 locations in original order
+        .slice(0, 5) // Take exactly 5 locations in original order (reduced from 10)
         .map(item => item.flight);
 
       const searchDuration = Date.now() - startTime;
