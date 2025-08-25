@@ -4,8 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { tools as originalTools } from "@/lib/tools";
 import { ensureUserExists } from "@/lib/db";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// Allow streaming responses up to 60 seconds (increased from 30)
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const requestStartTime = Date.now();
@@ -334,9 +334,9 @@ export async function POST(req: Request) {
 - This is different from budgetDiscovery which searches multiple destinations
 
 CRITICAL: For budgetDiscovery, you MUST:
-1. First generate a list of exactly 10 relevant destinations based on the user's query
+1. First generate a list of EXACTLY 5 relevant destinations based on the user's query
 2. Include the IATA airport code for each destination
-3. Call budgetDiscovery with the destinations array
+3. Call budgetDiscovery with the destinations array (max 5 destinations)
 
 Example budgetDiscovery call:
 \`\`\`json
@@ -348,12 +348,7 @@ Example budgetDiscovery call:
     {"name": "Palm Springs", "airport": "PSP", "country": "United States", "category": "golf"},
     {"name": "Myrtle Beach", "airport": "MYR", "country": "United States", "category": "golf"},
     {"name": "Pebble Beach", "airport": "MRY", "country": "United States", "category": "golf"},
-    {"name": "Orlando", "airport": "MCO", "country": "United States", "category": "golf"},
-    {"name": "Las Vegas", "airport": "LAS", "country": "United States", "category": "golf"},
-    {"name": "Hilton Head", "airport": "HHH", "country": "United States", "category": "golf"},
-    {"name": "San Diego", "airport": "SAN", "country": "United States", "category": "golf"},
-    {"name": "Austin", "airport": "AUS", "country": "United States", "category": "golf"},
-    {"name": "Phoenix", "airport": "PHX", "country": "United States", "category": "golf"}
+    {"name": "Orlando", "airport": "MCO", "country": "United States", "category": "golf"}
   ],
   "timeFrame": "6-months",
   "tripType": "round-trip",

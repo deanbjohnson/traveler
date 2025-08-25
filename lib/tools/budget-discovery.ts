@@ -151,7 +151,7 @@ function formatDate(dateString: string): string {
 }
 
 export const budgetDiscoveryTool = tool({
-  description: `AI-Powered Budget Discovery Flight Search. The model should provide up to 20 concrete destinations (city + primary IATA airport) based on the user's query; this tool will then fetch the cheapest direct flight for each destination.`,
+  description: `AI-Powered Budget Discovery Flight Search. The model should provide EXACTLY 5 concrete destinations (city + primary IATA airport) based on the user's query; this tool will then fetch the cheapest direct flight for each destination. DO NOT provide more than 5 destinations.`,
   parameters: z.object({
     from: z.string().describe("Origin airport code or 'anywhere' for flexible origin"),
     destinationSuggestion: z.string().describe("Natural language request that informed the AI's destination shortlist (for logging only)"),
@@ -166,8 +166,8 @@ export const budgetDiscoveryTool = tool({
         })
       )
       .min(1)
-      .max(25)
-      .describe("AI-proposed destination shortlist to search"),
+      .max(5)
+      .describe("AI-proposed destination shortlist to search (EXACTLY 5 destinations)"),
     timeFrame: z.enum(["3-months", "6-months", "12-months"]).default("6-months").describe("Search timeframe"),
     tripType: z.enum(["round-trip", "one-way"]).default("round-trip").describe("Trip type"),
     tripDuration: z.number().optional().describe("Trip duration in days (for round-trip)"),
