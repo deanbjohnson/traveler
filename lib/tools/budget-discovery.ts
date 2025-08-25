@@ -244,10 +244,15 @@ export const budgetDiscoveryTool = tool({
           });
           
           if (searchResult.success && searchResult.data?.offers && searchResult.data.offers.length > 0) {
+            console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found ${searchResult.data.offers.length} offers for ${destination.name}`);
             // Find the cheapest direct flight for this destination
             const directFlights = searchResult.data.offers.filter((offer: any) => {
-              return offer.slices && offer.slices.length === 1 && 
-                     offer.slices[0].segments && offer.slices[0].segments.length === 1;
+              const isDirect = offer.slices && offer.slices.length === 1 && 
+                              offer.slices[0].segments && offer.slices[0].segments.length === 1;
+              if (!isDirect) {
+                console.log(`[BUDGET-DISCOVERY-${toolCallId}] Skipping non-direct flight: ${offer.slices?.length} slices, ${offer.slices?.[0]?.segments?.length} segments`);
+              }
+              return isDirect;
             });
             
             if (directFlights.length > 0) {
@@ -273,7 +278,12 @@ export const budgetDiscoveryTool = tool({
               destinationsSearched.push(destination.name);
               console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest direct flight to ${destination.name}: $${enhancedFlight.total_amount}`);
             } else {
-              console.log(`[BUDGET-DISCOVERY-${toolCallId}] No direct flights found to ${destination.name}`);
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] No direct flights found to ${destination.name} - API returned:`, {
+                success: searchResult.success,
+                hasData: !!searchResult.data,
+                offersCount: searchResult.data?.offers?.length || 0,
+                error: searchResult.error
+              });
             }
           }
 
