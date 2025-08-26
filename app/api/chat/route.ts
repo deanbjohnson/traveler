@@ -331,7 +331,9 @@ export async function POST(req: Request) {
     );
 
     console.log(`[CHAT-${requestId}] Starting streamText with model: ${selectedModel}`);
-    const result = streamText({
+    
+    // Add timeout handling for unresponsive chat
+    const streamTextPromise = streamText({
       model: cohere(selectedModel),
       maxSteps: 10,
       temperature: 0.7, // Add temperature to ensure the model generates responses
@@ -357,6 +359,13 @@ export async function POST(req: Request) {
 - For flexible searches: Use regions (asia, europe), metro areas (new-york, tokyo), relative dates (next-month), and trip durations
 - For multiple flights to a specific location: Use findFlight with date ranges (e.g., "next 6 months") to get multiple flight options to one destination
 - Always infer missing details intelligently (default to economy class, 1 passenger, round-trip unless specified)
+
+**Budget Discovery (budgetDiscovery)**: Use for finding deals across multiple destinations
+- For golf trips: Use specific, well-known golf destinations like "Pebble Beach, CA", "Augusta National, GA", "Bandon Dunes, OR", "Pinehurst, NC", "Whistling Straits, WI"
+- For beach trips: Use specific beach destinations like "Maui, HI", "Cancun, Mexico", "Bali, Indonesia", "Santorini, Greece", "Maldives"
+- For food trips: Use specific food destinations like "Tokyo, Japan", "Paris, France", "Bangkok, Thailand", "New Orleans, LA", "San Francisco, CA"
+- ALWAYS use specific city names with state/country to avoid ambiguity (e.g., "Bandon Dunes, Oregon" not just "Bandon")
+- NEVER use ambiguous place names that could refer to multiple locations
 
 **Budget Discovery (budgetDiscovery)**: Use for comprehensive deal hunting and discovery
 - Perfect for: "Find cheap flights to anywhere warm", "Show me the best deals to Asia", "What are the cheapest flights to Europe in the next 6 months?"
@@ -615,7 +624,7 @@ You: [MUST use addToTimeline tool with the flight data] "I've added the flight t
     console.log(`[CHAT-${requestId}] === REQUEST PROCESSING COMPLETE ===`);
 
     try {
-      const response = result.toDataStreamResponse();
+      const response = streamTextPromise.toDataStreamResponse();
       console.log(`[CHAT-${requestId}] Response stream created successfully`);
       
       // Add debugging to see if the stream is actually being consumed
