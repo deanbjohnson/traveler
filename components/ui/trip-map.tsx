@@ -178,7 +178,7 @@ export function TripMap({ timeline, className }: TripMapProps) {
   }, []);
 
   useEffect(() => {
-    if (!map.current || !mapLoaded || !timeline.items.length) return;
+    if (!map.current || !mapLoaded || !timeline?.items?.length) return;
 
     // Clear existing markers and routes
     markersRef.current.forEach(marker => marker.remove());
@@ -188,7 +188,7 @@ export function TripMap({ timeline, className }: TripMapProps) {
     // Ensure extended airport DB is available before extracting
     (async () => {
       await ensureAirportsLoaded();
-      const { coordinates, routes } = extractCoordinatesAndRoutes(timeline.items);
+      const { coordinates, routes } = extractCoordinatesAndRoutes(timeline.items || []);
 
       if (coordinates.length === 0) {
         console.log("No coordinates found in timeline items");
