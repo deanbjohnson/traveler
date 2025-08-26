@@ -284,10 +284,24 @@ export const budgetDiscoveryTool = tool({
           if (searchResult.success && searchResult.data?.offers && searchResult.data.offers.length > 0) {
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found ${searchResult.data.offers.length} offers for ${destination.name}`);
             // Find the cheapest flight for this destination (any flight, not just direct)
+            console.log(`[BUDGET-DISCOVERY-${toolCallId}] Filtering ${searchResult.data.offers.length} offers for ${destination.name} with filters:`, {
+              maxStops,
+              maxBudget,
+              tripType,
+              passengers,
+              cabinClass
+            });
+            
             const validFlights = searchResult.data.offers.filter((offer: any) => {
               // Basic validation
               if (!offer.slices || offer.slices.length === 0 || 
                   !offer.total_amount || parseFloat(offer.total_amount) <= 0) {
+                console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} failed basic validation:`, {
+                  hasSlices: !!offer.slices,
+                  slicesLength: offer.slices?.length,
+                  totalAmount: offer.total_amount,
+                  parsedAmount: parseFloat(offer.total_amount)
+                });
                 return false;
               }
               
@@ -297,6 +311,7 @@ export const budgetDiscoveryTool = tool({
                   total + (slice.segments?.length || 0), 0);
                 const totalStops = totalSegments - offer.slices.length; // segments - slices = stops
                 if (totalStops > maxStops) {
+                  console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} failed stops filter: ${totalStops} stops > ${maxStops} max`);
                   return false;
                 }
               }
@@ -305,10 +320,12 @@ export const budgetDiscoveryTool = tool({
               if (maxBudget !== undefined) {
                 const price = parseFloat(offer.total_amount);
                 if (price > maxBudget) {
+                  console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} failed budget filter: $${price} > $${maxBudget} max`);
                   return false;
                 }
               }
               
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} passed all filters: $${parseFloat(offer.total_amount)}`);
               return true;
             });
             
