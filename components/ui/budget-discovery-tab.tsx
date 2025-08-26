@@ -1082,7 +1082,10 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     const allFlights = [];
     
     // Add poster flight (cheapest from initial search)
-    const regionData = sortedRegions.find(r => r.region === 'Snorkeling'); // Assuming snorkeling for now
+    // Find the region that contains this location
+    const regionData = sortedRegions.find(r => 
+      r.countries.some(c => c.country === location)
+    );
     if (regionData) {
       const locationData = regionData.countries.find(c => c.country === location);
       if (locationData && locationData.flights.length > 0) {
@@ -1220,13 +1223,12 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         
         const systemMessage = `I found ${normalized.length} flights to ${locationName}:\n\n${flightDetails}\n\nYou can now reference these flights when adding them to the timeline.`;
         
-        // Add as a system message (separate from chat to avoid triggering AI responses)
-        const newSystemMessage = {
-          id: `expanded-flights-${locationName}-${Date.now()}`,
+        // Add the message directly to the chat
+        append({
+          role: 'assistant',
           content: systemMessage,
-          timestamp: new Date()
-        };
-        setSystemMessages(prev => [...prev, newSystemMessage]);
+          id: `expanded-flights-${locationName}-${Date.now()}`
+        });
         
       } else {
         console.warn('No results returned for location', locationName, data);
@@ -1284,13 +1286,12 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         
         const systemMessage = `I found ${normalized.length} more flights to ${locationName}:\n\n${flightDetails}\n\nYou can now reference these flights when adding them to the timeline.`;
         
-        // Add as a system message (separate from chat to avoid triggering AI responses)
-        const newSystemMessage = {
-          id: `more-flights-${locationName}-${Date.now()}`,
+        // Add the message directly to the chat
+        append({
+          role: 'assistant',
           content: systemMessage,
-          timestamp: new Date()
-        };
-        setSystemMessages(prev => [...prev, newSystemMessage]);
+          id: `more-flights-${locationName}-${Date.now()}`
+        });
       }
     } catch (error) {
       console.error('Error loading more flights:', error);
