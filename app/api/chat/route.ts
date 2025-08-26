@@ -284,23 +284,24 @@ export async function POST(req: Request) {
                     console.log(`[CHAT-${requestId}] 🔧 Injecting filters for budgetDiscovery:`, filters);
                     console.log(`[CHAT-${requestId}] 🔧 Original args[0]:`, first);
                     
-                    if (filters.tripType && !('tripType' in first)) {
+                    // Always override with user-selected filters (remove the !('field' in first) checks)
+                    if (filters.tripType) {
                       (first as any).tripType = filters.tripType;
                       console.log(`[CHAT-${requestId}] 🔧 Injected tripType: ${filters.tripType}`);
                     }
-                    if (filters.passengers && !('passengers' in first)) {
+                    if (filters.passengers) {
                       (first as any).passengers = filters.passengers;
                       console.log(`[CHAT-${requestId}] 🔧 Injected passengers: ${filters.passengers}`);
                     }
-                    if (filters.cabinClass && !('cabinClass' in first)) {
+                    if (filters.cabinClass) {
                       (first as any).cabinClass = filters.cabinClass;
                       console.log(`[CHAT-${requestId}] 🔧 Injected cabinClass: ${filters.cabinClass}`);
                     }
-                    if (filters.maxStops !== undefined && !('maxStops' in first)) {
+                    if (filters.maxStops !== undefined) {
                       (first as any).maxStops = filters.maxStops;
                       console.log(`[CHAT-${requestId}] 🔧 Injected maxStops: ${filters.maxStops}`);
                     }
-                    if (filters.priceFilter !== undefined && !('maxBudget' in first)) {
+                    if (filters.priceFilter !== undefined) {
                       (first as any).maxBudget = filters.priceFilter;
                       console.log(`[CHAT-${requestId}] 🔧 Injected maxBudget: ${filters.priceFilter}`);
                     }
