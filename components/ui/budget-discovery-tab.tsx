@@ -752,8 +752,8 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     };
 
     const price = raw.price || {
-      total: typeof raw.total === 'number' ? raw.total : (parseFloat(raw.offer?.total_amount) || 0),
-      currency: raw.currency || raw.offer?.total_currency || 'USD',
+      total: typeof raw.total === 'number' ? raw.total : (parseFloat(raw.total_amount || raw.offer?.total_amount) || 0),
+      currency: raw.currency || raw.total_currency || raw.offer?.total_currency || 'USD',
     };
 
     const duration = raw.duration || {
