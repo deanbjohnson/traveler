@@ -1223,12 +1223,13 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         
         const systemMessage = `I found ${normalized.length} flights to ${locationName}:\n\n${flightDetails}\n\nYou can now reference these flights when adding them to the timeline.`;
         
-        // Add the message directly to the chat
-        append({
-          role: 'assistant',
+        // Add as a system message to avoid triggering AI response
+        const newSystemMessage = {
+          id: `expanded-flights-${locationName}-${Date.now()}`,
           content: systemMessage,
-          id: `expanded-flights-${locationName}-${Date.now()}`
-        });
+          timestamp: new Date()
+        };
+        setSystemMessages(prev => [...prev, newSystemMessage]);
         
       } else {
         console.warn('No results returned for location', locationName, data);
@@ -1286,12 +1287,13 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         
         const systemMessage = `I found ${normalized.length} more flights to ${locationName}:\n\n${flightDetails}\n\nYou can now reference these flights when adding them to the timeline.`;
         
-        // Add the message directly to the chat
-        append({
-          role: 'assistant',
+        // Add as a system message to avoid triggering AI response
+        const newSystemMessage = {
+          id: `more-flights-${locationName}-${Date.now()}`,
           content: systemMessage,
-          id: `more-flights-${locationName}-${Date.now()}`
-        });
+          timestamp: new Date()
+        };
+        setSystemMessages(prev => [...prev, newSystemMessage]);
       }
     } catch (error) {
       console.error('Error loading more flights:', error);
