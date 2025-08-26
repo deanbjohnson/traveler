@@ -74,19 +74,29 @@ export async function POST(request: Request) {
     // Wait for all searches to complete
     const results = await Promise.all(searchPromises);
     
-    // Flatten and sort by price
-    const allOffers = results.flat().sort((a, b) => 
+    // Flatten all offers
+    const allOffers = results.flat();
+    
+    // Deduplicate by offer ID to avoid showing the same flight multiple times
+    const uniqueOffers = allOffers.filter((offer, index, self) => 
+      index === self.findIndex(o => o.id === offer.id)
+    );
+    
+    // Sort by price
+    const sortedOffers = uniqueOffers.sort((a, b) => 
       parseFloat(a.total_amount) - parseFloat(b.total_amount)
     );
     
     // Return top results
-    const topResults = allOffers.slice(0, maxResults);
+    const topResults = sortedOffers.slice(0, maxResults);
     
     return NextResponse.json({
       success: true,
       results: topResults,
       searchedDates: searchDates,
-      totalOffersFound: allOffers.length
+      totalOffersFound: allOffers.length,
+      uniqueOffersFound: uniqueOffers.length,
+      duplicatesRemoved: allOffers.length - uniqueOffers.length
     });
   } catch (error) {
     console.error("/api/find-flights error", error);
