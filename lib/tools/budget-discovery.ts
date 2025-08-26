@@ -232,19 +232,55 @@ export const budgetDiscoveryTool = tool({
         }
         
         try {
-          // Use a much simpler approach for budget discovery - just search 1 specific date
-          const searchDate = new Date();
-          searchDate.setDate(searchDate.getDate() + 30); // 1 month from now
+          // Try multiple dates to increase chances of finding flights
+          const searchDates = [
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 1 month from now
+            new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 2 months from now
+            new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 3 months from now
+          ];
           
-          const searchResult = await searchFlights({
-            from: from === "anywhere" ? "JFK" : from,
-            to: destination.airport,
-            date: searchDate.toISOString().split('T')[0],
-            returnDate: tripType === "round-trip" ? new Date(searchDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : undefined,
-            passengers,
-            cabinClass,
+          let searchResult = null;
+          let searchDate = null;
+          
+          // Try each date until we find flights
+          for (const date of searchDates) {
+            searchDate = date;
+            searchResult = await searchFlights({
+              from: from === "anywhere" ? "JFK" : from,
+              to: destination.airport,
+              date: date.toISOString().split('T')[0],
+              returnDate: tripType === "round-trip" ? new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : undefined,
+              passengers,
+              cabinClass,
+            });
+            
+            // If we found flights, break out of the loop
+            if (searchResult.success && searchResult.data?.offers && searchResult.data.offers.length > 0) {
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found flights on ${date.toISOString().split('T')[0]} for ${destination.name}`);
+              break;
+            }
+          }
+          
+          if (!searchResult) {
+            console.log(`[BUDGET-DISCOVERY-${toolCallId}] No search result for ${destination.name} - all date attempts failed`);
+            continue;
+          }
+
+          console.log(`[BUDGET-DISCOVERY-${toolCallId}] Search result for ${destination.name}:`, {
+            success: searchResult.success,
+            hasData: !!searchResult.data,
+            offersCount: searchResult.data?.offers?.length || 0,
+            error: searchResult.error,
+            searchParams: {
+              from: from === "anywhere" ? "JFK" : from,
+              to: destination.airport,
+              date: searchDate?.toISOString().split('T')[0] || 'unknown',
+              returnDate: tripType === "round-trip" && searchDate ? new Date(searchDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : undefined,
+              passengers,
+              cabinClass,
+            }
           });
-          
+
           if (searchResult.success && searchResult.data?.offers && searchResult.data.offers.length > 0) {
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found ${searchResult.data.offers.length} offers for ${destination.name}`);
             // Find the cheapest flight for this destination (any flight, not just direct)
@@ -303,14 +339,16 @@ export const budgetDiscoveryTool = tool({
               
               destinationsSearched.push(destination.name);
               console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest flight to ${destination.name}: $${enhancedFlight.total_amount}`);
-                          } else {
-                console.log(`[BUDGET-DISCOVERY-${toolCallId}] No valid flights found to ${destination.name} - API returned:`, {
-                  success: searchResult.success,
-                  hasData: !!searchResult.data,
-                  offersCount: searchResult.data?.offers?.length || 0,
-                  error: searchResult.error
-                });
-              }
+            } else {
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] No valid flights found to ${destination.name} after filtering - API returned ${searchResult.data.offers.length} offers but none passed filters`);
+            }
+          } else {
+            console.log(`[BUDGET-DISCOVERY-${toolCallId}] No flights found to ${destination.name} - API returned:`, {
+              success: searchResult.success,
+              hasData: !!searchResult.data,
+              offersCount: searchResult.data?.offers?.length || 0,
+              error: searchResult.error
+            });
           }
 
           // Rate limiting delay (reduced from 3 seconds to 1 second)
