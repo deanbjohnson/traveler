@@ -33,6 +33,8 @@ export async function POST(req: Request) {
         body.messages?.[body.messages.length - 1]?.content?.substring(0, 100) +
         "...",
       bodyKeys: Object.keys(body),
+      filters: body.filters,
+      filterVersion: body.filterVersion,
     });
 
     const { messages, tripId, model, currentFlightResults } = body;
@@ -363,6 +365,8 @@ CRITICAL: For budgetDiscovery, you MUST:
 3. Call budgetDiscovery with the destinations array (max 5 destinations)
 4. VARY the destinations based on the query - don't always suggest the same places!
 5. For golf trips, ROTATE between different golf destinations - don't always use the same 5!
+6. NEVER use the same 5 destinations twice in a row for golf trips!
+7. If you've already suggested Scottsdale, Palm Springs, Myrtle Beach, Pebble Beach, Orlando - pick DIFFERENT ones next time!
 
 For golf trips, ROTATE between these destinations (pick 5 different ones each time):
 - Scottsdale (PHX), Palm Springs (PSP), Myrtle Beach (MYR), Pebble Beach (MRY), Orlando (MCO)

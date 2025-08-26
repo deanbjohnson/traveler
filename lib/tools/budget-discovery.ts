@@ -192,6 +192,17 @@ export const budgetDiscoveryTool = tool({
     preferences = {} 
   }: any) => {
     const toolCallId = Math.random().toString(36).substring(7);
+    console.log(`[BUDGET-DISCOVERY-${toolCallId}] RECEIVED PARAMETERS:`, {
+      from,
+      destinationSuggestion,
+      destinations: destinations.map((d: any) => `${d.name} (${d.airport})`),
+      timeFrame,
+      tripType,
+      passengers,
+      cabinClass,
+      maxBudget,
+      maxStops
+    });
     console.log(`[BUDGET-DISCOVERY-${toolCallId}] Starting AI-powered budget discovery search`);
     console.log(`[BUDGET-DISCOVERY-${toolCallId}] Query: ${destinationSuggestion} from ${from}`);
     console.log(`[BUDGET-DISCOVERY-${toolCallId}] Destinations provided by model:`, destinations.map((d: {name: string; airport: string}) => `${d.name} (${d.airport})`));
