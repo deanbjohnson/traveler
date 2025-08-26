@@ -895,9 +895,15 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                     }));
                     console.log(`✅ Stored ${normalized.length} flights for location: ${targetLocation}`);
                   } else {
-                    // Regular budget discovery results
-                    mergeResults(normalized);
-                    console.log(`✅ Extracted flight results from ${toolCall.toolName} tool call:`, flightData.length);
+                                      // Regular budget discovery results
+                  mergeResults(normalized);
+                  console.log(`✅ Extracted flight results from ${toolCall.toolName} tool call:`, flightData.length);
+                  console.log(`🔍 Normalized results:`, normalized.map(f => ({
+                    id: f.id,
+                    destination: f.destinationAirport?.city_name || f.route?.destination,
+                    price: f.price?.total,
+                    context: f.destinationContext
+                  })));
                   }
                   return;
                   }
@@ -1171,9 +1177,12 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
 
     if (isExpanded) return; // collapsing
 
-    // If already loaded, do nothing
-    if (locationFlightResults[locationName]) return;
+    // If already loaded or currently loading, do nothing
+    if (locationFlightResults[locationName] || loadingMoreFlights.has(locationName)) return;
 
+    // Set loading state to prevent spam clicking
+    setLoadingMoreFlights(prev => new Set(prev).add(locationName));
+    
     // Fetch more flights directly via API (avoid chat)
     try {
       const origin = searchResults[0]?.route?.origin || 'JFK';
@@ -1190,6 +1199,13 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
           destinationAirport: { iata_code: destinationAirport, city_name: locationName, country_name: '' },
         }));
         setLocationFlightResults(prev => ({ ...prev, [locationName]: normalized }));
+        
+        // Clear loading state
+        setLoadingMoreFlights(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(locationName);
+          return newSet;
+        });
         
         // Add the expanded flight results to the chat so the AI knows about them
         const flightDetails = normalized.map((flight: FlightResult) => {
@@ -1219,6 +1235,13 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     } catch (error) {
       console.error('Error fetching more flights to location:', error);
       setLocationFlightResults(prev => ({ ...prev, [locationName]: [] }));
+    } finally {
+      // Clear loading state in all cases
+      setLoadingMoreFlights(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(locationName);
+        return newSet;
+      });
     }
   };
 
