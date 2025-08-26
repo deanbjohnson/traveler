@@ -346,7 +346,13 @@ export async function POST(req: Request) {
 - **General requests**: "I want to go somewhere warm in Asia for a week next month" → Use findFlight with regions, relative dates, and trip duration
 - **Mixed requests**: "Find cheap flights from New York to anywhere in Europe in March" → Use findFlight with specific origins and flexible destinations
 - **Complex requests**: "Show me options from California to Tokyo area, departing in the next 2 months for a 10-day trip" → Use findFlight with metro areas, date ranges, and duration
-- **Budget discovery requests**: "Find the best deals to anywhere interesting in the next 6 months" → Use budgetDiscovery tool for comprehensive deal hunting
+- **Budget discovery requests**: 
+- "Find the best deals to anywhere interesting in the next 6 months" 
+- "trip to asia from lax" (when user wants to explore multiple destinations)
+- "golf trip out of jfk" (when user wants destination suggestions)
+- "beach vacation" (when user wants destination suggestions)
+- "food trip" (when user wants destination suggestions)
+→ Use budgetDiscovery tool for comprehensive deal hunting and destination discovery
 
 **For accommodations**: Handle specific cities, date ranges, guest counts, and preferences automatically.
 
