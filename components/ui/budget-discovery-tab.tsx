@@ -1023,6 +1023,10 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     }
   };
 
+  // Debug: Log total flights before filtering
+  console.log(`🔍 Total flights before filtering: ${searchResults.length}`);
+  console.log(`🔍 Price filter: ${priceFilter ? `$${priceFilter}` : 'None'}`);
+  
   const sortedAndFilteredResults = searchResults
     .filter((flight) => {
       // Filter out invalid flight data
@@ -1031,11 +1035,20 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         return false;
       }
       
-      if (priceFilter && flight.price.total > priceFilter) return false;
+      // Debug price filtering
+      if (priceFilter && flight.price.total > priceFilter) {
+        console.log(`🔍 Flight filtered out by price: $${flight.price.total} > $${priceFilter} (${flight.route.origin}-${flight.route.destination})`);
+        return false;
+      }
+      
       if (destinationFilter && !flight.destinationContext.toLowerCase().includes(destinationFilter.toLowerCase())) return false;
       return true;
-    })
-    .sort((a, b) => {
+    });
+    
+  // Debug: Log total flights after filtering
+  console.log(`🔍 Total flights after filtering: ${sortedAndFilteredResults.length}`);
+  
+  const sortedResults = sortedAndFilteredResults.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
         case 'price':
