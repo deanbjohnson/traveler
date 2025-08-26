@@ -362,8 +362,13 @@ CRITICAL: For budgetDiscovery, you MUST:
 2. Include the IATA airport code for each destination
 3. Call budgetDiscovery with the destinations array (max 5 destinations)
 4. VARY the destinations based on the query - don't always suggest the same places!
+5. For golf trips, ROTATE between different golf destinations - don't always use the same 5!
 
-For golf trips, consider: Scottsdale (PHX), Palm Springs (PSP), Myrtle Beach (MYR), Pebble Beach (MRY), Orlando (MCO), Pinehurst (RDU), Bandon (OTH), Kiawah Island (CHS), Whistling Straits (MKE), St Andrews (EDI), Augusta (AGS), etc.
+For golf trips, ROTATE between these destinations (pick 5 different ones each time):
+- Scottsdale (PHX), Palm Springs (PSP), Myrtle Beach (MYR), Pebble Beach (MRY), Orlando (MCO)
+- Pinehurst (RDU), Bandon (OTH), Kiawah Island (CHS), Whistling Straits (MKE), St Andrews (EDI)
+- Augusta (AGS), Torrey Pines (SAN), TPC Sawgrass (JAX), Bethpage Black (ISP), Oakmont (PIT)
+- Pebble Beach (MRY), St Andrews (EDI), Augusta (AGS), Pinehurst (RDU), Bandon (OTH)
 
 For beach trips, consider: Cancun (CUN), Punta Cana (PUJ), Aruba (AUA), Maui (OGG), Bali (DPS), Maldives (MLE), Santorini (JTR), etc.
 

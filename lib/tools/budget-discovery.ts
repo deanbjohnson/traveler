@@ -292,6 +292,13 @@ export const budgetDiscoveryTool = tool({
               cabinClass
             });
             
+            // Debug: Check what cabin class offers we're getting
+            const cabinClasses = searchResult.data.offers.map((offer: any) => {
+              const cabinClass = offer.slices?.[0]?.fare_class_name || offer.slices?.[0]?.cabin_class || 'unknown';
+              return { id: offer.id, cabinClass, price: offer.total_amount };
+            });
+            console.log(`[BUDGET-DISCOVERY-${toolCallId}] Cabin classes found for ${destination.name}:`, cabinClasses.slice(0, 5));
+            
             const validFlights = searchResult.data.offers.filter((offer: any) => {
               // Basic validation
               if (!offer.slices || offer.slices.length === 0 || 
