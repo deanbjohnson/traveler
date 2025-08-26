@@ -331,6 +331,10 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const savedScrollPosition = useRef<number>(0);
   
+  // Track filter changes to trigger new searches
+  const [filterVersion, setFilterVersion] = useState(0);
+  const lastSearchFilters = useRef<string>('');
+  
   // Separate state for system messages (flight details) that shouldn't trigger AI responses
   const [systemMessages, setSystemMessages] = useState<Array<{
     id: string;
@@ -351,6 +355,16 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     }
     return [];
   });
+
+  // Clear search results when filters change
+  useEffect(() => {
+    if (filterVersion > 0) {
+      console.log('🔄 Filters changed, clearing previous search results');
+      setSearchResults([]);
+      setLocationFlightResults({});
+      setExpandedLocationsForSearch(new Set());
+    }
+  }, [filterVersion]);
 
   // Persist UI state
   useEffect(() => {
@@ -582,6 +596,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         maxStops,
         priceFilter,
       },
+      filterVersion, // Include filter version to detect changes
     },
     // Save chat history to localStorage
     onFinish: async (message) => {
@@ -1278,7 +1293,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         const newSystemMessage = {
           id: `expanded-flights-${locationName}-${Date.now()}`,
           content: systemMessage,
-          timestamp: new Date()
+          timestamp: new Date(Date.now() - 1000) // Set timestamp 1 second ago to ensure it appears before new messages
         };
         setSystemMessages(prev => [...prev, newSystemMessage]);
         
@@ -1348,7 +1363,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         const newSystemMessage = {
           id: `more-flights-${locationName}-${Date.now()}`,
           content: systemMessage,
-          timestamp: new Date()
+          timestamp: new Date(Date.now() - 1000) // Set timestamp 1 second ago to ensure it appears before new messages
         };
         setSystemMessages(prev => [...prev, newSystemMessage]);
       }
@@ -1446,6 +1461,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                   onChange={(e) => {
                     setTripType(e.target.value as 'round-trip' | 'one-way');
                     localStorage.setItem(`bd-tripType-${tripId}`, e.target.value);
+                    setFilterVersion(prev => prev + 1);
                   }}
                   className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
@@ -1462,6 +1478,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                   onChange={(e) => {
                     setPassengers(Number(e.target.value));
                     localStorage.setItem(`bd-passengers-${tripId}`, e.target.value);
+                    setFilterVersion(prev => prev + 1);
                   }}
                   className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
@@ -1479,6 +1496,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                   onChange={(e) => {
                     setCabinClass(e.target.value as 'economy' | 'premium_economy' | 'business' | 'first');
                     localStorage.setItem(`bd-cabinClass-${tripId}`, e.target.value);
+                    setFilterVersion(prev => prev + 1);
                   }}
                   className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
@@ -1498,6 +1516,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                     const value = e.target.value === '' ? null : Number(e.target.value);
                     setMaxStops(value);
                     localStorage.setItem(`bd-maxStops-${tripId}`, value?.toString() ?? '');
+                    setFilterVersion(prev => prev + 1);
                   }}
                   className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
@@ -1517,6 +1536,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                     const value = e.target.value === '' ? null : Number(e.target.value);
                     setPriceFilter(value);
                     localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
+                    setFilterVersion(prev => prev + 1);
                   }}
                   className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
