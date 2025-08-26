@@ -281,21 +281,31 @@ export async function POST(req: Request) {
                   // Inject filter parameters for budgetDiscovery tool
                   if (name === 'budgetDiscovery' && body.filters) {
                     const filters = body.filters;
+                    console.log(`[CHAT-${requestId}] 🔧 Injecting filters for budgetDiscovery:`, filters);
+                    console.log(`[CHAT-${requestId}] 🔧 Original args[0]:`, first);
+                    
                     if (filters.tripType && !('tripType' in first)) {
                       (first as any).tripType = filters.tripType;
+                      console.log(`[CHAT-${requestId}] 🔧 Injected tripType: ${filters.tripType}`);
                     }
                     if (filters.passengers && !('passengers' in first)) {
                       (first as any).passengers = filters.passengers;
+                      console.log(`[CHAT-${requestId}] 🔧 Injected passengers: ${filters.passengers}`);
                     }
                     if (filters.cabinClass && !('cabinClass' in first)) {
                       (first as any).cabinClass = filters.cabinClass;
+                      console.log(`[CHAT-${requestId}] 🔧 Injected cabinClass: ${filters.cabinClass}`);
                     }
                     if (filters.maxStops !== undefined && !('maxStops' in first)) {
                       (first as any).maxStops = filters.maxStops;
+                      console.log(`[CHAT-${requestId}] 🔧 Injected maxStops: ${filters.maxStops}`);
                     }
                     if (filters.priceFilter !== undefined && !('maxBudget' in first)) {
                       (first as any).maxBudget = filters.priceFilter;
+                      console.log(`[CHAT-${requestId}] 🔧 Injected maxBudget: ${filters.priceFilter}`);
                     }
+                    
+                    console.log(`[CHAT-${requestId}] 🔧 Final args[0] after injection:`, first);
                   }
                 }
               } catch (_) {}
