@@ -174,6 +174,7 @@ export const budgetDiscoveryTool = tool({
     maxBudget: z.number().optional().describe("Maximum budget per person"),
     passengers: z.number().default(1).describe("Number of passengers"),
     cabinClass: z.enum(["economy", "premium_economy", "business", "first"]).default("economy").describe("Cabin class"),
+    maxStops: z.number().optional().describe("Maximum number of stops (0 for direct only)"),
     preferences: z.record(z.any()).optional().describe("Additional preferences"),
   }),
   execute: async ({ 
@@ -187,6 +188,7 @@ export const budgetDiscoveryTool = tool({
     maxBudget, 
     passengers = 1, 
     cabinClass = "economy", 
+    maxStops,
     preferences = {} 
   }: any) => {
     const toolCallId = Math.random().toString(36).substring(7);
@@ -247,8 +249,31 @@ export const budgetDiscoveryTool = tool({
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found ${searchResult.data.offers.length} offers for ${destination.name}`);
             // Find the cheapest flight for this destination (any flight, not just direct)
             const validFlights = searchResult.data.offers.filter((offer: any) => {
-              return offer.slices && offer.slices.length > 0 && 
-                     offer.total_amount && parseFloat(offer.total_amount) > 0;
+              // Basic validation
+              if (!offer.slices || offer.slices.length === 0 || 
+                  !offer.total_amount || parseFloat(offer.total_amount) <= 0) {
+                return false;
+              }
+              
+              // Filter by max stops if specified
+              if (maxStops !== undefined) {
+                const totalSegments = offer.slices.reduce((total: number, slice: any) => 
+                  total + (slice.segments?.length || 0), 0);
+                const totalStops = totalSegments - offer.slices.length; // segments - slices = stops
+                if (totalStops > maxStops) {
+                  return false;
+                }
+              }
+              
+              // Filter by max budget if specified
+              if (maxBudget !== undefined) {
+                const price = parseFloat(offer.total_amount);
+                if (price > maxBudget) {
+                  return false;
+                }
+              }
+              
+              return true;
             });
             
             if (validFlights.length > 0) {

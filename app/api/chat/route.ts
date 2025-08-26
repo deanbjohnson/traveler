@@ -259,7 +259,7 @@ export async function POST(req: Request) {
     });
 
     const streamStartTime = Date.now();
-    // Wrap tools to inject tripId param automatically for tools that accept it
+    // Wrap tools to inject tripId and filter params automatically for tools that accept them
     const toolsWithTripId = Object.fromEntries(
       Object.entries(tools).map(([name, t]) => [
         name,
@@ -268,11 +268,33 @@ export async function POST(req: Request) {
           execute: async (...args: any[]) => {
             console.log(`[CHAT-${requestId}] 🔧 Tool ${name} starting execution...`);
             try {
-              // Inject tripId if supported
+              // Inject tripId and filter parameters if supported
               try {
                 const first = args?.[0];
-                if (first && typeof first === 'object' && !('tripId' in first)) {
-                  (first as any).tripId = tripId;
+                if (first && typeof first === 'object') {
+                  if (!('tripId' in first)) {
+                    (first as any).tripId = tripId;
+                  }
+                  
+                  // Inject filter parameters for budgetDiscovery tool
+                  if (name === 'budgetDiscovery' && body.filters) {
+                    const filters = body.filters;
+                    if (filters.tripType && !('tripType' in first)) {
+                      (first as any).tripType = filters.tripType;
+                    }
+                    if (filters.passengers && !('passengers' in first)) {
+                      (first as any).passengers = filters.passengers;
+                    }
+                    if (filters.cabinClass && !('cabinClass' in first)) {
+                      (first as any).cabinClass = filters.cabinClass;
+                    }
+                    if (filters.maxStops !== undefined && !('maxStops' in first)) {
+                      (first as any).maxStops = filters.maxStops;
+                    }
+                    if (filters.priceFilter !== undefined && !('maxBudget' in first)) {
+                      (first as any).maxBudget = filters.priceFilter;
+                    }
+                  }
                 }
               } catch (_) {}
 

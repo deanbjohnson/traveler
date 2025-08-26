@@ -179,6 +179,36 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     }
     return 'asc';
   });
+  // Filter states
+  const [tripType, setTripType] = useState<'round-trip' | 'one-way'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(`bd-tripType-${tripId}`) as 'round-trip'|'one-way') || 'round-trip';
+    }
+    return 'round-trip';
+  });
+  
+  const [passengers, setPassengers] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return Number(localStorage.getItem(`bd-passengers-${tripId}`)) || 1;
+    }
+    return 1;
+  });
+  
+  const [cabinClass, setCabinClass] = useState<'economy' | 'premium_economy' | 'business' | 'first'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(`bd-cabinClass-${tripId}`) as 'economy'|'premium_economy'|'business'|'first') || 'economy';
+    }
+    return 'economy';
+  });
+  
+  const [maxStops, setMaxStops] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const v = localStorage.getItem(`bd-maxStops-${tripId}`);
+      return v ? Number(v) : null;
+    }
+    return null;
+  });
+  
   const [priceFilter, setPriceFilter] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
       const v = localStorage.getItem(`bd-priceFilter-${tripId}`);
@@ -544,6 +574,14 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
   } = useChat({
     body: {
       tripId,
+      // Include filter parameters in the request body
+      filters: {
+        tripType,
+        passengers,
+        cabinClass,
+        maxStops,
+        priceFilter,
+      },
     },
     // Save chat history to localStorage
     onFinish: async (message) => {
@@ -1398,6 +1436,100 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
             <p className="text-sm text-gray-400">
               Ask me to find the best flight deals across months and destinations
             </p>
+            
+            {/* Filter Controls */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {/* Trip Type */}
+              <div className="relative">
+                <select
+                  value={tripType}
+                  onChange={(e) => {
+                    setTripType(e.target.value as 'round-trip' | 'one-way');
+                    localStorage.setItem(`bd-tripType-${tripId}`, e.target.value);
+                  }}
+                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="round-trip">Round trip</option>
+                  <option value="one-way">One way</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+
+              {/* Passengers */}
+              <div className="relative">
+                <select
+                  value={passengers}
+                  onChange={(e) => {
+                    setPassengers(Number(e.target.value));
+                    localStorage.setItem(`bd-passengers-${tripId}`, e.target.value);
+                  }}
+                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {[1, 2, 3, 4, 5, 6].map(num => (
+                    <option key={num} value={num}>{num} {num === 1 ? 'passenger' : 'passengers'}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+
+              {/* Cabin Class */}
+              <div className="relative">
+                <select
+                  value={cabinClass}
+                  onChange={(e) => {
+                    setCabinClass(e.target.value as 'economy' | 'premium_economy' | 'business' | 'first');
+                    localStorage.setItem(`bd-cabinClass-${tripId}`, e.target.value);
+                  }}
+                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="economy">Economy</option>
+                  <option value="premium_economy">Premium Economy</option>
+                  <option value="business">Business</option>
+                  <option value="first">First Class</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+
+              {/* Stops */}
+              <div className="relative">
+                <select
+                  value={maxStops ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? null : Number(e.target.value);
+                    setMaxStops(value);
+                    localStorage.setItem(`bd-maxStops-${tripId}`, value?.toString() ?? '');
+                  }}
+                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Any stops</option>
+                  <option value="0">Direct only</option>
+                  <option value="1">Max 1 stop</option>
+                  <option value="2">Max 2 stops</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+
+              {/* Price */}
+              <div className="relative">
+                <select
+                  value={priceFilter ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? null : Number(e.target.value);
+                    setPriceFilter(value);
+                    localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
+                  }}
+                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Any price</option>
+                  <option value="500">Under $500</option>
+                  <option value="1000">Under $1,000</option>
+                  <option value="1500">Under $1,500</option>
+                  <option value="2000">Under $2,000</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
             <div className="mt-2 space-y-1">
               <p className="text-xs text-gray-500">Try these examples:</p>
               <ul className="text-xs text-gray-500 space-y-1 ml-4">
