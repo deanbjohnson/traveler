@@ -316,7 +316,7 @@ export function TripMap({ timeline, className }: TripMapProps) {
         });
       });
     })();
-  }, [mapLoaded, timeline.items]);
+  }, [mapLoaded, timeline?.items]);
 
   // Effect to handle highlighting on hover/selection
   useEffect(() => {

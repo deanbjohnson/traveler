@@ -206,7 +206,7 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
                         ) : (
                           <>
                             <CreditCard className="h-4 w-4 mr-2" />
-                            Book All ({timeline.items.length})
+                            Book All ({timeline?.items?.length || 0})
                           </>
                         )}
                       </Button>
@@ -214,7 +214,7 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
                   </div>
                   {timeline?.items && timeline.items.length > 0 ? (
                     <div className="space-y-3">
-                      {timeline.items
+                      {(timeline.items || [])
                         .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
                         .map((item: any) => (
                           <div 

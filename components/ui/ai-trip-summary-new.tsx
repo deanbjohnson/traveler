@@ -237,7 +237,7 @@ Be conversational and mention destination, key flights with dates, and any notab
       setError(error instanceof Error ? error.message : 'Failed to generate summary');
       
       // Fallback to basic summary
-      const basicSummary = generateBasicSummary(timeline.items, tripData);
+              const basicSummary = generateBasicSummary(timeline.items || [], tripData);
       setSummary(basicSummary);
     } finally {
       setIsLoading(false);
