@@ -738,12 +738,15 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     };
 
     // Prioritize actual flight departure dates from the offer data
-    const actualDepartureDate = raw.slices?.[0]?.departure_datetime || 
+    // For budget discovery results, the raw object IS the Duffel offer
+    const actualDepartureDate = raw.slices?.[0]?.segments?.[0]?.departing_at || 
+                               raw.slices?.[0]?.departure_datetime || 
                                raw.offer?.slices?.[0]?.departure_datetime || 
                                raw.timelineData?.slices?.[0]?.departure_datetime || 
                                raw.dates?.departure || "";
     
-    const actualReturnDate = raw.slices?.[1]?.departure_datetime || 
+    const actualReturnDate = raw.slices?.[1]?.segments?.[0]?.departing_at || 
+                            raw.slices?.[1]?.departure_datetime || 
                             raw.offer?.slices?.[1]?.departure_datetime || 
                             raw.timelineData?.slices?.[1]?.departure_datetime || 
                             raw.dates?.return || undefined;
@@ -1190,19 +1193,20 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     // Set loading state to prevent spam clicking
     setLoadingMoreFlights(prev => new Set(prev).add(locationName));
     
-    // Fetch more flights directly via API (avoid chat) - FAST VERSION
-    try {
-      const origin = searchResults[0]?.route?.origin || 'JFK';
-      const res = await fetch('/api/find-flights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+          // Fetch more flights directly via API (avoid chat) - FAST VERSION
+      try {
+        const origin = searchResults[0]?.route?.origin || 'JFK';
+        const res = await fetch('/api/find-flights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
           origin, 
           destination: destinationAirport, 
-          months: 2, // Reduced from 6 to 2 months for speed
-          maxResults: 5 // Reduced from 10 to 5 for speed
+          months: 6, // Keep 6 months for good coverage
+          maxResults: 8, // Slightly reduced for speed while keeping good coverage
+          directOnly: false // Allow connections for more options
         })
-      });
+        });
       const data = await res.json();
       if (data?.success && Array.isArray(data.results)) {
         const normalized = data.results.map((r: any) => normalizeFlightResult({
@@ -1270,8 +1274,9 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         body: JSON.stringify({ 
           origin, 
           destination: destinationAirport, 
-          months: 2, // Reduced from 6 to 2 months for speed
-          maxResults: 5 // Reduced from 10 to 5 for speed
+          months: 6, // Keep 6 months for good coverage
+          maxResults: 8, // Slightly reduced for speed while keeping good coverage
+          directOnly: false // Allow connections for more options
         })
       });
       const data = await res.json();
