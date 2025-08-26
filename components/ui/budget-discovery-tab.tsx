@@ -356,13 +356,14 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     return [];
   });
 
-  // Clear search results when filters change
+  // Clear chat history when filters change (but keep flight results)
   useEffect(() => {
     if (filterVersion > 0) {
-      console.log('🔄 Filters changed, clearing previous search results');
-      setSearchResults([]);
-      setLocationFlightResults({});
-      setExpandedLocationsForSearch(new Set());
+      console.log('🔄 Filters changed, clearing chat history but keeping flight results');
+      // Clear system messages (chat history) but keep flight results
+      setSystemMessages([]);
+      // Don't clear searchResults, locationFlightResults, or expandedLocationsForSearch
+      // These should persist so users can see their previous searches
     }
   }, [filterVersion]);
 
@@ -1293,7 +1294,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         const newSystemMessage = {
           id: `expanded-flights-${locationName}-${Date.now()}`,
           content: systemMessage,
-          timestamp: new Date(Date.now() - 1000) // Set timestamp 1 second ago to ensure it appears before new messages
+          timestamp: new Date(Date.now() - 5000) // Set timestamp 5 seconds ago to ensure it appears before new messages
         };
         setSystemMessages(prev => [...prev, newSystemMessage]);
         
@@ -1363,7 +1364,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
         const newSystemMessage = {
           id: `more-flights-${locationName}-${Date.now()}`,
           content: systemMessage,
-          timestamp: new Date(Date.now() - 1000) // Set timestamp 1 second ago to ensure it appears before new messages
+          timestamp: new Date(Date.now() - 5000) // Set timestamp 5 seconds ago to ensure it appears before new messages
         };
         setSystemMessages(prev => [...prev, newSystemMessage]);
       }
@@ -1567,7 +1568,11 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                 content: msg.content,
                 id: msg.id,
                 createdAt: msg.timestamp
-              }))]}
+              }))].sort((a, b) => {
+                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return aTime - bTime;
+              })}
               input={input}
               handleInputChange={handleInputChange}
               handleSubmit={handleSubmit}
