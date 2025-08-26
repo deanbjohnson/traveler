@@ -873,7 +873,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
 
                   // Check if the results have the expected flight structure
                   const firstResult = flightData[0];
-                  if (firstResult && (firstResult.price || firstResult.route || firstResult.id)) {
+                  if (firstResult && (firstResult.price || firstResult.route || firstResult.id || firstResult.total_amount || firstResult.slices)) {
                                       const normalized = flightData.map(normalizeFlightResult);
                   
                   // Debug: Log the first result's date information
