@@ -42,6 +42,7 @@ export async function POST(request: Request) {
 
     // Generate 5 random dates across the requested months
     const searchDates = generateRandomDates(months, 5);
+    console.log(`[FIND-FLIGHTS] Searching dates:`, searchDates);
     const allResults: any[] = [];
     
     // Search each date in parallel for speed
@@ -76,11 +77,19 @@ export async function POST(request: Request) {
     
     // Flatten all offers
     const allOffers = results.flat();
+    console.log(`[FIND-FLIGHTS] Total offers found: ${allOffers.length}`);
+    
+    // Log some offer IDs to see if we have duplicates
+    const offerIds = allOffers.map(o => o.id);
+    const uniqueIds = [...new Set(offerIds)];
+    console.log(`[FIND-FLIGHTS] Unique offer IDs: ${uniqueIds.length} out of ${offerIds.length}`);
     
     // Deduplicate by offer ID to avoid showing the same flight multiple times
     const uniqueOffers = allOffers.filter((offer, index, self) => 
       index === self.findIndex(o => o.id === offer.id)
     );
+    
+    console.log(`[FIND-FLIGHTS] After deduplication: ${uniqueOffers.length} unique offers`);
     
     // Sort by price
     const sortedOffers = uniqueOffers.sort((a, b) => 
