@@ -733,8 +733,8 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     const id: string = raw.id || raw.offer?.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     const route = raw.route || {
-      origin: raw.timelineData?.slices?.[0]?.origin?.iata_code || "",
-      destination: raw.timelineData?.slices?.[0]?.destination?.iata_code || "",
+      origin: raw.slices?.[0]?.origin?.iata_code || raw.timelineData?.slices?.[0]?.origin?.iata_code || "",
+      destination: raw.slices?.[0]?.destination?.iata_code || raw.timelineData?.slices?.[0]?.destination?.iata_code || "",
     };
 
     // Prioritize actual flight departure dates from the offer data
@@ -757,13 +757,15 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     };
 
     const duration = raw.duration || {
-      outbound: raw.timing?.duration || "PT0H0M",
-      return: undefined,
-      total: raw.timing?.duration || "PT0H0M",
+      outbound: raw.slices?.[0]?.duration || raw.timing?.duration || "PT0H0M",
+      return: raw.slices?.[1]?.duration || undefined,
+      total: raw.slices?.[0]?.duration || raw.timing?.duration || "PT0H0M",
     };
 
     const airlines: string[] = raw.airlines || (
-      raw.offer?.owner?.iata_code ? [raw.offer.owner.iata_code] : (raw.airline?.code ? [raw.airline.code] : [])
+      raw.owner?.iata_code ? [raw.owner.iata_code] : 
+      raw.offer?.owner?.iata_code ? [raw.offer.owner.iata_code] : 
+      raw.airline?.code ? [raw.airline.code] : []
     );
 
     const connections: number = typeof raw.connections === 'number'
