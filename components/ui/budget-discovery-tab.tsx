@@ -356,14 +356,16 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
     return [];
   });
 
-  // Clear chat history when filters change (but keep flight results)
+  // Clear flight results when filters change (as requested by user)
   useEffect(() => {
     if (filterVersion > 0) {
-      console.log('🔄 Filters changed, clearing chat history but keeping flight results');
-      // Clear system messages (chat history) but keep flight results
+      console.log('🔄 Filters changed, clearing flight results and chat history');
+      // Clear system messages (chat history)
       setSystemMessages([]);
-      // Don't clear searchResults, locationFlightResults, or expandedLocationsForSearch
-      // These should persist so users can see their previous searches
+      // Clear flight results as requested by user
+      setSearchResults([]);
+      setLocationFlightResults({});
+      setExpandedLocationsForSearch(new Set());
     }
   }, [filterVersion]);
 
@@ -1530,25 +1532,20 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
               </div>
 
               {/* Price */}
-              <div className="relative">
-                <select
-                  value={priceFilter ?? ''}
-                  onChange={(e) => {
-                    const value = e.target.value === '' ? null : Number(e.target.value);
-                    setPriceFilter(value);
-                    localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
-                    setFilterVersion(prev => prev + 1);
-                  }}
-                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Any price</option>
-                  <option value="500">Under $500</option>
-                  <option value="1000">Under $1,000</option>
-                  <option value="1500">Under $1,500</option>
-                  <option value="2000">Under $2,000</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              </div>
+              <input
+                type="number"
+                placeholder="Any price"
+                value={priceFilter?.toString() ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? null : Number(e.target.value);
+                  setPriceFilter(value);
+                  localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
+                  setFilterVersion(prev => prev + 1);
+                }}
+                className="bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
+                min="0"
+                step="50"
+              />
             </div>
 
             <div className="mt-2 space-y-1">

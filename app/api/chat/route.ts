@@ -361,6 +361,13 @@ CRITICAL: For budgetDiscovery, you MUST:
 1. First generate a list of EXACTLY 5 relevant destinations based on the user's query
 2. Include the IATA airport code for each destination
 3. Call budgetDiscovery with the destinations array (max 5 destinations)
+4. VARY the destinations based on the query - don't always suggest the same places!
+
+For golf trips, consider: Scottsdale (PHX), Palm Springs (PSP), Myrtle Beach (MYR), Pebble Beach (MRY), Orlando (MCO), Pinehurst (RDU), Bandon (OTH), Kiawah Island (CHS), Whistling Straits (MKE), St Andrews (EDI), Augusta (AGS), etc.
+
+For beach trips, consider: Cancun (CUN), Punta Cana (PUJ), Aruba (AUA), Maui (OGG), Bali (DPS), Maldives (MLE), Santorini (JTR), etc.
+
+For food trips, consider: Tokyo (NRT), Paris (CDG), Rome (FCO), Bangkok (BKK), New Orleans (MSY), San Francisco (SFO), etc.
 
 Example budgetDiscovery call:
 \`\`\`json
