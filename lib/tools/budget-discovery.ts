@@ -305,8 +305,8 @@ export const budgetDiscoveryTool = tool({
                 return false;
               }
               
-              // Filter by max stops if specified
-              if (maxStops !== undefined) {
+              // Filter by max stops if specified (only if maxStops is a number >= 0)
+              if (maxStops !== undefined && maxStops !== null && typeof maxStops === 'number' && maxStops >= 0) {
                 const totalSegments = offer.slices.reduce((total: number, slice: any) => 
                   total + (slice.segments?.length || 0), 0);
                 const totalStops = totalSegments - offer.slices.length; // segments - slices = stops
@@ -316,8 +316,8 @@ export const budgetDiscoveryTool = tool({
                 }
               }
               
-              // Filter by max budget if specified
-              if (maxBudget !== undefined) {
+              // Filter by max budget if specified (only if maxBudget is a number > 0)
+              if (maxBudget !== undefined && maxBudget !== null && typeof maxBudget === 'number' && maxBudget > 0) {
                 const price = parseFloat(offer.total_amount);
                 if (price > maxBudget) {
                   console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} failed budget filter: $${price} > $${maxBudget} max`);
