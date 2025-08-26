@@ -317,9 +317,11 @@ export async function POST(req: Request) {
       ])
     );
 
+    console.log(`[CHAT-${requestId}] Starting streamText with model: ${selectedModel}`);
     const result = streamText({
       model: cohere(selectedModel),
       maxSteps: 10,
+      temperature: 0.7, // Add temperature to ensure the model generates responses
       system: `You are an intelligent travel assistant with advanced tools that can handle any type of travel request, from very specific to very general. Your goal is to understand user intentions and automatically use the right tools with the right parameters.
 
 ## Understanding User Objectives
@@ -588,6 +590,11 @@ You: [MUST use addToTimeline tool with the flight data] "I've added the flight t
     try {
       const response = result.toDataStreamResponse();
       console.log(`[CHAT-${requestId}] Response stream created successfully`);
+      
+      // Add debugging to see if the stream is actually being consumed
+      console.log(`[CHAT-${requestId}] Stream response headers:`, Object.fromEntries(response.headers.entries()));
+      console.log(`[CHAT-${requestId}] Stream response status:`, response.status);
+      
       return response;
     } catch (streamError) {
       console.error(`[CHAT-${requestId}] Stream response error:`, {
