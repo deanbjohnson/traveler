@@ -31,7 +31,7 @@ export function AITripSummaryNew({ timeline, tripData, tripId }: AITripSummaryPr
   const generateTimelineHash = (timeline: any) => {
     if (!timeline?.items) return "";
     
-    const items = timeline.items.map((item: any) => ({
+    const items = (timeline.items || []).map((item: any) => ({
       id: item.id,
       type: item.type,
       title: item.title,
@@ -100,7 +100,7 @@ export function AITripSummaryNew({ timeline, tripData, tripId }: AITripSummaryPr
       console.log("🤖 Starting AI summary generation...");
       
       // Prepare minimal timeline data for AI analysis (much smaller token usage)
-      const timelineData = timeline.items.map((item: any) => ({
+      const timelineData = (timeline.items || []).map((item: any) => ({
         type: item.type,
         title: item.title,
         startTime: item.startTime,

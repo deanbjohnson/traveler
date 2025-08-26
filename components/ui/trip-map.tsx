@@ -450,8 +450,8 @@ export function TripMap({ timeline, className }: TripMapProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {timeline.items.length > 0 ? (
-              timeline.items.map((item) => {
+            {timeline?.items?.length > 0 ? (
+              (timeline.items || []).map((item) => {
                 const Icon = typeIconMap[item.type];
                 return (
                   <div
