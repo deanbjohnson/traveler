@@ -1463,6 +1463,17 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
       await append({ role: 'user', content: message });
 
       console.log('✅ Message sent successfully, flight should be added to timeline');
+      // Guaranteed local ack in chat so the user always sees confirmation
+      try {
+        const ack = {
+          id: `ack-add-${flight.id}-${Date.now()}`,
+          content: `I've added the ${airlineName} flight ${origin} → ${destination} on ${departureDate} to your timeline.`,
+          timestamp: new Date(),
+        };
+        setSystemMessages(prev => [...prev, ack]);
+      } catch (e) {
+        // noop
+      }
       
       // Don't refresh router immediately - let the onFinish callback handle it
       // This prevents the component from re-rendering and losing the optimistic state
