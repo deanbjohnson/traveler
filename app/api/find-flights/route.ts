@@ -1,22 +1,21 @@
 import { NextResponse } from "next/server";
 import { searchFlights } from "@/app/server/actions/flight-search";
 
-function generateRandomDates(months: number, count: number = 5) {
+function generateRandomDates(months: number, count: number = 8) {
   const now = new Date();
-  const dates: string[] = [];
-  
+  const unique = new Set<string>();
+
   // Start from next month to avoid biasing to current month only
   const startDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + months, 0);
-  
-  for (let i = 0; i < count; i++) {
-    // Generate a random date within the range
+
+  while (unique.size < count) {
     const randomTime = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
-    const randomDate = new Date(randomTime);
-    dates.push(randomDate.toISOString().split('T')[0]);
+    const iso = new Date(randomTime).toISOString().split('T')[0];
+    unique.add(iso);
   }
-  
-  return dates.sort(); // Sort chronologically
+
+  return Array.from(unique).sort(); // Sort chronologically
 }
 
 export async function POST(request: Request) {
@@ -29,7 +28,7 @@ export async function POST(request: Request) {
       passengers = 1,
       cabinClass = "economy",
       tripType = "round-trip",
-      maxResults = 10,
+      maxResults = 8,
       directOnly = false,
     } = body || {};
 
@@ -40,10 +39,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate 5 random dates across the requested months
-    const searchDates = generateRandomDates(months, 5);
+    // Generate up to 8 unique random dates across the requested months
+    const desiredCount = Math.min(8, Number(maxResults) || 8);
+    const searchDates = generateRandomDates(months, desiredCount);
     console.log(`[FIND-FLIGHTS] Searching dates:`, searchDates);
-    const allResults: any[] = [];
     
     // Search each date in parallel for speed
     const searchPromises = searchDates.map(async (searchDate) => {
@@ -59,53 +58,37 @@ export async function POST(request: Request) {
           returnDate,
           passengers,
           cabinClass,
-          maxResults: Math.ceil(maxResults / 5), // Distribute results across dates
+          // fetch a handful; we'll choose the cheapest per date below
+          maxResults: 6,
         });
         
-        if (searchResult.success && searchResult.data?.offers) {
-          return searchResult.data.offers;
+        if (searchResult.success && Array.isArray(searchResult.data?.offers) && searchResult.data.offers.length > 0) {
+          const cheapest = [...searchResult.data.offers].sort((a, b) => parseFloat(a.total_amount) - parseFloat(b.total_amount))[0];
+          return { date: searchDate, offer: cheapest };
         }
-        return [];
+        return { date: searchDate, offer: null };
       } catch (error) {
         console.error(`Error searching date ${searchDate}:`, error);
-        return [];
+        return { date: searchDate, offer: null };
       }
     });
     
     // Wait for all searches to complete
     const results = await Promise.all(searchPromises);
     
-    // Flatten all offers
-    const allOffers = results.flat();
-    console.log(`[FIND-FLIGHTS] Total offers found: ${allOffers.length}`);
-    
-    // Log some offer IDs to see if we have duplicates
-    const offerIds = allOffers.map(o => o.id);
-    const uniqueIds = [...new Set(offerIds)];
-    console.log(`[FIND-FLIGHTS] Unique offer IDs: ${uniqueIds.length} out of ${offerIds.length}`);
-    
-    // Deduplicate by offer ID to avoid showing the same flight multiple times
-    const uniqueOffers = allOffers.filter((offer, index, self) => 
-      index === self.findIndex(o => o.id === offer.id)
-    );
-    
-    console.log(`[FIND-FLIGHTS] After deduplication: ${uniqueOffers.length} unique offers`);
-    
-    // Sort by price
-    const sortedOffers = uniqueOffers.sort((a, b) => 
-      parseFloat(a.total_amount) - parseFloat(b.total_amount)
-    );
-    
-    // Return top results
-    const topResults = sortedOffers.slice(0, maxResults);
+    // Keep 1 cheapest per date (drop nulls)
+    const perDate = results.filter(r => r && r.offer) as Array<{ date: string; offer: any }>;
+    const finalOffers = perDate
+      .sort((a, b) => parseFloat(a.offer.total_amount) - parseFloat(b.offer.total_amount))
+      .slice(0, desiredCount)
+      .map(r => ({ ...r.offer }));
     
     return NextResponse.json({
       success: true,
-      results: topResults,
+      results: finalOffers,
       searchedDates: searchDates,
-      totalOffersFound: allOffers.length,
-      uniqueOffersFound: uniqueOffers.length,
-      duplicatesRemoved: allOffers.length - uniqueOffers.length
+      selectedCount: finalOffers.length,
+      strategy: "one-cheapest-per-unique-date"
     });
   } catch (error) {
     console.error("/api/find-flights error", error);
