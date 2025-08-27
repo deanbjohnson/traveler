@@ -49,20 +49,27 @@ function sanitizeFlightData(flightData: any): any {
       iata_code: String(flightData.owner?.iata_code || 'XX')
     },
     // Only include basic slice info, no complex nested objects
-    slices: Array.isArray(flightData.slices) ? flightData.slices.slice(0, 2).map((slice: any, index: number) => ({
-      id: String(slice?.id || `slice-${index}`),
-      origin: {
-        iata_code: String(slice?.origin?.iata_code || 'XXX'),
-        name: String(slice?.origin?.name || 'Unknown')
-      },
-      destination: {
-        iata_code: String(slice?.destination?.iata_code || 'XXX'),
-        name: String(slice?.destination?.name || 'Unknown')
-      },
-      departure_datetime: String(slice?.departure_datetime || new Date().toISOString()),
-      arrival_datetime: String(slice?.arrival_datetime || new Date().toISOString()),
-      duration: String(slice?.duration || 'PT0H0M')
-    })) : [],
+    slices: Array.isArray(flightData.slices) ? flightData.slices.slice(0, 2).map((slice: any, index: number) => {
+      // Derive times from segments when slice-level fields are missing/wrong
+      const firstSeg = Array.isArray(slice?.segments) ? slice.segments[0] : null;
+      const lastSeg = Array.isArray(slice?.segments) ? slice.segments[slice.segments.length - 1] : null;
+      const dep = slice?.departure_datetime || firstSeg?.departure_datetime || firstSeg?.departing_at;
+      const arr = slice?.arrival_datetime || lastSeg?.arrival_datetime || lastSeg?.arriving_at;
+      return ({
+        id: String(slice?.id || `slice-${index}`),
+        origin: {
+          iata_code: String(slice?.origin?.iata_code || firstSeg?.origin?.iata_code || 'XXX'),
+          name: String(slice?.origin?.name || firstSeg?.origin?.name || 'Unknown')
+        },
+        destination: {
+          iata_code: String(slice?.destination?.iata_code || lastSeg?.destination?.iata_code || 'XXX'),
+          name: String(slice?.destination?.name || lastSeg?.destination?.name || 'Unknown')
+        },
+        departure_datetime: String(dep || new Date().toISOString()),
+        arrival_datetime: String(arr || new Date().toISOString()),
+        duration: String(slice?.duration || lastSeg?.duration || 'PT0H0M')
+      })
+    }) : [],
     sanitized: true,
     sanitized_at: new Date().toISOString()
   };
