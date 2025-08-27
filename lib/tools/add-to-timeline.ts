@@ -77,7 +77,87 @@ export const addToTimelineTool = tool({
     console.log(`📅 Adding flight ${flightId} to timeline for trip ${tripId}`);
     
     try {
-      // Create the timeline item with clean data
+      // If this is a round trip (two slices), add a parent group and two child items
+      const slices = (flightData.timelineData?.slices ?? []) as any[];
+      const hasReturn = Array.isArray(slices) && slices.length >= 2;
+
+      if (hasReturn) {
+        const out = slices[0];
+        const ret = slices[1];
+
+        // Parent group representing the round-trip package
+        const parentItem = {
+          type: "LOCATION_CHANGE" as const,
+          title: `Round trip: ${out?.origin?.iata_code || flightData.route.from.code} ↔ ${out?.destination?.iata_code || flightData.route.to.code}`,
+          description: `${flightData.airline.name} round-trip package` ,
+          startTime: new Date(out?.departure_datetime || flightData.timing.departure),
+          endTime: new Date(ret?.arrival_datetime || flightData.timing.arrival),
+          duration: calculateDurationMinutes(out?.departure_datetime || flightData.timing.departure, ret?.arrival_datetime || flightData.timing.arrival),
+        };
+
+        const parentRes = await addToTimeline({
+          tripId,
+          items: [parentItem],
+          mood: "adventure",
+          level: 0,
+        });
+
+        if (!parentRes.success) {
+          throw new Error(parentRes.error || 'Failed creating round-trip parent');
+        }
+        const parentId = parentRes.data?.itemIds?.[0];
+
+        // Child: outbound
+        const childOut = {
+          type: "FLIGHT" as const,
+          title: `Flight ${out?.origin?.iata_code || flightData.route.from.code} → ${out?.destination?.iata_code || flightData.route.to.code} (${flightData.airline.name})`,
+          description: `${flightData.airline.name} outbound flight. Duration: ${formatISODuration(out?.duration || flightData.timing.duration)}. Price: ${flightData.price.currency} ${flightData.price.amount}`,
+          startTime: new Date(out?.departure_datetime || flightData.timing.departure),
+          endTime: new Date(out?.arrival_datetime || flightData.timing.arrival),
+          duration: calculateDurationMinutes(out?.departure_datetime || flightData.timing.departure, out?.arrival_datetime || flightData.timing.arrival),
+          flightData: flightData.timelineData,
+        };
+
+        // Child: return
+        const childRet = {
+          type: "FLIGHT" as const,
+          title: `Flight ${ret?.origin?.iata_code || flightData.route.to.code} → ${ret?.destination?.iata_code || flightData.route.from.code} (${flightData.airline.name})`,
+          description: `${flightData.airline.name} return flight. Duration: ${formatISODuration(ret?.duration || flightData.timing.duration)}. Price: ${flightData.price.currency} ${flightData.price.amount}`,
+          startTime: new Date(ret?.departure_datetime || flightData.timing.departure),
+          endTime: new Date(ret?.arrival_datetime || flightData.timing.arrival),
+          duration: calculateDurationMinutes(ret?.departure_datetime || flightData.timing.departure, ret?.arrival_datetime || flightData.timing.arrival),
+          flightData: flightData.timelineData,
+        };
+
+        const childrenRes = await addToTimeline({
+          tripId,
+          items: [childOut, childRet],
+          mood: "adventure",
+          parentId,
+          level: 1,
+        });
+
+        if (!childrenRes.success) {
+          throw new Error(childrenRes.error || 'Failed adding round-trip child items');
+        }
+
+        return {
+          success: true,
+          timelineId: parentRes.data?.timelineId,
+          itemId: childrenRes.data?.itemIds?.[0],
+          message: `Added round-trip ${flightData.airline.name} flights ${flightData.route.from.code} ↔ ${flightData.route.to.code} to your timeline`,
+          flight: {
+            id: flightData.id,
+            route: `${flightData.route.from.code} ↔ ${flightData.route.to.code}`,
+            airline: flightData.airline.name,
+            departure: out?.departure_datetime || flightData.timing.departure,
+            price: `${flightData.price.currency} ${flightData.price.amount}`,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      // Single slice/default
       const timelineItem = {
         type: "FLIGHT" as const,
         title: `Flight ${flightData.route.from.code} → ${flightData.route.to.code} with ${flightData.airline.name}`,
@@ -85,23 +165,10 @@ export const addToTimelineTool = tool({
         startTime: new Date(flightData.timing.departure),
         endTime: new Date(flightData.timing.arrival),
         duration: calculateDurationMinutes(flightData.timing.departure, flightData.timing.arrival),
-        flightData: flightData.timelineData, // Use the clean timeline data
+        flightData: flightData.timelineData,
       };
 
-      console.log(`📅 Timeline item prepared:`, {
-        title: timelineItem.title,
-        startTime: timelineItem.startTime,
-        duration: timelineItem.duration,
-        hasFlightData: !!timelineItem.flightData,
-      });
-
-      // Call your existing addToTimeline function
-      const result = await addToTimeline({
-        tripId,
-        items: [timelineItem],
-        mood: "adventure",
-        level: 0,
-      });
+      const result = await addToTimeline({ tripId, items: [timelineItem], mood: "adventure", level: 0 });
 
       if (result.success) {
         console.log(`✅ Flight added to timeline successfully`);
