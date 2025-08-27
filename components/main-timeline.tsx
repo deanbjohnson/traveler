@@ -221,6 +221,7 @@ function TimelineItemComponent({
 
     const Icon = typeIconMap[item.type];
     const hasChildren = item.children && item.children.length > 0;
+    const isRoundTripGroup = item.type === "LOCATION_CHANGE" && hasChildren && item.children!.filter(c => c.type === "FLIGHT").length >= 2;
     const hasAlternatives = item.alternatives && item.alternatives.length > 0;
 
     return (
@@ -246,7 +247,7 @@ function TimelineItemComponent({
                             }
                         }}
                     >
-                        <CardHeader className="pb-2 px-4 py-3">
+                        <CardHeader className={cn("pb-2 px-4 py-3", isRoundTripGroup && "border-l-2 border-dashed border-blue-300") }>
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                     {hasChildren && (
@@ -272,7 +273,7 @@ function TimelineItemComponent({
                                             {item.type.toLowerCase()}
                                         </Badge>
                                     </div>
-                                    <TimelineTitle className="truncate">{item.title}</TimelineTitle>
+                                    <TimelineTitle className="truncate">{item.title}{isRoundTripGroup && <span className="ml-2 text-xs text-gray-500">(round trip)</span>}</TimelineTitle>
                                     <Badge
                                         variant="outline"
                                         className={cn("text-xs px-2 py-0.5 ml-auto", statusColorMap[item.status])}
@@ -375,7 +376,10 @@ function TimelineItemComponent({
 
             {/* Children */}
             {isExpanded && hasChildren && (
-                <div className="ml-6 mt-2">
+                <div className={cn("ml-6 mt-2 space-y-2", isRoundTripGroup && "relative") }>
+                    {isRoundTripGroup && (
+                        <div className="absolute left-0 top-2 bottom-2 w-px bg-gradient-to-b from-blue-300/60 to-blue-300/0" />
+                    )}
                     {item.children!.map((child) => (
                         <TimelineItemComponent
                             key={child.id}
