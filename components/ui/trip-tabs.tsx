@@ -215,81 +215,81 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
                   {timeline?.items && timeline.items.length > 0 ? (
                     <div className="space-y-3">
                       {(timeline.items || [])
+                        .filter((it: any) => it.type !== 'LOCATION_CHANGE')
                         .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-                        .map((item: any) => (
-                          <div 
-                            key={item.id} 
-                            className={cn(
-                              "flex items-center justify-between p-3 bg-gray-700/50 rounded-lg",
-                              item.type === "FLIGHT" && item.flightData && "cursor-pointer transition-colors"
-                            )}
-                            onClick={() => {
-                              if (item.type === "FLIGHT" && item.flightData) {
-                                setSelectedFlightData(item.flightData);
-                                setSelectedFlightTitle(item.title);
-                                setShowFlightDetails(true);
-                              }
-                            }}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <div className="flex-shrink-0">
-                                {item.type === "FLIGHT" && <Plane className="h-4 w-4 text-blue-400" />}
-                                {item.type === "STAY" && <Hotel className="h-4 w-4 text-green-400" />}
-                                {item.type === "TRANSPORT" && <Car className="h-4 w-4 text-yellow-400" />}
-                                {item.type === "ACTIVITY" && <Calendar className="h-4 w-4 text-purple-400" />}
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-200">{item.title}</h4>
-                                {item.description && (
-                                  <p className="text-sm text-gray-400">{item.description}</p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2"
-                                 onMouseEnter={(e) => {
-                                   const parent = (e.currentTarget.parentElement as HTMLElement);
-                                   parent?.classList.remove('hover:bg-gray-600/50');
-                                 }}
-                                 onMouseLeave={(e) => {
-                                   const parent = (e.currentTarget.parentElement as HTMLElement);
-                                   // no-op; parent has no hover now
-                                 }}
-                            >
-                              {bookingItems.has(item.id) && (
-                                <CheckCircle className="h-4 w-4 text-green-400" />
+                        .map((item: any, idx: number, arr: any[]) => {
+                          const sameParentPrev = idx > 0 && arr[idx-1]?.parentId && arr[idx-1].parentId === item.parentId;
+                          const sameParentNext = idx < arr.length-1 && arr[idx+1]?.parentId && arr[idx+1].parentId === item.parentId;
+                          const showConnector = item.type === 'FLIGHT' && (sameParentPrev || sameParentNext);
+                          return (
+                            <div key={item.id} className="relative">
+                              {showConnector && (
+                                <div className="absolute -left-3 top-0 bottom-0 w-px bg-blue-300/50" />
                               )}
-                              {/* Remove button */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  const res = await deleteTimelineItemAction({ tripId, itemId: item.id });
-                                  if (res.success) {
-                                    try { location.reload(); } catch (_) {}
+                              <div 
+                                className={cn(
+                                  "flex items-center justify-between p-3 bg-gray-700/50 rounded-lg",
+                                  item.type === "FLIGHT" && item.flightData && "cursor-pointer transition-colors"
+                                )}
+                                onClick={() => {
+                                  if (item.type === "FLIGHT" && item.flightData) {
+                                    setSelectedFlightData(item.flightData);
+                                    setSelectedFlightTitle(item.title);
+                                    setShowFlightDetails(true);
                                   }
                                 }}
-                                className="h-6 w-6 p-0 text-red-400 hover:text-red-500"
-                                aria-label="Remove item"
-                                title="Remove item"
                               >
-                                <X className="h-4 w-4" />
-                              </Button>
-                              {item.type === "FLIGHT" && item.flightData && !bookingItems.has(item.id) && (
-                                <Button
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleBookItem(item.id);
-                                  }}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                  Book
-                                </Button>
-                              )}
+                                <div className="flex items-center space-x-3">
+                                  <div className="flex-shrink-0">
+                                    {item.type === "FLIGHT" && <Plane className="h-4 w-4 text-blue-400" />}
+                                    {item.type === "STAY" && <Hotel className="h-4 w-4 text-green-400" />}
+                                    {item.type === "TRANSPORT" && <Car className="h-4 w-4 text-yellow-400" />}
+                                    {item.type === "ACTIVITY" && <Calendar className="h-4 w-4 text-purple-400" />}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium text-gray-200">{item.title}</h4>
+                                    {item.description && (
+                                      <p className="text-sm text-gray-400">{item.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {bookingItems.has(item.id) && (
+                                    <CheckCircle className="h-4 w-4 text-green-400" />
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      const res = await deleteTimelineItemAction({ tripId, itemId: item.id });
+                                      if (res.success) {
+                                        try { location.reload(); } catch (_) {}
+                                      }
+                                    }}
+                                    className="h-6 w-6 p-0 text-red-400 hover:text-red-500"
+                                    aria-label="Remove item"
+                                    title="Remove item"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                  {item.type === "FLIGHT" && item.flightData && !bookingItems.has(item.id) && (
+                                    <Button
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleBookItem(item.id);
+                                      }}
+                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                      Book
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   ) : (
                     <p className="text-gray-400">No items in timeline yet.</p>
