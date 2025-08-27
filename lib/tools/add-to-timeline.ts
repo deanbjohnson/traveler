@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { addToTimeline } from "@/app/server/actions/add-to-timeline";
+import { Duffel } from "@duffel/api";
 
 export const addToTimelineTool = tool({
   description: `
@@ -77,6 +78,45 @@ export const addToTimelineTool = tool({
     console.log(`📅 Adding flight ${flightId} to timeline for trip ${tripId}`);
     
     try {
+      // Ensure we have both legs for round trips. If slices are missing, fetch full offer from Duffel.
+      try {
+        const slices = flightData?.timelineData?.slices;
+        const offerId = flightData?.timelineData?.id || flightData?.id || flightId;
+        const needsHydration = !Array.isArray(slices) || slices.length < 2;
+        if (offerId && needsHydration && process.env.DUFFEL_ACCESS_TOKEN) {
+          console.log(`🧩 Hydrating offer from Duffel for full slices: ${offerId}`);
+          const duffel = new Duffel({ token: process.env.DUFFEL_ACCESS_TOKEN! });
+          const offerResp = await duffel.offers.get(offerId as string).catch((e) => {
+            console.warn("⚠️ Duffel offer hydration failed", e?.message || e);
+            return null;
+          });
+          if (offerResp && (offerResp.data as any)?.slices?.length) {
+            const full = offerResp.data as any;
+            // Normalize to timelineData shape we already store
+            flightData.timelineData = {
+              id: String(full.id),
+              total_amount: String(full.total_amount),
+              total_currency: String(full.total_currency),
+              owner: {
+                name: String(full.owner?.name || flightData.airline?.name || "Unknown Airline"),
+                iata_code: String(full.owner?.iata_code || flightData.airline?.code || "XX"),
+              },
+              slices: (full.slices || []).map((sl: any, idx: number) => ({
+                id: String(sl.id || `slice-${idx}`),
+                origin: { iata_code: String(sl.origin?.iata_code || ''), name: String(sl.origin?.name || '') },
+                destination: { iata_code: String(sl.destination?.iata_code || ''), name: String(sl.destination?.name || '') },
+                departure_datetime: String(sl.departure_datetime || ''),
+                arrival_datetime: String(sl.arrival_datetime || ''),
+                duration: String(sl.duration || ''),
+              })),
+            } as any;
+            console.log(`✅ Offer hydrated. slices: ${flightData.timelineData.slices.length}`);
+          }
+        }
+      } catch (hydrateError) {
+        console.warn("Hydration step failed (non-fatal)", hydrateError);
+      }
+
       // If this is a round trip (two slices), add a parent group and two child items
       const slices = (flightData.timelineData?.slices ?? []) as any[];
       const hasReturn = Array.isArray(slices) && slices.length >= 2;
