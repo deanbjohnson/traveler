@@ -1273,17 +1273,35 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
           destination: destinationAirport, 
           months: 6, // Keep 6 months for good coverage
           maxResults: 8, // Slightly reduced for speed while keeping good coverage
-          directOnly: false // Allow connections for more options
+          directOnly: maxStops === 0, // If user chose direct only, hint backend
+          passengers,
+          cabinClass,
+          tripType
         })
         });
       const data = await res.json();
       if (data?.success && Array.isArray(data.results)) {
-        const normalized = data.results.map((r: any) => normalizeFlightResult({
+        // Normalize
+        let normalized = data.results.map((r: any) => normalizeFlightResult({
           ...r,
           destinationContext: locationName,
           destinationAirport: { iata_code: destinationAirport, city_name: locationName, country_name: '' },
         }));
-        setLocationFlightResults(prev => ({ ...prev, [locationName]: normalized }));
+        // Apply client-side filters that backend doesn't enforce
+        if (typeof priceFilter === 'number' && priceFilter > 0) {
+          normalized = normalized.filter(f => (f.price?.total ?? 0) <= priceFilter);
+        }
+        if (typeof maxStops === 'number' && maxStops >= 0) {
+          normalized = normalized.filter(f => (f.connections ?? 0) <= maxStops);
+        }
+        // Deduplicate expanded results by fingerprint (route+date+airline+price)
+        setLocationFlightResults(prev => {
+          const existing = prev[locationName] || [];
+          const byFingerprint = new Map<string, any>();
+          const makeKey = (f: any) => `${getFlightFingerprint(f)}-${f.price?.total ?? 0}`;
+          [...existing, ...normalized].forEach((f) => byFingerprint.set(makeKey(f), f));
+          return { ...prev, [locationName]: Array.from(byFingerprint.values()) };
+        });
         
         // Clear loading state
         setLoadingMoreFlights(prev => {
@@ -1345,21 +1363,32 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
           destination: destinationAirport, 
           months: 6, // Keep 6 months for good coverage
           maxResults: 8, // Slightly reduced for speed while keeping good coverage
-          directOnly: false // Allow connections for more options
+          directOnly: maxStops === 0,
+          passengers,
+          cabinClass,
+          tripType
         })
       });
       const data = await res.json();
       if (data?.success && Array.isArray(data.results)) {
-        const normalized = data.results.map((r: any) => normalizeFlightResult({
+        let normalized = data.results.map((r: any) => normalizeFlightResult({
           ...r,
           destinationContext: locationName,
           destinationAirport: { iata_code: destinationAirport, city_name: locationName, country_name: '' },
         }));
+        if (typeof priceFilter === 'number' && priceFilter > 0) {
+          normalized = normalized.filter(f => (f.price?.total ?? 0) <= priceFilter);
+        }
+        if (typeof maxStops === 'number' && maxStops >= 0) {
+          normalized = normalized.filter(f => (f.connections ?? 0) <= maxStops);
+        }
         setLocationFlightResults(prev => {
           const existing = prev[locationName] || [];
-          const byId = new Map<string, any>();
-          [...existing, ...normalized].forEach((f) => byId.set(f.id, f));
-          return { ...prev, [locationName]: Array.from(byId.values()) };
+          // Dedupe by fingerprint (route+date+airline+price) instead of offer id
+          const byFingerprint = new Map<string, any>();
+          const makeKey = (f: any) => `${getFlightFingerprint(f)}-${f.price?.total ?? 0}`;
+          ;[...existing, ...normalized].forEach((f) => byFingerprint.set(makeKey(f), f));
+          return { ...prev, [locationName]: Array.from(byFingerprint.values()) };
         });
         
         // Add the additional flight results to the chat so the AI knows about them
@@ -1703,7 +1732,10 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                                   <div className="text-left">
                                     <h5 className="font-medium text-gray-200 capitalize">{country}</h5>
                                     <p className="text-xs text-gray-400">
-                                      Cheapest: {formatPrice(posterFlight?.price?.total || 0, posterFlight?.price?.currency || 'USD')}
+                                      {(() => {
+                                        const cheapest = getSortedFlightsForLocation(country)[0];
+                                        return `Cheapest: ${formatPrice(cheapest?.price?.total || 0, cheapest?.price?.currency || 'USD')}`;
+                                      })()}
                                     </p>
                                   </div>
                                 </div>
@@ -1829,6 +1861,15 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
                                               </div>
                                               <p className="text-gray-200">
                                                 {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <div className="flex items-center space-x-1 text-gray-400">
+                                                <Calendar className="h-2 w-2" />
+                                                <span>Return</span>
+                                              </div>
+                                              <p className="text-gray-200">
+                                                {flight.dates?.return ? formatDate(flight.dates.return) : '—'}
                                               </p>
                                             </div>
                                             <div className="space-y-1">
