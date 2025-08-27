@@ -221,7 +221,7 @@ function TimelineItemComponent({
 
     const Icon = typeIconMap[item.type];
     const hasChildren = item.children && item.children.length > 0;
-    const isRoundTripGroup = item.type === "LOCATION_CHANGE" && hasChildren && item.children!.filter(c => c.type === "FLIGHT").length >= 2;
+    const isRoundTripGroup = false; // hide parent grouping visually
     const hasAlternatives = item.alternatives && item.alternatives.length > 0;
 
     return (
@@ -376,20 +376,24 @@ function TimelineItemComponent({
 
             {/* Children */}
             {isExpanded && hasChildren && (
-                <div className={cn("ml-6 mt-2 space-y-2", isRoundTripGroup && "relative") }>
-                    {isRoundTripGroup && (
-                        <div className="absolute left-0 top-2 bottom-2 w-px bg-gradient-to-b from-blue-300/60 to-blue-300/0" />
-                    )}
-                    {item.children!.map((child) => (
-                        <TimelineItemComponent
-                            key={child.id}
+                <div className="ml-6 mt-2 space-y-2">
+                    {item.children!.map((child, idx) => (
+                        <div key={child.id} className="relative">
+                          {/* vertical connector to link paired flights on the left */}
+                          <div className={cn(
+                            "absolute -left-3 top-0 bottom-0 w-px bg-blue-300/50",
+                            // only render for flight children; keep line continuous across siblings
+                            child.type === 'FLIGHT' ? 'block' : 'hidden'
+                          )} />
+                          <TimelineItemComponent
                             item={child}
                             editable={editable}
                             onUpdate={onUpdate}
                             onDelete={onDelete}
                             onSelectAlternative={onSelectAlternative}
                             level={level + 1}
-                        />
+                          />
+                        </div>
                     ))}
                 </div>
             )}
@@ -468,8 +472,10 @@ export default function MainTimeline({
     }
 
     // Group items by hierarchy (top-level items first) and sort by start time
+    // Flatten: show only non-parent items, but maintain chronological order.
+    // We keep children (level>0) visible and hide LOCATION_CHANGE parents for a cleaner look.
     const topLevelItems = (timeline.items || [])
-        .filter((item: TimelineItemData) => item.level === 0)
+        .filter((item: TimelineItemData) => !(item.level === 0 && item.type === 'LOCATION_CHANGE'))
         .sort((a: TimelineItemData, b: TimelineItemData) => {
             // Sort by start time first
             const timeComparison = a.startTime.getTime() - b.startTime.getTime();

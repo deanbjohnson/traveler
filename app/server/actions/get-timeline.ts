@@ -149,6 +149,8 @@ export async function getTimeline(
                 locationId: child.locationId || undefined,
                 order: child.order,
                 level: child.level,
+                // keep parentId so UI can link round-trips without rendering parent
+                parentId: (child as any).parentId || undefined,
                 flightData: sanitizeJsonData(child.flightData),
                 stayData: sanitizeJsonData(child.stayData),
                 activityData: sanitizeJsonData(child.activityData),
