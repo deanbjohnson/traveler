@@ -65,11 +65,16 @@ export async function POST(req: Request) {
     if (userId) {
       console.log(`[CHAT-${requestId}] Ensuring user exists in database...`);
       const userEnsureStartTime = Date.now();
-      await ensureUserExists(userId);
-      const userEnsureDuration = Date.now() - userEnsureStartTime;
-      console.log(
-        `[CHAT-${requestId}] User ensure completed in ${userEnsureDuration}ms`
-      );
+      try {
+        await ensureUserExists(userId);
+        const userEnsureDuration = Date.now() - userEnsureStartTime;
+        console.log(
+          `[CHAT-${requestId}] User ensure completed in ${userEnsureDuration}ms`
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`[CHAT-${requestId}] Skipping ensureUserExists due to DB error: ${message}`);
+      }
     }
 
     // Get current date in mm/dd/yyyy format

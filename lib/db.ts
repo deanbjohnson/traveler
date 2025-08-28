@@ -37,8 +37,16 @@ export async function ensureUserExists(clerkUserId: string) {
       clerkUser.fullName || undefined
     );
   } catch (error) {
+    // Gracefully degrade if database is unavailable or quota exceeded
+    const message = error instanceof Error ? error.message : String(error);
+    if (message?.toLowerCase().includes('exceeded the compute time quota') ||
+        message?.toLowerCase().includes('prisma') ||
+        message?.toLowerCase().includes('database')) {
+      console.warn("DB degraded mode: skipping ensureUserExists due to error:", message);
+      return null as unknown as any;
+    }
     console.error("Error ensuring user exists:", error);
-    throw error;
+    return null as unknown as any;
   }
 }
 
