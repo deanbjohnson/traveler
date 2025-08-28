@@ -390,10 +390,7 @@ CRITICAL: For budgetDiscovery, you MUST:
 
 STREAMING AND RESULT EMISSION REQUIREMENTS:
 - AFTER a budgetDiscovery tool call completes, you MUST immediately emit a single assistant message that contains a compact JSON object with keys "success" and "results" (results is an array of Duffel offers). Do not wait to write extra prose first.
-- Include that JSON directly in your assistant message content (not as a tool result only). Prefer a minimal, compact JSON. Example:
-\n```json
-{"success":true,"results":[/* offers here */]}
-```
+- Include that JSON directly in your assistant message content (not as a tool result only). Prefer a minimal, compact JSON. Example: {"success":true,"results":[/* offers here */]}
 - This is REQUIRED so the client can parse results even if tool invocations are not attached to the final message.
 
 For golf trips, ROTATE between these destinations (pick 5 different ones each time):
