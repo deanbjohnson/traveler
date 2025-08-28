@@ -690,6 +690,24 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
           setRunStartedAt(Date.now());
           setProgress({ current: 0, total: 5, etaMs: 5 * 3000, startedAt: Date.now() });
         }
+
+        // Fallback: if the server streams a compact JSON payload directly in content, parse it early
+        try {
+          const jsonMatch = responseText.match(/\{\"success\":\s*(true|false)[\s\S]*\}\s*$/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed && parsed.success && Array.isArray(parsed.results)) {
+              const normalized = parsed.results.map(normalizeFlightResult);
+              setSearchResults(prev => {
+                const byId = new Map<string, FlightResult>();
+                [...prev, ...normalized].forEach(r => byId.set(r.id, r));
+                return Array.from(byId.values());
+              });
+              setIsLoading(false);
+              setProgress(null);
+            }
+          }
+        } catch (_) {}
       } catch (error) {
         console.warn('Error in onResponse:', error);
       }
@@ -1460,20 +1478,24 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
       console.log('📤 Sending add to timeline message:', message);
 
       // Use chat append to send without navigation
+      const prevCount = messages.length;
       await append({ role: 'user', content: message });
 
       console.log('✅ Message sent successfully, flight should be added to timeline');
-      // Guaranteed local ack in chat so the user always sees confirmation
-      try {
-        const ack = {
-          id: `ack-add-${flight.id}-${Date.now()}`,
-          content: `I've added the ${airlineName} flight ${origin} → ${destination} on ${departureDate} to your timeline.`,
-          timestamp: new Date(),
-        };
-        setSystemMessages(prev => [...prev, ack]);
-      } catch (e) {
-        // noop
-      }
+      // Delayed ack: only append if the model didn't respond
+      setTimeout(() => {
+        try {
+          // If no new assistant/tool message arrived, add a local ack
+          if (messages.length <= prevCount) {
+            const ack = {
+              id: `ack-add-${flight.id}-${Date.now()}`,
+              content: `I've added the ${airlineName} flight ${origin} → ${destination} on ${departureDate} to your timeline.`,
+              timestamp: new Date(),
+            };
+            setSystemMessages(prev => [...prev, ack]);
+          }
+        } catch (_) {}
+      }, 1500);
       
       // Don't refresh router immediately - let the onFinish callback handle it
       // This prevents the component from re-rendering and losing the optimistic state

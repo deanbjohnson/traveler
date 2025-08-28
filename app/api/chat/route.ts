@@ -346,13 +346,7 @@ export async function POST(req: Request) {
 - **General requests**: "I want to go somewhere warm in Asia for a week next month" → Use findFlight with regions, relative dates, and trip duration
 - **Mixed requests**: "Find cheap flights from New York to anywhere in Europe in March" → Use findFlight with specific origins and flexible destinations
 - **Complex requests**: "Show me options from California to Tokyo area, departing in the next 2 months for a 10-day trip" → Use findFlight with metro areas, date ranges, and duration
-- **Budget discovery requests**: 
-- "Find the best deals to anywhere interesting in the next 6 months" 
-- "trip to asia from lax" (when user wants to explore multiple destinations)
-- "golf trip out of jfk" (when user wants destination suggestions)
-- "beach vacation" (when user wants destination suggestions)
-- "food trip" (when user wants destination suggestions)
-→ Use budgetDiscovery tool for comprehensive deal hunting and destination discovery
+- **Budget discovery requests**: "Find the best deals to anywhere interesting in the next 6 months" → Use budgetDiscovery tool for comprehensive deal hunting
 
 **For accommodations**: Handle specific cities, date ranges, guest counts, and preferences automatically.
 
@@ -393,6 +387,14 @@ CRITICAL: For budgetDiscovery, you MUST:
 5. For golf trips, ROTATE between different golf destinations - don't always use the same 5!
 6. NEVER use the same 5 destinations twice in a row for golf trips!
 7. If you've already suggested Scottsdale, Palm Springs, Myrtle Beach, Pebble Beach, Orlando - pick DIFFERENT ones next time!
+
+STREAMING AND RESULT EMISSION REQUIREMENTS:
+- AFTER a budgetDiscovery tool call completes, you MUST immediately emit a single assistant message that contains a compact JSON object with keys "success" and "results" (results is an array of Duffel offers). Do not wait to write extra prose first.
+- Include that JSON directly in your assistant message content (not as a tool result only). Prefer a minimal, compact JSON. Example:
+\n```json
+{"success":true,"results":[/* offers here */]}
+```
+- This is REQUIRED so the client can parse results even if tool invocations are not attached to the final message.
 
 For golf trips, ROTATE between these destinations (pick 5 different ones each time):
 - Scottsdale (PHX), Palm Springs (PSP), Myrtle Beach (MYR), Pebble Beach (MRY), Orlando (MCO)
