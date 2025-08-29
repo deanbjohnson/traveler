@@ -93,12 +93,12 @@ interface FlightResult {
   };
 }
 
-interface BudgetDiscoveryTabProps {
+interface TripDiscoverTabProps {
   tripId: string;
   timeline?: any;
 }
 
-export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps) {
+export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const router = useRouter();
   
   // Helper functions - defined first to avoid initialization issues
@@ -1525,9 +1525,9 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
       <div className="flex-1 min-w-0 overflow-hidden border border-gray-700 rounded-lg bg-gray-900/30">
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-200">Budget Discovery Chat</h2>
+            <h2 className="text-lg font-semibold text-gray-200">Trip Discover Chat</h2>
             <p className="text-sm text-gray-400">
-              Ask me to find the best flight deals across months and destinations
+              Ask me to find flights, plan your trip, and discover amazing destinations
             </p>
             
             {/* Filter Controls */}
@@ -1663,7 +1663,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
           <div className="border-b border-gray-700 p-6 bg-gray-900/50">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-200">Flight Results</h2>
+                <h2 className="text-lg font-semibold text-gray-200">Trip Results</h2>
 
                 {isLoading && progress && (
                   <div className="mt-2 w-full max-w-md">
@@ -1706,7 +1706,7 @@ export function BudgetDiscoveryTab({ tripId, timeline }: BudgetDiscoveryTabProps
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Search className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">No flights found. Try searching for budget flights!</p>
+                  <p className="text-gray-400">No trips found. Try searching for flights or destinations!</p>
                 </div>
               </div>
             ) : viewMode === 'grouped' ? (

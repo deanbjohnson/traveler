@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Clock, Plane, Hotel, Car, CreditCard, CheckCircle, Search, X } from "lucide-react";
 import MainTimeline from "@/components/main-timeline";
-import { ChatDemo } from "@/components/chat-demo";
+
 import { AITripSummary } from "@/components/ui/ai-trip-summary";
 import { TripMap } from "@/components/ui/trip-map";
-import { BudgetDiscoveryTab } from "@/components/ui/budget-discovery-tab";
+import { TripDiscoverTab } from "@/components/ui/budget-discovery-tab";
 import { FlightDetailsModal } from "@/components/ui/flight-details-modal";
 import { BookingFormModal } from "@/components/ui/booking-form-modal";
 import { deleteTimelineItemAction } from "@/app/server/actions/delete-timeline-item";
@@ -22,7 +22,7 @@ interface TripTabsProps {
 }
 
 export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
-  const [activeTab, setActiveTab] = useState<'timeline' | 'overview' | 'map' | 'budget-discovery'>('timeline');
+  const [activeTab, setActiveTab] = useState<'trip-discover' | 'overview' | 'map'>('trip-discover');
   const [selectedFlightData, setSelectedFlightData] = useState<any>(null);
   const [selectedFlightTitle, setSelectedFlightTitle] = useState<string>('');
   const [showFlightDetails, setShowFlightDetails] = useState(false);
@@ -91,16 +91,10 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
 
   const tabs = [
     {
-      id: 'timeline',
-      label: 'Chat',
-      icon: Clock,
-      description: 'Chat with AI and view timeline'
-    },
-    {
-      id: 'budget-discovery',
-      label: 'Budget Discovery',
+      id: 'trip-discover',
+      label: 'Trip Discover',
       icon: Search,
-      description: 'Discover amazing flight deals'
+      description: 'Discover flights and plan your trip'
     },
     {
       id: 'overview',
@@ -128,7 +122,7 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'timeline' | 'overview' | 'map' | 'budget-discovery')}
+                onClick={() => setActiveTab(tab.id as 'trip-discover' | 'overview' | 'map')}
                 className={cn(
                   "flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors",
                   isActive
@@ -146,34 +140,8 @@ export function TripTabs({ tripId, timeline, tripData }: TripTabsProps) {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'timeline' && (
-          <div className="flex h-full">
-            <div className="flex-1 min-w-0 overflow-hidden">
-              {/* Chat Demo */}
-              <ChatDemo tripId={tripId} />
-            </div>
-            <div className="flex-1 min-w-0 overflow-y-auto">
-              {/* Timeline */}
-              <MainTimeline 
-                timeline={timeline} 
-                tripId={tripId}
-                editable
-                onDeleteItem={async (itemId: string) => {
-                  const res = await deleteTimelineItemAction({ tripId, itemId });
-                  if (res.success) {
-                    // soft refresh so UI updates
-                    try { location.reload(); } catch (_) {}
-                  } else {
-                    console.error('Failed to delete item', res.error);
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
-        
-        {activeTab === 'budget-discovery' && (
-          <BudgetDiscoveryTab tripId={tripId} timeline={timeline} />
+        {activeTab === 'trip-discover' && (
+          <TripDiscoverTab tripId={tripId} timeline={timeline} />
         )}
         
         {activeTab === 'overview' && (
