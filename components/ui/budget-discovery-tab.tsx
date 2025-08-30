@@ -335,6 +335,14 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const [filterVersion, setFilterVersion] = useState(0);
   const lastSearchFilters = useRef<string>('');
   
+  // Chat mode toggle
+  const [chatMode, setChatMode] = useState<'trip-discover' | 'specific-flight'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(`bd-chatMode-${tripId}`) as 'trip-discover'|'specific-flight') || 'trip-discover';
+    }
+    return 'trip-discover';
+  });
+  
   // Separate state for system messages (flight details) that shouldn't trigger AI responses
   const [systemMessages, setSystemMessages] = useState<Array<{
     id: string;
@@ -391,6 +399,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(`bd-viewMode-${tripId}`, viewMode);
   }, [viewMode, tripId]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(`bd-chatMode-${tripId}`, chatMode);
+  }, [chatMode, tripId]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(`bd-expanded-${tripId}`, JSON.stringify(Array.from(expandedLocations)));
@@ -1525,9 +1537,46 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       <div className="flex-1 min-w-0 overflow-hidden border border-gray-700 rounded-lg bg-gray-900/30">
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-200">Trip Discover Chat</h2>
+            {/* Mode Toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    setChatMode('trip-discover');
+                    localStorage.setItem(`bd-chatMode-${tripId}`, 'trip-discover');
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    chatMode === 'trip-discover'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  Trip Discover
+                </button>
+                <button
+                  onClick={() => {
+                    setChatMode('specific-flight');
+                    localStorage.setItem(`bd-chatMode-${tripId}`, 'specific-flight');
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    chatMode === 'specific-flight'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  Specific Flight
+                </button>
+              </div>
+            </div>
+            
+            <h2 className="text-lg font-semibold text-gray-200">
+              {chatMode === 'trip-discover' ? 'Trip Discover Chat' : 'Specific Flight Chat'}
+            </h2>
             <p className="text-sm text-gray-400">
-              Ask me to find flights, plan your trip, and discover amazing destinations
+              {chatMode === 'trip-discover' 
+                ? 'Ask me to find flights, plan your trip, and discover amazing destinations'
+                : 'Search for specific flights with exact dates and routes'
+              }
             </p>
             
             {/* Filter Controls */}
@@ -1626,10 +1675,21 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             <div className="mt-2 space-y-1">
               <p className="text-xs text-gray-500">Try these examples:</p>
               <ul className="text-xs text-gray-500 space-y-1 ml-4">
-                <li>• "Find cheap flights to warm places in the next 6 months"</li>
-                <li>• "Show me the best deals to Asia over the next year"</li>
-                <li>• "What are the cheapest flights to Europe in the next 3 months?"</li>
-                <li>• "Find budget-friendly trips to anywhere interesting"</li>
+                {chatMode === 'trip-discover' ? (
+                  <>
+                    <li>• "Find cheap flights to warm places in the next 6 months"</li>
+                    <li>• "Show me the best deals to Asia over the next year"</li>
+                    <li>• "What are the cheapest flights to Europe in the next 3 months?"</li>
+                    <li>• "Find budget-friendly trips to anywhere interesting"</li>
+                  </>
+                ) : (
+                  <>
+                    <li>• "Find flights from JFK to LAX on October 12th"</li>
+                    <li>• "Show me flights from London to Tokyo on December 25th"</li>
+                    <li>• "Find a round trip from SFO to Paris, departing March 15th, returning March 22nd"</li>
+                    <li>• "Search for flights from Chicago to Miami on January 10th"</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
@@ -1663,7 +1723,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           <div className="border-b border-gray-700 p-6 bg-gray-900/50">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-200">Trip Results</h2>
+                <h2 className="text-lg font-semibold text-gray-200">
+                  {chatMode === 'trip-discover' ? 'Trip Results' : 'Flight Results'}
+                </h2>
 
                 {isLoading && progress && (
                   <div className="mt-2 w-full max-w-md">
@@ -1706,14 +1768,21 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Search className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">No trips found. Try searching for flights or destinations!</p>
+                  <p className="text-gray-400">
+                    {chatMode === 'trip-discover' 
+                      ? 'No trips found. Try searching for flights or destinations!' 
+                      : 'No flights found. Try searching for specific routes and dates!'
+                    }
+                  </p>
                 </div>
               </div>
             ) : viewMode === 'grouped' ? (
               <div className="space-y-4">
                 {/* Grouped View Controls */}
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-md font-semibold text-gray-200">Flights by Idea</h3>
+                  <h3 className="text-md font-semibold text-gray-200">
+                    {chatMode === 'trip-discover' ? 'Flights by Idea' : 'Search Results'}
+                  </h3>
                 </div>
 
                 {/* Location Groups */}
