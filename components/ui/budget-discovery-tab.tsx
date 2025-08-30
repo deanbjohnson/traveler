@@ -151,7 +151,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const [searchResults, setSearchResults] = useState<FlightResult[]>(() => {
     // Load from localStorage on mount
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`budget-discovery-results-${tripId}`);
+      const saved = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -275,7 +275,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   // Track which locations have been expanded to show multiple flights (persisted)
   const [expandedLocationsForSearch, setExpandedLocationsForSearch] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`bd-loc-expanded-${tripId}`);
+      const saved = localStorage.getItem(`bd-loc-expanded-${tripId}-${chatMode}`);
       if (saved) {
         try { return new Set<string>(JSON.parse(saved)); } catch (_) {}
       }
@@ -284,7 +284,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   });
   const [locationFlightResults, setLocationFlightResults] = useState<Record<string, FlightResult[]>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`bd-loc-results-${tripId}`);
+      const saved = localStorage.getItem(`bd-loc-results-${tripId}-${chatMode}`);
       if (saved) {
         try {
           const parsed: Record<string, any[]> = JSON.parse(saved);
@@ -350,7 +350,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     timestamp: Date;
   }>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`bd-system-messages-${tripId}`);
+      const saved = localStorage.getItem(`bd-system-messages-${tripId}-${chatMode}`);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -363,6 +363,90 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     }
     return [];
   });
+
+  // Load mode-specific data when chat mode changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    console.log(`🔄 Switching to ${chatMode} mode, loading mode-specific data`);
+    
+    // Load search results for this mode
+    const savedResults = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
+    if (savedResults) {
+      try {
+        const parsed = JSON.parse(savedResults);
+        if (Array.isArray(parsed)) {
+          setSearchResults(parsed.map(normalizeFlightResult));
+        } else {
+          setSearchResults([]);
+        }
+      } catch (_) {
+        setSearchResults([]);
+      }
+    } else {
+      setSearchResults([]);
+    }
+    
+    // Load system messages for this mode
+    const savedMessages = localStorage.getItem(`bd-system-messages-${tripId}-${chatMode}`);
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages);
+        setSystemMessages(parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        })));
+      } catch (_) {
+        setSystemMessages([]);
+      }
+    } else {
+      setSystemMessages([]);
+    }
+    
+    // Load location flight results for this mode
+    const savedLocationResults = localStorage.getItem(`bd-loc-results-${tripId}-${chatMode}`);
+    if (savedLocationResults) {
+      try {
+        const parsed: Record<string, any[]> = JSON.parse(savedLocationResults);
+        const restored: Record<string, FlightResult[]> = {};
+        for (const [loc, flights] of Object.entries(parsed)) {
+          restored[loc] = (flights || []).map((flight: any) => ({
+            id: flight.id || '',
+            searchId: flight.searchId || '',
+            route: flight.route || { origin: '', destination: '' },
+            dates: flight.dates || { departure: '', return: undefined },
+            price: flight.price || { total: 0, currency: 'USD' },
+            duration: flight.duration || { outbound: 'PT0H0M', return: undefined, total: 'PT0H0M' },
+            airlines: flight.airlines || [],
+            connections: flight.connections || 0,
+            offer: flight.offer || {},
+            score: flight.score || 0,
+            destinationContext: flight.destinationContext || '',
+            destinationAirport: flight.destinationAirport || { iata_code: '', city_name: '', country_name: '' },
+            timelineData: flight.timelineData || {},
+          }));
+        }
+        setLocationFlightResults(restored);
+      } catch (_) {
+        setLocationFlightResults({});
+      }
+    } else {
+      setLocationFlightResults({});
+    }
+    
+    // Load expanded locations for this mode
+    const savedExpanded = localStorage.getItem(`bd-loc-expanded-${tripId}-${chatMode}`);
+    if (savedExpanded) {
+      try {
+        setExpandedLocationsForSearch(new Set(JSON.parse(savedExpanded)));
+      } catch (_) {
+        setExpandedLocationsForSearch(new Set());
+      }
+    } else {
+      setExpandedLocationsForSearch(new Set());
+    }
+    
+  }, [chatMode, tripId]);
 
   // Clear flight results when filters change (as requested by user)
   useEffect(() => {
@@ -418,7 +502,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   // Persist expanded location state
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(`bd-loc-expanded-${tripId}`, JSON.stringify(Array.from(expandedLocationsForSearch)));
+    localStorage.setItem(`bd-loc-expanded-${tripId}-${chatMode}`, JSON.stringify(Array.from(expandedLocationsForSearch)));
   }, [expandedLocationsForSearch, tripId]);
 
   // Persist per-location flight results (compressed)
@@ -430,7 +514,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         compact[loc] = compressFlightData(flights);
       }
       const dataString = JSON.stringify(compact);
-      localStorage.setItem(`bd-loc-results-${tripId}`, dataString);
+              localStorage.setItem(`bd-loc-results-${tripId}-${chatMode}`, dataString);
     } catch (err) {
       console.warn('Failed to persist location flight results', err);
     }
@@ -440,7 +524,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(`bd-system-messages-${tripId}`, JSON.stringify(systemMessages));
+              localStorage.setItem(`bd-system-messages-${tripId}-${chatMode}`, JSON.stringify(systemMessages));
     } catch (err) {
       console.warn('Failed to persist system messages', err);
     }
@@ -524,9 +608,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         if (dataString.length > 4 * 1024 * 1024) { // 4MB limit
           console.warn('Flight data too large for localStorage, truncating to latest 50 flights');
           const truncatedData = compressedData.slice(-50); // Keep only latest 50 flights
-          localStorage.setItem(`budget-discovery-results-${tripId}`, JSON.stringify(truncatedData));
+          localStorage.setItem(`budget-discovery-results-${tripId}-${chatMode}`, JSON.stringify(truncatedData));
         } else {
-          localStorage.setItem(`budget-discovery-results-${tripId}`, dataString);
+                      localStorage.setItem(`budget-discovery-results-${tripId}-${chatMode}`, dataString);
         }
       } catch (error) {
         console.error('Failed to save flight results to localStorage:', error);
@@ -539,7 +623,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             destinationContext: flight.destinationContext,
             destinationAirport: flight.destinationAirport,
           }));
-          localStorage.setItem(`budget-discovery-results-${tripId}`, JSON.stringify(minimalData));
+          localStorage.setItem(`budget-discovery-results-${tripId}-${chatMode}`, JSON.stringify(minimalData));
         } catch (fallbackError) {
           console.error('Failed to save even minimal flight data:', fallbackError);
         }
@@ -739,7 +823,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (searchResults.length === 0) {
-      const saved = localStorage.getItem(`budget-discovery-results-${tripId}`);
+      const saved = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -753,7 +837,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     }
     
     // Also ensure expanded location results are properly restored
-    const savedExpandedResults = localStorage.getItem(`bd-loc-results-${tripId}`);
+          const savedExpandedResults = localStorage.getItem(`bd-loc-results-${tripId}-${chatMode}`);
     if (savedExpandedResults && Object.keys(locationFlightResults).length === 0) {
       try {
         const parsed: Record<string, any[]> = JSON.parse(savedExpandedResults);
@@ -1246,7 +1330,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const clearHistory = () => {
     if (typeof window !== 'undefined') {
       // Clear localStorage
-      localStorage.removeItem(`budget-discovery-results-${tripId}`);
+      localStorage.removeItem(`budget-discovery-results-${tripId}-${chatMode}`);
       localStorage.removeItem(`budget-discovery-chat-${tripId}`);
       localStorage.removeItem(`bd-sortBy-${tripId}`);
       localStorage.removeItem(`bd-sortOrder-${tripId}`);
@@ -1254,9 +1338,15 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       localStorage.removeItem(`bd-destFilter-${tripId}`);
       localStorage.removeItem(`bd-viewMode-${tripId}`);
       localStorage.removeItem(`bd-expanded-${tripId}`);
+      localStorage.removeItem(`bd-loc-expanded-${tripId}-${chatMode}`);
+      localStorage.removeItem(`bd-loc-results-${tripId}-${chatMode}`);
+      localStorage.removeItem(`bd-system-messages-${tripId}-${chatMode}`);
       
       // Clear current state
       setSearchResults([]);
+      setSystemMessages([]);
+      setLocationFlightResults({});
+      setExpandedLocationsForSearch(new Set());
       setSortBy('price');
       setSortOrder('asc');
       setPriceFilter(null);
