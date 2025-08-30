@@ -760,10 +760,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
         // Fallback: if the server streams a compact JSON payload directly in content, parse it early
         try {
-          const jsonMatch = responseText.match(/\{\"success\":\s*(true|false)[\s\S]*\}\s*$/);
+          // Look for compact JSON in the response text
+          const jsonMatch = responseText.match(/\{"success":\s*(true|false),"results":\[.*?\]\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             if (parsed && parsed.success && Array.isArray(parsed.results)) {
+              console.log('✅ Client-side: Parsed streamed JSON results from assistant message.');
               const normalized = parsed.results.map(normalizeFlightResult);
               setSearchResults(prev => {
                 const byId = new Map<string, FlightResult>();
@@ -774,7 +776,36 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               setProgress(null);
             }
           }
-        } catch (_) {}
+          
+          // Also try to parse streaming chunks
+          response.body?.getReader().read().then(function processText({ done, value }) {
+            if (done) return;
+            const chunk = new TextDecoder().decode(value);
+            // Look for a compact JSON object in the streamed chunk
+            const jsonMatch = chunk.match(/\{"success":\s*(true|false),"results":\[.*?\]\}/);
+            if (jsonMatch) {
+              try {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.success && Array.isArray(parsed.results)) {
+                  console.log('✅ Client-side: Parsed streamed JSON results from assistant message.');
+                  const normalized = parsed.results.map(normalizeFlightResult);
+                  setSearchResults(prev => {
+                    const byId = new Map<string, FlightResult>();
+                    [...prev, ...normalized].forEach(r => byId.set(r.id, r));
+                    return Array.from(byId.values());
+                  });
+                  setIsLoading(false);
+                  setProgress(null);
+                }
+              } catch (error) {
+                console.warn('Client-side: Failed to parse streamed JSON from assistant message:', error);
+              }
+            }
+            return response.body?.getReader().read().then(processText);
+          });
+        } catch (error) {
+          console.warn('Client-side: Failed to parse streamed JSON from assistant message:', error);
+        }
       } catch (error) {
         console.warn('Error in onResponse:', error);
       }
