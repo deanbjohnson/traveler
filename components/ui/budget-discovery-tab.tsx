@@ -148,24 +148,15 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     });
   };
 
-  const [searchResults, setSearchResults] = useState<FlightResult[]>(() => {
-    // Load from localStorage on mount
+  // Chat mode toggle - define this first since other states depend on it
+  const [chatMode, setChatMode] = useState<'trip-discover' | 'specific-flight'>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            return parsed.map(normalizeFlightResult);
-          }
-          return [];
-        } catch (_) {
-          return [];
-        }
-      }
+      return (localStorage.getItem(`bd-chatMode-${tripId}`) as 'trip-discover'|'specific-flight') || 'trip-discover';
     }
-    return [];
+    return 'trip-discover';
   });
+
+  const [searchResults, setSearchResults] = useState<FlightResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'price' | 'duration' | 'date'>(() => {
     if (typeof window !== 'undefined') {
@@ -335,40 +326,20 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const [filterVersion, setFilterVersion] = useState(0);
   const lastSearchFilters = useRef<string>('');
   
-  // Chat mode toggle
-  const [chatMode, setChatMode] = useState<'trip-discover' | 'specific-flight'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem(`bd-chatMode-${tripId}`) as 'trip-discover'|'specific-flight') || 'trip-discover';
-    }
-    return 'trip-discover';
-  });
+
   
   // Separate state for system messages (flight details) that shouldn't trigger AI responses
   const [systemMessages, setSystemMessages] = useState<Array<{
     id: string;
     content: string;
     timestamp: Date;
-  }>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`bd-system-messages-${tripId}-${chatMode}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          return parsed.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp)
-          }));
-        } catch (_) {}
-      }
-    }
-    return [];
-  });
+  }>>([]);
 
-  // Load mode-specific data when chat mode changes
+  // Load mode-specific data when chat mode changes or component mounts
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    console.log(`🔄 Switching to ${chatMode} mode, loading mode-specific data`);
+    console.log(`🔄 Loading data for ${chatMode} mode`);
     
     // Load search results for this mode
     const savedResults = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
