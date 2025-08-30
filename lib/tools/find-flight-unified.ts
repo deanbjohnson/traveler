@@ -418,7 +418,7 @@ export const findFlightUnifiedTool = tool({
           date: departure as string,
           passengers,
           cabinClass,
-          returnDate: typeof returnSpec === "string" ? returnSpec : undefined,
+          returnDate: typeof returnSpec === "string" && returnSpec !== "one-way" ? returnSpec : undefined,
         };
 
         console.log(
@@ -512,14 +512,14 @@ export const findFlightUnifiedTool = tool({
               offersDisplayed: cleanedOffers.length,
               hasMoreOffers: filteredOffers.length > cleanedOffers.length,
               searchPerformedAt: new Date().toISOString(),
-              tripType: specificParams.returnDate ? "round-trip" : "one-way",
+              tripType: returnSpec === "one-way" || !specificParams.returnDate ? "one-way" : "round-trip",
               filtersApplied: {
                 maxPrice: preferences.maxPrice,
                 maxConnections: preferences.maxConnections,
                 sortBy: preferences.sortBy,
               },
             },
-            message: `Found ${filteredOffers.length} flight${filteredOffers.length === 1 ? "" : "s"} for your ${specificParams.returnDate ? "round-trip" : "one-way"} search from ${from} to ${to}.${filteredOffers.length > limitedOffers.length ? ` Showing top ${limitedOffers.length} results.` : ""}`,
+            message: `Found ${filteredOffers.length} flight${filteredOffers.length === 1 ? "" : "s"} for your ${returnSpec === "one-way" || !specificParams.returnDate ? "one-way" : "round-trip"} search from ${from} to ${to}.${filteredOffers.length > limitedOffers.length ? ` Showing top ${limitedOffers.length} results.` : ""}`,
             searchDurationMs: Date.now() - searchStartTime,
             timestamp: new Date().toISOString(),
           };
