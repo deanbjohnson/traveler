@@ -776,33 +776,6 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               setProgress(null);
             }
           }
-          
-          // Also try to parse streaming chunks
-          response.body?.getReader().read().then(function processText({ done, value }) {
-            if (done) return;
-            const chunk = new TextDecoder().decode(value);
-            // Look for a compact JSON object in the streamed chunk
-            const jsonMatch = chunk.match(/\{"success":\s*(true|false),"results":\[.*?\]\}/);
-            if (jsonMatch) {
-              try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed.success && Array.isArray(parsed.results)) {
-                  console.log('✅ Client-side: Parsed streamed JSON results from assistant message.');
-                  const normalized = parsed.results.map(normalizeFlightResult);
-                  setSearchResults(prev => {
-                    const byId = new Map<string, FlightResult>();
-                    [...prev, ...normalized].forEach(r => byId.set(r.id, r));
-                    return Array.from(byId.values());
-                  });
-                  setIsLoading(false);
-                  setProgress(null);
-                }
-              } catch (error) {
-                console.warn('Client-side: Failed to parse streamed JSON from assistant message:', error);
-              }
-            }
-            return response.body?.getReader().read().then(processText);
-          });
         } catch (error) {
           console.warn('Client-side: Failed to parse streamed JSON from assistant message:', error);
         }
