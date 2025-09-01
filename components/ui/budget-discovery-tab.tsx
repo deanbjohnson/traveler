@@ -635,8 +635,17 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       },
       filterVersion, // Include filter version to detect changes
     },
+
     // Save chat history to localStorage
     onFinish: async (message) => {
+      console.log('🔍 onFinish callback triggered with message:', {
+        role: message.role,
+        contentLength: message.content?.length || 0,
+        hasToolInvocations: !!(message as any)?.toolInvocations,
+        messageType: typeof message,
+        messageKeys: Object.keys(message || {})
+      });
+      
       // Check if the message contains flight search results
       const messageAny = message as any;
       const hasBudgetDiscovery = messageAny?.toolInvocations?.some((call: any) => call.toolName === 'budgetDiscovery');
@@ -717,6 +726,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       }
     },
     onResponse: (response) => {
+      console.log('🔍 onResponse called with:', {
+        hasBody: !!response.body,
+        bodyType: typeof response.body,
+        bodyLength: response.body?.toString()?.length || 0
+      });
+      
       // Skip loading state if we're just adding flight details
       if (isAddingFlightDetails.current) {
         return;
