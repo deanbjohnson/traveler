@@ -640,9 +640,17 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       // Check if the message contains flight search results
       const messageAny = message as any;
       const hasBudgetDiscovery = messageAny?.toolInvocations?.some((call: any) => call.toolName === 'budgetDiscovery');
+      const hasFindFlight = messageAny?.toolInvocations?.some((call: any) => call.toolName === 'findFlight');
       const hasAddToTimeline = messageAny?.toolInvocations?.some((call: any) => call.toolName === 'addToTimeline');
       
-      if (hasBudgetDiscovery) {
+      console.log('🔍 onFinish called with:', {
+        hasBudgetDiscovery,
+        hasFindFlight,
+        hasAddToTimeline,
+        toolInvocationsCount: messageAny?.toolInvocations?.length || 0
+      });
+      
+      if (hasBudgetDiscovery || hasFindFlight) {
         console.log('🔍 Flight search results detected');
         setIsLoading(false);
         // Extract flight results from the message
@@ -923,6 +931,13 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   };
 
   const extractFlightResults = (message: any) => {
+    console.log('🔍 extractFlightResults called with message:', {
+      hasToolInvocations: !!message.toolInvocations,
+      toolInvocationsCount: message.toolInvocations?.length || 0,
+      content: message.content?.substring(0, 200),
+      messageKeys: Object.keys(message)
+    });
+    
     try {
       const mergeResults = (incoming: FlightResult[]) => {
         setSearchResults((prev) => {
