@@ -647,14 +647,19 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         hasBudgetDiscovery,
         hasFindFlight,
         hasAddToTimeline,
-        toolInvocationsCount: messageAny?.toolInvocations?.length || 0
+        toolInvocationsCount: messageAny?.toolInvocations?.length || 0,
+        messageKeys: Object.keys(messageAny || {}),
+        hasToolInvocations: !!messageAny?.toolInvocations,
+        toolInvocations: messageAny?.toolInvocations
       });
       
       if (hasBudgetDiscovery || hasFindFlight) {
         console.log('🔍 Flight search results detected');
         setIsLoading(false);
         // Extract flight results from the message
+        console.log('🔍 About to call extractFlightResults');
         extractFlightResults(messageAny);
+        console.log('🔍 extractFlightResults called');
       } else if (hasAddToTimeline) {
         console.log('📝 Add to timeline completed');
         // Clear loading state for addToTimeline calls
