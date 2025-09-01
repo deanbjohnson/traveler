@@ -98,6 +98,7 @@ interface TripDiscoverTabProps {
   timeline?: any;
 }
 
+// Trip Discover Tab Component - Main interface for flight discovery and planning
 export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const router = useRouter();
   
@@ -148,15 +149,24 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     });
   };
 
-  // Chat mode toggle - define this first since other states depend on it
-  const [chatMode, setChatMode] = useState<'trip-discover' | 'specific-flight'>(() => {
+  const [searchResults, setSearchResults] = useState<FlightResult[]>(() => {
+    // Load from localStorage on mount
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem(`bd-chatMode-${tripId}`) as 'trip-discover'|'specific-flight') || 'trip-discover';
+      const saved = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            return parsed.map(normalizeFlightResult);
+          }
+          return [];
+        } catch (_) {
+          return [];
+        }
+      }
     }
-    return 'trip-discover';
+    return [];
   });
-
-  const [searchResults, setSearchResults] = useState<FlightResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'price' | 'duration' | 'date'>(() => {
     if (typeof window !== 'undefined') {
@@ -326,20 +336,40 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const [filterVersion, setFilterVersion] = useState(0);
   const lastSearchFilters = useRef<string>('');
   
-
+  // Chat mode toggle
+  const [chatMode, setChatMode] = useState<'trip-discover' | 'specific-flight'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem(`bd-chatMode-${tripId}`) as 'trip-discover'|'specific-flight') || 'trip-discover';
+    }
+    return 'trip-discover';
+  });
   
   // Separate state for system messages (flight details) that shouldn't trigger AI responses
   const [systemMessages, setSystemMessages] = useState<Array<{
     id: string;
     content: string;
     timestamp: Date;
-  }>>([]);
+  }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`bd-system-messages-${tripId}-${chatMode}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+        } catch (_) {}
+      }
+    }
+    return [];
+  });
 
-  // Load mode-specific data when chat mode changes or component mounts
+  // Load mode-specific data when chat mode changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    console.log(`🔄 Loading data for ${chatMode} mode`);
+    console.log(`🔄 Switching to ${chatMode} mode, loading mode-specific data`);
     
     // Load search results for this mode
     const savedResults = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
@@ -760,12 +790,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
         // Fallback: if the server streams a compact JSON payload directly in content, parse it early
         try {
-          // Look for compact JSON in the response text
-          const jsonMatch = responseText.match(/\{"success":\s*(true|false),"results":\[.*?\]\}/);
+          const jsonMatch = responseText.match(/\{\"success\":\s*(true|false)[\s\S]*\}\s*$/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             if (parsed && parsed.success && Array.isArray(parsed.results)) {
-              console.log('✅ Client-side: Parsed streamed JSON results from assistant message.');
               const normalized = parsed.results.map(normalizeFlightResult);
               setSearchResults(prev => {
                 const byId = new Map<string, FlightResult>();
@@ -776,9 +804,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               setProgress(null);
             }
           }
-        } catch (error) {
-          console.warn('Client-side: Failed to parse streamed JSON from assistant message:', error);
-        }
+        } catch (_) {}
       } catch (error) {
         console.warn('Error in onResponse:', error);
       }
