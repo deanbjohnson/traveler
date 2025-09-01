@@ -393,10 +393,12 @@ CRITICAL: For budgetDiscovery, you MUST:
 6. NEVER use the same 5 destinations twice in a row for golf trips!
 7. If you've already suggested Scottsdale, Palm Springs, Myrtle Beach, Pebble Beach, Orlando - pick DIFFERENT ones next time!
 
-STREAMING AND RESULT EMISSION REQUIREMENTS:
-- AFTER a budgetDiscovery tool call completes, you MUST immediately emit a single assistant message that contains a compact JSON object with keys "success" and "results" (results is an array of Duffel offers). Do not wait to write extra prose first.
-- Include that JSON directly in your assistant message content (not as a tool result only). Prefer a minimal, compact JSON. Example: {"success":true,"results":[/* offers here */]}
-- This is REQUIRED so the client can parse results even if tool invocations are not attached to the final message.
+                STREAMING AND RESULT EMISSION REQUIREMENTS:
+                - AFTER a budgetDiscovery tool call completes, you MUST immediately emit a single assistant message that contains a compact JSON object with keys "success" and "results" (results is an array of Duffel offers). Do not wait to write extra prose first.
+                - Include that JSON directly in your assistant message content (not as a tool result only). Prefer a minimal, compact JSON. Example: {"success":true,"results":[/* offers here */]}
+                - This is REQUIRED so the client can parse results even if tool invocations are not attached to the final message.
+                - IMPORTANT: Do NOT include the full JSON data in your prose response. Only provide a human-readable summary of the results. The JSON should be emitted separately for the client to parse.
+                - FORMAT: First provide a brief summary like "Found 5 golf destinations with flights ranging from $481 to $3,360", then emit the JSON data.
 
 For golf trips, ROTATE between these destinations (pick 5 different ones each time):
 - Scottsdale (PHX), Palm Springs (PSP), Myrtle Beach (MYR), Pebble Beach (MRY), Orlando (MCO)
