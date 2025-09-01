@@ -418,6 +418,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(`bd-chatMode-${tripId}`, chatMode);
   }, [chatMode, tripId]);
+
+  // Clear chat when mode changes (useChat will automatically start fresh with new ID)
+  useEffect(() => {
+    console.log(`🔄 Chat mode changed to ${chatMode}, chat will start fresh`);
+  }, [chatMode]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(`bd-expanded-${tripId}`, JSON.stringify(Array.from(expandedLocations)));
@@ -616,6 +622,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     stop,
     append,
   } = useChat({
+    id: `budget-discovery-${tripId}-${chatMode}`, // Make chat ID mode-specific
     body: {
       tripId,
       // Include filter parameters in the request body
@@ -677,9 +684,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           if (messageString.length > 2 * 1024 * 1024) { // 2MB limit for chat
             console.warn('Chat data too large for localStorage, keeping only latest 50 messages');
             const truncatedMessages = allMessages.slice(-50);
-            localStorage.setItem(`budget-discovery-chat-${tripId}`, JSON.stringify(serializeMessages(truncatedMessages)));
+            localStorage.setItem(`budget-discovery-chat-${tripId}-${chatMode}`, JSON.stringify(serializeMessages(truncatedMessages)));
           } else {
-            localStorage.setItem(`budget-discovery-chat-${tripId}`, messageString);
+            localStorage.setItem(`budget-discovery-chat-${tripId}-${chatMode}`, messageString);
           }
         } catch (error) {
           console.error('Failed to save chat messages to localStorage:', error);
@@ -689,7 +696,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               role: msg.role,
               content: msg.content?.substring(0, 500), // Truncate content
             }));
-            localStorage.setItem(`budget-discovery-chat-${tripId}`, JSON.stringify(minimalMessages));
+            localStorage.setItem(`budget-discovery-chat-${tripId}-${chatMode}`, JSON.stringify(minimalMessages));
           } catch (fallbackError) {
             console.error('Failed to save even minimal chat data:', fallbackError);
           }
@@ -1262,7 +1269,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     if (typeof window !== 'undefined') {
       // Clear localStorage
       localStorage.removeItem(`budget-discovery-results-${tripId}-${chatMode}`);
-      localStorage.removeItem(`budget-discovery-chat-${tripId}`);
+      localStorage.removeItem(`budget-discovery-chat-${tripId}-${chatMode}`);
       localStorage.removeItem(`bd-sortBy-${tripId}`);
       localStorage.removeItem(`bd-sortOrder-${tripId}`);
       localStorage.removeItem(`bd-priceFilter-${tripId}`);
