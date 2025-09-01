@@ -1804,6 +1804,123 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   </p>
                 </div>
               </div>
+            ) : chatMode === 'specific-flight' ? (
+              // Specific Flight Mode - Show individual flights in a list
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-md font-semibold text-gray-200">Flight Options</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-400">
+                      {sortedAndFilteredResults.length} flight{sortedAndFilteredResults.length !== 1 ? 's' : ''} found
+                    </span>
+                  </div>
+                </div>
+
+                {/* Individual Flight Cards */}
+                <div className="space-y-3">
+                  {sortedAndFilteredResults.map((flight: FlightResult) => (
+                    <Card
+                      key={flight.id}
+                      className="cursor-pointer hover:bg-gray-700/50 transition-colors border-gray-600 relative"
+                      onClick={() => handleFlightClick(flight)}
+                    >
+                      <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-1">
+                        {(addedFlightIds.has(flight.id) || timelineFlightFingerprints.has(getFlightFingerprint(flight))) ? (
+                          <div className="flex items-center gap-1 text-emerald-400 text-xs bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-700">
+                            <Check className="h-3 w-3" /> Added
+                          </div>
+                        ) : (
+                          <button
+                            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-0 flex items-center gap-1"
+                            onClick={(e) => handleAddToTimeline(flight, e)}
+                          >
+                            <Plus className="h-3 w-3" />
+                            Add to Trip
+                          </button>
+                        )}
+                        <Badge variant="outline" className="text-green-400 border-green-400 text-xs">
+                          {formatPrice(flight.price.total, flight.price.currency)}
+                        </Badge>
+                      </div>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm flex items-center space-x-2">
+                            <Plane className="h-3 w-3 text-blue-400" />
+                            <span>
+                              {flight.route.origin} → {flight.route.destination}
+                            </span>
+                          </CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-1 text-gray-400">
+                              <Calendar className="h-2 w-2" />
+                              <span>Departure</span>
+                            </div>
+                            <p className="text-gray-200">
+                              {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-1 text-gray-400">
+                              <Clock className="h-2 w-2" />
+                              <span>Duration</span>
+                            </div>
+                            <p className="text-gray-200">
+                              {flight.duration?.outbound ? formatDuration(flight.duration.outbound) : 'N/A'}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-1 text-gray-400">
+                              <Plane className="h-2 w-2" />
+                              <span>Airline</span>
+                            </div>
+                            <p className="text-gray-200">
+                              {flight.airlines?.length > 0 ? flight.airlines.join(', ') : 'N/A'}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-1 text-gray-400">
+                              <MapPin className="h-2 w-2" />
+                              <span>Stops</span>
+                            </div>
+                            <p className="text-gray-200">
+                              {flight.connections === 0 ? 'Direct' : `${flight.connections} stop${flight.connections !== 1 ? 's' : ''}`}
+                            </p>
+                          </div>
+                        </div>
+                        {flight.dates?.return && (
+                          <div className="mt-3 pt-3 border-t border-gray-600">
+                            <div className="text-xs text-gray-400 mb-1">Return Flight</div>
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-1 text-gray-400">
+                                  <Calendar className="h-2 w-2" />
+                                  <span>Return Date</span>
+                                </div>
+                                <p className="text-gray-200">
+                                  {formatDate(flight.dates.return)}
+                                </p>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-1 text-gray-400">
+                                  <Clock className="h-2 w-2" />
+                                  <span>Return Duration</span>
+                                </div>
+                                <p className="text-gray-200">
+                                  {flight.duration?.return ? formatDuration(flight.duration.return) : 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ) : viewMode === 'grouped' ? (
               <div className="space-y-4">
                 {/* Grouped View Controls */}
