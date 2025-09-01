@@ -31,8 +31,8 @@ function cleanDuffelOffer(offer: any) {
       },
     },
     timing: {
-      departure: offer.slices[0]?.departure_datetime,
-      arrival: offer.slices[0]?.arrival_datetime,
+      departure: offer.slices[0]?.segments?.[0]?.departing_at || offer.slices[0]?.departure_datetime,
+      arrival: offer.slices[0]?.segments?.[0]?.arriving_at || offer.slices[0]?.arrival_datetime,
       duration: offer.slices[0]?.duration,
     },
     segments: offer.slices[0]?.segments?.map((seg: any) => ({
@@ -57,8 +57,8 @@ function cleanDuffelOffer(offer: any) {
           name: slice.destination?.name,
           city_name: slice.destination?.city_name,
         },
-        departure_datetime: slice.departure_datetime,
-        arrival_datetime: slice.arrival_datetime,
+        departure_datetime: slice.segments?.[0]?.departing_at || slice.departure_datetime,
+        arrival_datetime: slice.segments?.[0]?.arriving_at || slice.arrival_datetime,
         duration: slice.duration,
       })),
       owner: {
