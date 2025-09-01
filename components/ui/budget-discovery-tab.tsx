@@ -149,24 +149,15 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     });
   };
 
-  const [searchResults, setSearchResults] = useState<FlightResult[]>(() => {
-    // Load from localStorage on mount
+  // Chat mode toggle - define this first since other states depend on it
+  const [chatMode, setChatMode] = useState<'trip-discover' | 'specific-flight'>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`budget-discovery-results-${tripId}-${chatMode}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            return parsed.map(normalizeFlightResult);
-          }
-          return [];
-        } catch (_) {
-          return [];
-        }
-      }
+      return (localStorage.getItem(`bd-chatMode-${tripId}`) as 'trip-discover'|'specific-flight') || 'trip-discover';
     }
-    return [];
+    return 'trip-discover';
   });
+
+  const [searchResults, setSearchResults] = useState<FlightResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'price' | 'duration' | 'date'>(() => {
     if (typeof window !== 'undefined') {
@@ -274,49 +265,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   }, [timeline]);
 
   // Track which locations have been expanded to show multiple flights (persisted)
-  const [expandedLocationsForSearch, setExpandedLocationsForSearch] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`bd-loc-expanded-${tripId}-${chatMode}`);
-      if (saved) {
-        try { return new Set<string>(JSON.parse(saved)); } catch (_) {}
-      }
-    }
-    return new Set<string>();
-  });
-  const [locationFlightResults, setLocationFlightResults] = useState<Record<string, FlightResult[]>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`bd-loc-results-${tripId}-${chatMode}`);
-      if (saved) {
-        try {
-          const parsed: Record<string, any[]> = JSON.parse(saved);
-          const restored: Record<string, FlightResult[]> = {};
-          for (const [loc, flights] of Object.entries(parsed)) {
-            // For initial restoration, we can use the data as-is since it was already normalized when saved
-            restored[loc] = (flights || []).map((flight: any) => ({
-              id: flight.id || '',
-              searchId: flight.searchId || '',
-              route: flight.route || { origin: '', destination: '' },
-              dates: flight.dates || { departure: '', return: undefined },
-              price: flight.price || { total: 0, currency: 'USD' },
-              duration: flight.duration || { outbound: 'PT0H0M', return: undefined, total: 'PT0H0M' },
-              airlines: flight.airlines || [],
-              connections: flight.connections || 0,
-              offer: flight.offer || null,
-              score: flight.score || 0,
-              destinationContext: flight.destinationContext || 'Unknown',
-              destinationAirport: flight.destinationAirport || { iata_code: '', city_name: '', country_name: '' },
-              airline: flight.airline,
-              timing: flight.timing,
-              segments: flight.segments,
-              timelineData: flight.timelineData,
-            } as FlightResult));
-          }
-          return restored;
-        } catch (_) {}
-      }
-    }
-    return {};
-  });
+  const [expandedLocationsForSearch, setExpandedLocationsForSearch] = useState<Set<string>>(new Set<string>());
+  const [locationFlightResults, setLocationFlightResults] = useState<Record<string, FlightResult[]>>({});
   
   // Track loading state for "Show 10 more" buttons
   const [loadingMoreFlights, setLoadingMoreFlights] = useState<Set<string>>(new Set());
@@ -336,34 +286,14 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const [filterVersion, setFilterVersion] = useState(0);
   const lastSearchFilters = useRef<string>('');
   
-  // Chat mode toggle
-  const [chatMode, setChatMode] = useState<'trip-discover' | 'specific-flight'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem(`bd-chatMode-${tripId}`) as 'trip-discover'|'specific-flight') || 'trip-discover';
-    }
-    return 'trip-discover';
-  });
+
   
   // Separate state for system messages (flight details) that shouldn't trigger AI responses
   const [systemMessages, setSystemMessages] = useState<Array<{
     id: string;
     content: string;
     timestamp: Date;
-  }>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`bd-system-messages-${tripId}-${chatMode}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          return parsed.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp)
-          }));
-        } catch (_) {}
-      }
-    }
-    return [];
-  });
+  }>>([]);
 
   // Load mode-specific data when chat mode changes
   useEffect(() => {
