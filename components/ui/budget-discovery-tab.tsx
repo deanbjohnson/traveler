@@ -738,18 +738,34 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           const jsonMatch = responseText.match(/\{\"success\":\s*(true|false)[\s\S]*\}\s*$/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed && parsed.success && Array.isArray(parsed.results)) {
-              const normalized = parsed.results.map(normalizeFlightResult);
-              setSearchResults(prev => {
-                const byId = new Map<string, FlightResult>();
-                [...prev, ...normalized].forEach(r => byId.set(r.id, r));
-                return Array.from(byId.values());
-              });
-              setIsLoading(false);
-              setProgress(null);
+            console.log('🔍 onResponse fallback parsed:', {
+              success: parsed?.success,
+              hasResults: !!parsed?.results,
+              hasOffers: !!parsed?.offers,
+              resultsLength: parsed?.results?.length,
+              offersLength: parsed?.offers?.length,
+              parsedKeys: Object.keys(parsed || {})
+            });
+            
+            if (parsed && parsed.success) {
+              // Handle both budgetDiscovery (results) and findFlight (offers) formats
+              const flightData = parsed.results || parsed.offers;
+              if (Array.isArray(flightData) && flightData.length > 0) {
+                console.log('🔍 onResponse processing flight data:', flightData.length, 'flights');
+                const normalized = flightData.map(normalizeFlightResult);
+                setSearchResults(prev => {
+                  const byId = new Map<string, FlightResult>();
+                  [...prev, ...normalized].forEach(r => byId.set(r.id, r));
+                  return Array.from(byId.values());
+                });
+                setIsLoading(false);
+                setProgress(null);
+              }
             }
           }
-        } catch (_) {}
+        } catch (error) {
+          console.error('🔍 onResponse fallback error:', error);
+        }
       } catch (error) {
         console.warn('Error in onResponse:', error);
       }
