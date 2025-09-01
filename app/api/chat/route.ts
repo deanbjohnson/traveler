@@ -398,7 +398,8 @@ CRITICAL: For budgetDiscovery, you MUST:
                 - Include that JSON directly in your assistant message content (not as a tool result only). Prefer a minimal, compact JSON. Example: {"success":true,"results":[/* offers here */]}
                 - This is REQUIRED so the client can parse results even if tool invocations are not attached to the final message.
                 - IMPORTANT: Do NOT include the full JSON data in your prose response. Only provide a human-readable summary of the results. The JSON should be emitted separately for the client to parse.
-                - FORMAT: First provide a brief summary like "Found 5 golf destinations with flights ranging from $481 to $3,360", then emit the JSON data.
+                - FORMAT: Provide ONLY a brief summary like "Found 5 golf destinations with flights ranging from $481 to $3,360". Do NOT include any JSON data in your prose response.
+                - The JSON data will be automatically attached to your message by the system. You do not need to include it manually.
 
 For golf trips, ROTATE between these destinations (pick 5 different ones each time):
 - Scottsdale (PHX), Palm Springs (PSP), Myrtle Beach (MYR), Pebble Beach (MRY), Orlando (MCO)
