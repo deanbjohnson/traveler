@@ -846,6 +846,15 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
   // Normalize incoming flight result (handles both old cleaned shape and new FlightOption shape)
   const normalizeFlightResult = (raw: any): FlightResult => {
+    console.log('🔍 normalizeFlightResult called with raw data:', {
+      id: raw.id,
+      hasOffer: !!raw.offer,
+      hasSlices: !!raw.slices,
+      hasPrice: !!raw.price,
+      hasTotalAmount: !!raw.total_amount,
+      rawKeys: Object.keys(raw)
+    });
+    
     const id: string = raw.id || raw.offer?.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     const route = raw.route || {
@@ -991,6 +1000,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 if (Array.isArray(flightData) && flightData.length > 0) {
                   // Debug: Log the first result structure
                   console.log(`🔍 First flight result structure (${toolCall.toolName}):`, JSON.stringify(flightData[0], null, 2));
+                  console.log(`🔍 Raw flight data keys:`, Object.keys(flightData[0] || {}));
                   
                   // Update progress finalization if metadata is present
                   const meta = result.metadata || result.data?.metadata;
