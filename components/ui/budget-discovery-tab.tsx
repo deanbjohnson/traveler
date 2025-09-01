@@ -1064,6 +1064,16 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                       normalizedDates: firstResult.dates,
                       rawData: flightData[0]
                     });
+                    
+                    // Debug: Log the full normalized result structure
+                    console.log('🔍 Full normalized result structure:', {
+                      id: firstResult.id,
+                      dates: firstResult.dates,
+                      price: firstResult.price,
+                      route: firstResult.route,
+                      duration: firstResult.duration,
+                      airlines: firstResult.airlines
+                    });
                   }
                   
                   // Handle location-specific search results
@@ -1074,15 +1084,23 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                     }));
                     console.log(`✅ Stored ${normalized.length} flights for location: ${targetLocation}`);
                   } else {
-                                      // Regular budget discovery results
-                  mergeResults(normalized);
-                  console.log(`✅ Extracted flight results from ${toolCall.toolName} tool call:`, flightData.length);
-                  console.log(`🔍 Normalized results:`, normalized.map(f => ({
-                    id: f.id,
-                    destination: f.destinationAirport?.city_name || f.route?.destination,
-                    price: f.price?.total,
-                    context: f.destinationContext
-                  })));
+                    // Regular budget discovery results
+                    mergeResults(normalized);
+                    console.log(`✅ Extracted flight results from ${toolCall.toolName} tool call:`, flightData.length);
+                    console.log(`🔍 Normalized results:`, normalized.map(f => ({
+                      id: f.id,
+                      destination: f.destinationAirport?.city_name || f.route?.destination,
+                      price: f.price?.total,
+                      context: f.destinationContext
+                    })));
+                    
+                    // Debug: Log what's actually being stored in state
+                    console.log('🔍 State update - normalized flights to be stored:', normalized.map(f => ({
+                      id: f.id,
+                      dates: f.dates,
+                      price: f.price,
+                      route: f.route
+                    })));
                   }
                   return;
                   }
