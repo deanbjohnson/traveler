@@ -428,6 +428,22 @@ export const findFlightUnifiedTool = tool({
 
         const result = await searchFlights(specificParams);
 
+        // Debug: Log the first raw offer to see what data structure we're getting
+        if (result.success && result.data?.offers?.[0]) {
+          const firstOffer = result.data.offers[0];
+          console.log(`[FIND-FLIGHT-TOOL-${toolCallId}] First raw offer structure:`, {
+            hasSlices: !!firstOffer.slices,
+            slicesCount: firstOffer.slices?.length || 0,
+            firstSliceKeys: firstOffer.slices?.[0] ? Object.keys(firstOffer.slices[0]) : [],
+            hasDepartureDatetime: !!firstOffer.slices?.[0]?.departure_datetime,
+            hasArrivalDatetime: !!firstOffer.slices?.[0]?.arrival_datetime,
+            hasDuration: !!firstOffer.slices?.[0]?.duration,
+            departureDatetime: firstOffer.slices?.[0]?.departure_datetime,
+            arrivalDatetime: firstOffer.slices?.[0]?.arrival_datetime,
+            duration: firstOffer.slices?.[0]?.duration
+          });
+        }
+
         console.log(
           `[FIND-FLIGHT-TOOL-${toolCallId}] Specific search completed:`,
           {
