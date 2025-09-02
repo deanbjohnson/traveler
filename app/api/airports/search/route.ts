@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchAirports } from '@/lib/airport-database';
+import { searchAirports } from '@/lib/airport-database-comprehensive';
 
 export async function GET(request: NextRequest) {
   try {
