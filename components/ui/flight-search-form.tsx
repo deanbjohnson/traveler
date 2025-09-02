@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button } from './button';
 import { Input } from './input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
-import { Calendar } from './calendar';
+import { Calendar } from './kibo-ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { CalendarIcon, Plane, Search } from 'lucide-react';
 import { format } from 'date-fns';
