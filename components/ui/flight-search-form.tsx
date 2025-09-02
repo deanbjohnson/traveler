@@ -258,7 +258,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           
           {/* Smart airport dropdown */}
           {showOriginDropdown && (
-            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
+            <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
@@ -272,10 +272,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                   {airportResults.map((result, index) => (
                     <div key={index}>
                       {result.type === 'city' ? (
-                        <div 
-                          className="p-2.5 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3 transition-colors"
-                          onClick={() => selectCity(result, true)}
-                        >
+                        <div className="p-2.5 border-l-4 border-blue-500 pl-3 transition-colors">
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="font-semibold text-blue-600">{result.city}</div>
@@ -292,7 +289,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                           {result.airports.map((airport: any, airportIndex: number) => (
                             <div 
                               key={airportIndex}
-                              className="ml-4 mt-1 p-1.5 hover:bg-accent/50 rounded cursor-pointer transition-colors group"
+                              className="ml-4 mt-1 p-2 hover:bg-accent rounded cursor-pointer transition-colors group"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 selectAirport(airport, true);
@@ -366,7 +363,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </div>
           {/* Smart airport dropdown */}
           {showDestinationDropdown && (
-            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
+            <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
@@ -380,10 +377,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                   {airportResults.map((result, index) => (
                     <div key={index}>
                       {result.type === 'city' ? (
-                        <div 
-                          className="p-2.5 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3 transition-colors"
-                          onClick={() => selectCity(result, false)}
-                        >
+                        <div className="p-2.5 border-l-4 border-blue-500 pl-3 transition-colors">
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="font-semibold text-blue-600">{result.city}</div>
@@ -400,7 +394,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                           {result.airports.map((airport: any, airportIndex: number) => (
                             <div 
                               key={airportIndex}
-                              className="ml-4 mt-1 p-1.5 hover:bg-accent/50 rounded cursor-pointer transition-colors group"
+                              className="ml-4 mt-1 p-2 hover:bg-accent rounded cursor-pointer transition-colors group"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 selectAirport(airport, false);
