@@ -470,6 +470,17 @@ function generateDateWindows(
       .map((date) => format(date, "yyyy-MM-dd"));
   }
 
+  // Handle specific date strings (like "2025-10-01")
+  if (typeof dateWindow === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateWindow)) {
+    const targetDate = new Date(dateWindow);
+    // Search around the target date (±3 days)
+    const start = addDays(targetDate, -3);
+    const end = addDays(targetDate, 3);
+    return eachDayOfInterval({ start, end })
+      .filter((_, index) => index % 1 === 0) // Every day for specific dates
+      .map((date) => format(date, "yyyy-MM-dd"));
+  }
+
   return [format(addDays(today, 7), "yyyy-MM-dd")];
 }
 
