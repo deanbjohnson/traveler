@@ -4,9 +4,8 @@ import React, { useState } from 'react';
 import { Button } from './button';
 import { Input } from './input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
-import { Calendar } from './kibo-ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { CalendarIcon, Plane, Search } from 'lucide-react';
+import { CalendarIcon, Plane, Search, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -37,7 +36,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
     cabinClass: 'economy',
   });
 
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
 
   const handleSearch = () => {
     if (searchParams.origin && searchParams.destination && searchParams.departureDate) {
@@ -137,9 +136,47 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
               placeholder="Airport or city"
               value={searchParams.origin}
               onChange={(e) => setSearchParams(prev => ({ ...prev, origin: e.target.value }))}
-              className="pl-10"
+              className="pl-10 pr-10"
             />
+            <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
+          {/* Google Flights-style dropdown */}
+          {searchParams.origin && (
+            <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="p-2">
+                <div className="text-xs text-muted-foreground mb-2">Popular airports</div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">New York</span>
+                      <span className="text-xs text-muted-foreground">(City in New York State)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">JFK</span>
+                      <span className="text-xs text-muted-foreground">John F. Kennedy International Airport</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">12 mi to destination</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">LGA</span>
+                      <span className="text-xs text-muted-foreground">LaGuardia Airport</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">8 mi to destination</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">EWR</span>
+                      <span className="text-xs text-muted-foreground">Newark Liberty International Airport</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">8 mi to destination</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1">
@@ -152,9 +189,47 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
               placeholder="Airport or city"
               value={searchParams.destination}
               onChange={(e) => setSearchParams(prev => ({ ...prev, destination: e.target.value }))}
-              className="pl-10"
+              className="pl-10 pr-10"
             />
+            <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
+          {/* Google Flights-style dropdown */}
+          {searchParams.destination && (
+            <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="p-2">
+                <div className="text-xs text-muted-foreground mb-2">Popular airports</div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">San Francisco</span>
+                      <span className="text-xs text-muted-foreground">(City in California)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">SFO</span>
+                      <span className="text-xs text-muted-foreground">San Francisco International Airport</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">12 mi to destination</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">OAK</span>
+                      <span className="text-xs text-muted-foreground">Oakland International Airport</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">8 mi to destination</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">SJC</span>
+                      <span className="text-xs text-muted-foreground">San Jose International Airport</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">15 mi to destination</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -164,36 +239,19 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Departure Date
           </label>
-          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !searchParams.departureDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {searchParams.departureDate ? (
-                  format(searchParams.departureDate, "PPP")
-                ) : (
-                  <span>Pick a date</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={searchParams.departureDate}
-                onSelect={(date) => {
-                  setSearchParams(prev => ({ ...prev, departureDate: date }));
-                  setIsCalendarOpen(false);
-                }}
-                initialFocus
-                disabled={(date) => date < new Date()}
-              />
-            </PopoverContent>
-          </Popover>
+          <div className="relative">
+            <input
+              type="date"
+              value={searchParams.departureDate ? format(searchParams.departureDate, 'yyyy-MM-dd') : ''}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value) : undefined;
+                setSearchParams(prev => ({ ...prev, departureDate: date }));
+              }}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            />
+            <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          </div>
         </div>
 
         {searchParams.tripType === 'round-trip' && (
@@ -201,38 +259,22 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
             <label className="text-sm font-medium text-muted-foreground mb-2 block">
               Return Date
             </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !searchParams.returnDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {searchParams.returnDate ? (
-                    format(searchParams.returnDate, "PPP")
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={searchParams.returnDate}
-                  onSelect={(date) => {
-                    setSearchParams(prev => ({ ...prev, returnDate: date }));
-                  }}
-                  initialFocus
-                  disabled={(date) => 
-                    date < new Date() || 
-                    (searchParams.departureDate && date <= searchParams.departureDate)
-                  }
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="relative">
+              <input
+                type="date"
+                value={searchParams.returnDate ? format(searchParams.returnDate, 'yyyy-MM-dd') : ''}
+                onChange={(e) => {
+                  const date = e.target.value ? new Date(e.target.value) : undefined;
+                  setSearchParams(prev => ({ ...prev, returnDate: date }));
+                }}
+                min={searchParams.departureDate ? 
+                  new Date(searchParams.departureDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 
+                  new Date().toISOString().split('T')[0]
+                }
+                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              />
+              <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            </div>
           </div>
         )}
       </div>
