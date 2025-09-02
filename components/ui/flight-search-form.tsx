@@ -5,7 +5,7 @@ import { Button } from './button';
 import { Input } from './input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { CalendarIcon, Plane, Search, ChevronDown, MapPin } from 'lucide-react';
+import { CalendarIcon, Plane, Search, ChevronDown, MapPin, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -51,9 +51,30 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
   const [isSearchingOrigin, setIsSearchingOrigin] = useState(false);
   const [isSearchingDestination, setIsSearchingDestination] = useState(false);
 
+  // Recently selected airports/cities
+  const [recentlySelected, setRecentlySelected] = useState<{
+    airports: any[];
+    cities: any[];
+  }>({
+    airports: [
+      { code: 'JFK', name: 'John F. Kennedy International Airport', city: 'New York', country: 'United States', type: 'International' },
+      { code: 'LAX', name: 'Los Angeles International Airport', city: 'Los Angeles', country: 'United States', type: 'International' },
+      { code: 'LHR', name: 'London Heathrow Airport', city: 'London', country: 'United Kingdom', type: 'International' },
+      { code: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'France', type: 'International' },
+      { code: 'HND', name: 'Tokyo Haneda Airport', city: 'Tokyo', country: 'Japan', type: 'International' }
+    ],
+    cities: [
+      { city: 'New York', state: 'New York', country: 'United States', airports: [] },
+      { city: 'London', country: 'United Kingdom', airports: [] },
+      { city: 'Paris', country: 'France', airports: [] },
+      { city: 'Tokyo', country: 'Japan', airports: [] },
+      { city: 'Los Angeles', state: 'California', country: 'United States', airports: [] }
+    ]
+  });
+
   // Search airports using our API
   const searchAirports = async (query: string, isOrigin: boolean) => {
-    if (!query || query.length < 2) {
+    if (!query || query.length === 0) {
       if (isOrigin) {
         setOriginAirportResults([]);
       } else {
@@ -105,8 +126,10 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
   // Debounced search to avoid too many API calls
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (originSearch.length >= 2) {
+      if (originSearch.length >= 1) {
         searchAirports(originSearch, true);
+      } else {
+        setOriginAirportResults([]);
       }
     }, 300);
 
@@ -115,8 +138,10 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (destinationSearch.length >= 2) {
+      if (destinationSearch.length >= 1) {
         searchAirports(destinationSearch, false);
+      } else {
+        setDestinationAirportResults([]);
       }
     }, 300);
 
@@ -191,8 +216,58 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                           !searchParams.departureDate ||
                           (searchParams.tripType === 'round-trip' && !searchParams.returnDate);
 
+  // Render recently selected content
+  const renderRecentlySelected = (isOrigin: boolean) => (
+    <div className="p-0">
+      <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border/30">
+        Recently selected
+      </div>
+      
+      {/* Recently selected cities */}
+      {recentlySelected.cities.slice(0, 3).map((city, index) => (
+        <div 
+          key={`city-${index}`}
+          className="p-3 hover:bg-accent/50 transition-colors cursor-pointer border-b border-border/30 last:border-b-0"
+          onClick={() => selectCity(city, isOrigin)}
+        >
+          <div className="flex items-center gap-3">
+            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-foreground">{city.city}</div>
+              <div className="text-sm text-muted-foreground">
+                {city.state && `${city.state}, `}{city.country}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+      
+      {/* Recently selected airports */}
+      {recentlySelected.airports.slice(0, 2).map((airport, index) => (
+        <div 
+          key={`airport-${index}`}
+          className="p-3 hover:bg-accent/50 transition-colors cursor-pointer border-b border-border/30 last:border-b-0"
+          onClick={() => selectAirport(airport, isOrigin)}
+        >
+          <div className="flex items-center gap-3">
+            <Plane className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-foreground">{airport.code}</div>
+              <div className="text-sm text-muted-foreground truncate">{airport.name}</div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   // Render airport dropdown content
   const renderAirportDropdown = (results: any[], isSearching: boolean, searchTerm: string, isOrigin: boolean) => {
+    // Show recently selected when empty
+    if (searchTerm.length === 0) {
+      return renderRecentlySelected(isOrigin);
+    }
+
     if (isSearching) {
       return (
         <div className="p-4 text-center text-muted-foreground">
@@ -202,7 +277,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
       );
     }
 
-    if (results.length === 0 && searchTerm.length >= 2) {
+    if (results.length === 0 && searchTerm.length >= 1) {
       return (
         <div className="p-4 text-center text-muted-foreground">
           No airports found
