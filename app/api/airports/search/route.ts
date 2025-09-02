@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AirportData } from 'airport-data-js';
-
-// Initialize airport database
-const airportData = new AirportData();
+import { searchByName, getAutocompleteSuggestions } from 'airport-data-js';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,13 +15,18 @@ export async function GET(request: NextRequest) {
 
     const searchTerm = query.trim().toLowerCase();
     
-    // Search airports by various criteria
-    const results = await airportData.search({
-      query: searchTerm,
-      limit: 15, // Limit results for performance
-      includeClosed: false, // Only active airports
-      includeHeliports: false, // Focus on commercial airports
-    });
+    // Search airports by name and get autocomplete suggestions
+    const nameResults = await searchByName(searchTerm);
+    const autocompleteResults = await getAutocompleteSuggestions(searchTerm);
+    
+    // Combine and deduplicate results
+    const allResults = [...nameResults, ...autocompleteResults];
+    const uniqueResults = allResults.filter((airport, index, self) => 
+      index === self.findIndex(a => a.iata === airport.iata)
+    );
+    
+    // Limit results for performance
+    const results = uniqueResults.slice(0, 15);
 
     // Transform results to match Google Flights format
     const transformedAirports = results.map(airport => ({
