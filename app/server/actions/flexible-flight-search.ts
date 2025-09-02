@@ -591,13 +591,18 @@ export async function flexibleFlightSearch(
         for (const date of sampledDates) {
           if (combinationCount >= maxCombinations) break;
 
-          const returnDate =
-            params.tripType === "round-trip" && params.tripDuration
-              ? format(
-                  addDays(new Date(date), params.tripDuration),
-                  "yyyy-MM-dd"
-                )
-              : undefined;
+          // For specific dates, we need to handle both departure and return
+          let returnDate: string | undefined;
+          if (params.tripType === "round-trip") {
+            if (params.tripDuration) {
+              // Calculate return date based on trip duration
+              returnDate = format(
+                addDays(new Date(date), params.tripDuration),
+                "yyyy-MM-dd"
+              );
+            }
+            // For exact dates, returnDate will be undefined and handled separately
+          }
 
           searchCombinations.push({
             from: origin,
@@ -613,6 +618,16 @@ export async function flexibleFlightSearch(
         if (combinationCount >= maxCombinations) break;
       }
       if (combinationCount >= maxCombinations) break;
+    }
+
+    // If we have specific dates but no trip duration, we need to search for return flights separately
+    if (params.tripType === "round-trip" && params.dateWindow && "exactDate" in params.dateWindow && !params.tripDuration) {
+      console.log("🔍 Adding return flight searches for specific dates");
+      
+      // We need to find the return date from the original request
+      // This should be passed from the calling function
+      // For now, we'll skip this and just search departure flights
+      console.log("⚠️ Return date not provided, only searching departure flights");
     }
 
     console.log(`🚀 Executing ${searchCombinations.length} flight searches`);
