@@ -1686,11 +1686,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         throw new Error('Departure date is required');
       }
       
-      const searchQuery = `Find ${searchParams.tripType} flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
+      // Make the request more explicit to trigger the findFlight tool
+      const searchQuery = `Please use the findFlight tool to search for ${searchParams.tripType} flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
         searchParams.returnDate ? ` returning on ${searchParams.returnDate.toISOString().split('T')[0]}` : ''
       } for ${searchParams.passengers} passenger${searchParams.passengers === 1 ? '' : 's'} in ${searchParams.cabinClass} class${
         searchParams.maxPrice ? ` with max price $${searchParams.maxPrice}` : ''
-      }`;
+      }. Please search for actual flights and show me the results.`;
       
       // Use the existing chat functionality to search
       const response = await fetch('/api/chat', {
