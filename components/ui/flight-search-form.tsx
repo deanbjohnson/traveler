@@ -56,21 +56,25 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
     airports: any[];
     cities: any[];
   }>({
-    airports: [
-      { code: 'JFK', name: 'John F. Kennedy International Airport', city: 'New York', country: 'United States', type: 'International' },
-      { code: 'LAX', name: 'Los Angeles International Airport', city: 'Los Angeles', country: 'United States', type: 'International' },
-      { code: 'LHR', name: 'London Heathrow Airport', city: 'London', country: 'United Kingdom', type: 'International' },
-      { code: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'France', type: 'International' },
-      { code: 'HND', name: 'Tokyo Haneda Airport', city: 'Tokyo', country: 'Japan', type: 'International' }
-    ],
-    cities: [
-      { city: 'New York', state: 'New York', country: 'United States', airports: [] },
-      { city: 'London', country: 'United Kingdom', airports: [] },
-      { city: 'Paris', country: 'France', airports: [] },
-      { city: 'Tokyo', country: 'Japan', airports: [] },
-      { city: 'Los Angeles', state: 'California', country: 'United States', airports: [] }
-    ]
+    airports: [],
+    cities: []
   });
+
+  // Add to recently selected when user makes a selection
+  const addToRecentlySelected = (item: any, isCity: boolean) => {
+    setRecentlySelected(prev => {
+      const newList = isCity ? prev.cities : prev.airports;
+      const filtered = newList.filter(existing => 
+        isCity ? existing.city !== item.city : existing.code !== item.code
+      );
+      const updated = [item, ...filtered].slice(0, 5); // Keep only 5 most recent
+      
+      return {
+        ...prev,
+        [isCity ? 'cities' : 'airports']: updated
+      };
+    });
+  };
 
   // Search airports using our API
   const searchAirports = async (query: string, isOrigin: boolean) => {
@@ -186,6 +190,8 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
       setDestinationSearch(airport.code);
       setShowDestinationDropdown(false);
     }
+    // Add to recently selected
+    addToRecentlySelected(airport, false);
   };
 
   // Handle city selection
@@ -199,6 +205,8 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
       setDestinationSearch(cityData.city);
       setShowDestinationDropdown(false);
     }
+    // Add to recently selected
+    addToRecentlySelected(cityData, true);
   };
 
   const handleSearch = () => {
@@ -217,49 +225,58 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                           (searchParams.tripType === 'round-trip' && !searchParams.returnDate);
 
   // Render recently selected content
-  const renderRecentlySelected = (isOrigin: boolean) => (
-    <div className="p-0">
-      <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border/30">
-        Recently selected
-      </div>
-      
-      {/* Recently selected cities */}
-      {recentlySelected.cities.slice(0, 3).map((city, index) => (
-        <div 
-          key={`city-${index}`}
-          className="p-3 hover:bg-accent/50 transition-colors cursor-pointer border-b border-border/30 last:border-b-0"
-          onClick={() => selectCity(city, isOrigin)}
-        >
-          <div className="flex items-center gap-3">
-            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-foreground">{city.city}</div>
-              <div className="text-sm text-muted-foreground">
-                {city.state && `${city.state}, `}{city.country}
+  const renderRecentlySelected = (isOrigin: boolean) => {
+    const hasRecentCities = recentlySelected.cities.length > 0;
+    const hasRecentAirports = recentlySelected.airports.length > 0;
+    
+    if (!hasRecentCities && !hasRecentAirports) {
+      return null; // Show nothing if no recent selections
+    }
+
+    return (
+      <div className="p-0">
+        <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border/30">
+          Recently selected
+        </div>
+        
+        {/* Recently selected cities */}
+        {recentlySelected.cities.slice(0, 3).map((city, index) => (
+          <div 
+            key={`city-${index}`}
+            className="p-3 hover:bg-accent/50 transition-colors cursor-pointer border-b border-border/30 last:border-b-0"
+            onClick={() => selectCity(city, isOrigin)}
+          >
+            <div className="flex items-center gap-3">
+              <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-foreground">{city.city}</div>
+                <div className="text-sm text-muted-foreground">
+                  {city.state && `${city.state}, `}{city.country}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
-      
-      {/* Recently selected airports */}
-      {recentlySelected.airports.slice(0, 2).map((airport, index) => (
-        <div 
-          key={`airport-${index}`}
-          className="p-3 hover:bg-accent/50 transition-colors cursor-pointer border-b border-border/30 last:border-b-0"
-          onClick={() => selectAirport(airport, isOrigin)}
-        >
-          <div className="flex items-center gap-3">
-            <Plane className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-foreground">{airport.code}</div>
-              <div className="text-sm text-muted-foreground truncate">{airport.name}</div>
+        ))}
+        
+        {/* Recently selected airports */}
+        {recentlySelected.airports.slice(0, 2).map((airport, index) => (
+          <div 
+            key={`airport-${index}`}
+            className="p-3 hover:bg-accent/50 transition-colors cursor-pointer border-b border-border/30 last:border-b-0"
+            onClick={() => selectAirport(airport, isOrigin)}
+          >
+            <div className="flex items-center gap-3">
+              <Plane className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-foreground">{airport.code}</div>
+                <div className="text-sm text-muted-foreground truncate">{airport.name}</div>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   // Render airport dropdown content
   const renderAirportDropdown = (results: any[], isSearching: boolean, searchTerm: string, isOrigin: boolean) => {
