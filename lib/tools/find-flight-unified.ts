@@ -326,7 +326,11 @@ export const findFlightUnifiedTool = tool({
         typeof departure !== "string" ||
         !departure.match(/^\d{4}-\d{2}-\d{2}$/) ||
         // Check if return is a duration rather than specific date
-        (returnSpec && typeof returnSpec === "number");
+        (returnSpec && typeof returnSpec === "number") ||
+        // If we have specific dates but need airport flexibility, use flexible search
+        (typeof departure === "string" && departure.match(/^\d{4}-\d{2}-\d{2}$/) && 
+         typeof returnSpec === "string" && returnSpec.match(/^\d{4}-\d{2}-\d{2}$/) &&
+         (from.length !== 3 || !from.match(/^[A-Z]{3}$/) || to.length !== 3 || !to.match(/^[A-Z]{3}$/)));
 
       console.log(
         `[FIND-FLIGHT-TOOL-${toolCallId}] Search type determination:`,
@@ -360,8 +364,17 @@ export const findFlightUnifiedTool = tool({
           dateWindow: (() => {
             if (typeof departure === "string") {
               if (departure.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                // Specific date - use exact date, not a window
-                return { exactDate: departure };
+                // For specific dates, we need to handle both departure and return
+                if (typeof returnSpec === "string" && returnSpec.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                  // Both dates are specific, create a date range
+                  return {
+                    start: departure,
+                    end: returnSpec
+                  };
+                } else {
+                  // Only departure date is specific
+                  return { exactDate: departure };
+                }
               } else if (departure.match(/^\d{4}-\d{2}$/)) {
                 return { month: departure };
               } else if (departure === "next-month") {
