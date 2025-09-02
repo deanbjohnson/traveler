@@ -1686,12 +1686,26 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         throw new Error('Departure date is required');
       }
       
-      // Make the request more explicit to trigger the findFlight tool
-      const searchQuery = `Please use the findFlight tool to search for ${searchParams.tripType} flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
+      // Convert the search params to the format expected by the findFlight tool
+      const flightSearchParams = {
+        from: searchParams.origin,
+        to: searchParams.destination,
+        departure: searchParams.departureDate.toISOString().split('T')[0],
+        return: searchParams.returnDate ? searchParams.returnDate.toISOString().split('T')[0] : undefined,
+        passengers: searchParams.passengers,
+        cabinClass: searchParams.cabinClass,
+        preferences: {
+          maxPrice: searchParams.maxPrice,
+          maxConnections: 2, // Default to max 2 connections
+        }
+      };
+      
+      // Use the existing chat functionality to search, but with a simpler message
+      const searchQuery = `Search for flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
         searchParams.returnDate ? ` returning on ${searchParams.returnDate.toISOString().split('T')[0]}` : ''
       } for ${searchParams.passengers} passenger${searchParams.passengers === 1 ? '' : 's'} in ${searchParams.cabinClass} class${
         searchParams.maxPrice ? ` with max price $${searchParams.maxPrice}` : ''
-      }. Please search for actual flights and show me the results.`;
+      }.`;
       
       // Use the existing chat functionality to search
       const response = await fetch('/api/chat', {
@@ -1699,7 +1713,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: searchQuery }],
-          tripId: tripId, // Add the required tripId parameter
+          tripId: tripId,
           id: `budget-discovery-${tripId}-specific-flight`,
         }),
       });
@@ -2036,16 +2050,37 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 </div>
               </div>
             ) : chatMode === 'specific-flight' ? (
-              // Specific Flight Mode - Show Google Flights-style form
-              <div className="space-y-6">
-                <FlightSearchForm 
-                  onSearch={handleSpecificFlightSearch}
-                  isLoading={isSpecificFlightLoading}
-                />
+              // Specific Flight Mode - Show Google Flights-style form on left, results on right
+              <div className="flex h-full">
+                {/* Left side - Flight Search Form */}
+                <div className="w-1/2 p-6 border-r border-gray-700">
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-200 mb-2">Specific Flight Search</h3>
+                    <p className="text-sm text-gray-400">
+                      Search for specific flights with exact dates and routes
+                    </p>
+                  </div>
+                  
+                  <FlightSearchForm 
+                    onSearch={handleSpecificFlightSearch}
+                    isLoading={isSpecificFlightLoading}
+                  />
+                </div>
                 
-                {/* Show results if we have any */}
-                {specificFlightResults.length > 0 && (
-                  <div className="mt-6">
+                {/* Right side - Flight Results */}
+                <div className="w-1/2 p-6">
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-200 mb-2">Flight Results</h3>
+                    <p className="text-sm text-gray-400">
+                      {specificFlightResults.length > 0 
+                        ? `Found ${specificFlightResults.length} flights` 
+                        : 'Search for flights to see results here'
+                      }
+                    </p>
+                  </div>
+                  
+                  {/* Show results if we have any */}
+                  {specificFlightResults.length > 0 ? (
                     <FlightResultsDisplay
                       flights={specificFlightResults.map(convertFlightResult)}
                       onAddToTrip={handleAddToTripFromDisplay}
@@ -2058,8 +2093,16 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                         cabinClass: specificFlightSearchParams.cabinClass
                       } : undefined}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center py-12">
+                      <Plane className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400 mb-2">No flights found yet</p>
+                      <p className="text-sm text-gray-500">
+                        Use the search form on the left to find flights
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : viewMode === 'grouped' ? (
               <div className="space-y-4">
