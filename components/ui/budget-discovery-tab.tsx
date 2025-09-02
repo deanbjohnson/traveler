@@ -1719,9 +1719,88 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       });
       
       if (response.ok) {
-        // The search will be processed by the existing chat system
-        // and results will appear in the right panel
-        toast.success("Search started! Searching for flights...");
+        // Process the streaming response to extract flight results
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('No response body');
+        }
+        
+        let accumulatedData = '';
+        let flightResults: FlightResult[] = [];
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            // Convert the chunk to text
+            const chunk = new TextDecoder().decode(value);
+            accumulatedData += chunk;
+            
+            // Look for flight results in the accumulated data
+            // The AI tool response should contain the flight data
+            if (accumulatedData.includes('"offers":')) {
+              try {
+                // Try to extract JSON from the response
+                const jsonMatch = accumulatedData.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  const parsed = JSON.parse(jsonMatch[0]);
+                  if (parsed.offers && Array.isArray(parsed.offers)) {
+                    // Convert the offers to FlightResult format
+                    flightResults = parsed.offers.map((offer: any, index: number) => ({
+                      id: offer.id || `flight-${index}`,
+                      searchId: parsed.id || `search-${Date.now()}`,
+                      route: {
+                        origin: offer.slices?.[0]?.origin?.iata_code || searchParams.origin,
+                        destination: offer.slices?.[0]?.destination?.iata_code || searchParams.destination
+                      },
+                      dates: {
+                        departure: offer.slices?.[0]?.segments?.[0]?.departing_at || searchParams.departureDate?.toISOString(),
+                        return: offer.slices?.[1]?.segments?.[0]?.departing_at || searchParams.returnDate?.toISOString()
+                      },
+                      price: {
+                        total: parseFloat(offer.total_amount) || 0,
+                        currency: offer.total_currency || 'USD'
+                      },
+                      duration: {
+                        outbound: offer.slices?.[0]?.duration || '',
+                        return: offer.slices?.[1]?.duration || '',
+                        total: ''
+                      },
+                      airlines: [offer.owner?.name || 'Unknown Airline'],
+                      connections: (offer.slices?.[0]?.segments?.length || 1) - 1,
+                      offer: offer,
+                      score: 0,
+                      destinationContext: 'specific-flight-search',
+                      destinationAirport: {
+                        iata_code: offer.slices?.[0]?.destination?.iata_code || searchParams.destination,
+                        city_name: offer.slices?.[0]?.destination?.city_name || searchParams.destination,
+                        country_name: offer.slices?.[0]?.destination?.iata_country_code || 'Unknown'
+                      },
+                      stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
+                      cabinClass: searchParams.cabinClass
+                    }));
+                    
+                    // Update the state with the flight results
+                    setSpecificFlightResults(flightResults);
+                    break; // We found the results, no need to continue reading
+                  }
+                }
+              } catch (parseError) {
+                console.log('Error parsing flight results:', parseError);
+                // Continue reading in case more data arrives
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+        
+        if (flightResults.length > 0) {
+          toast.success(`Found ${flightResults.length} flights!`);
+        } else {
+          toast.error("No flights found for the specified criteria.");
+        }
       } else {
         throw new Error('Failed to start search');
       }
