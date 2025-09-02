@@ -19,6 +19,7 @@
     "@clerk/nextjs": "^6.23.3",
     "@duffel/api": "^4.14.1",
     "@faker-js/faker": "^9.9.0",
+    "@nwpr/airport-codes": "^3.0.3",
     "@prisma/client": "^6.0.0",
     "@radix-ui/react-collapsible": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.14",

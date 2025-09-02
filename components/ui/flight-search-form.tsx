@@ -246,7 +246,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           
           {/* Smart airport dropdown */}
           {showOriginDropdown && (
-            <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
@@ -331,7 +331,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </div>
           {/* Smart airport dropdown */}
           {showDestinationDropdown && (
-            <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
