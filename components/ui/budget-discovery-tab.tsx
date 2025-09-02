@@ -1967,24 +1967,42 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden" ref={chatScrollRef}>
-            <Chat
-              messages={[...messages, ...systemMessages.map(msg => ({
-                role: 'assistant' as const,
-                content: msg.content,
-                id: msg.id,
-                createdAt: msg.timestamp
-              }))].sort((a, b) => {
-                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                return aTime - bTime;
-              })}
-              input={input}
-              handleInputChange={handleInputChange}
-              handleSubmit={handleSubmit}
-              isGenerating={isLoadingChat}
-              stop={stop}
-              className="h-full"
-            />
+            {chatMode === 'specific-flight' ? (
+              // Show flight search form instead of chat
+              <div className="h-full p-6">
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-200 mb-2">Specific Flight Search</h3>
+                  <p className="text-sm text-gray-400 mb-4">
+                    Search for specific flights with exact dates and routes
+                  </p>
+                </div>
+                
+                <FlightSearchForm 
+                  onSearch={handleSpecificFlightSearch}
+                  isLoading={isSpecificFlightLoading}
+                />
+              </div>
+            ) : (
+              // Show chat for trip discover mode
+              <Chat
+                messages={[...messages, ...systemMessages.map(msg => ({
+                  role: 'assistant' as const,
+                  content: msg.content,
+                  id: msg.id,
+                  createdAt: msg.timestamp
+                }))].sort((a, b) => {
+                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                  return aTime - bTime;
+                })}
+                input={input}
+                handleInputChange={handleInputChange}
+                handleSubmit={handleSubmit}
+                isGenerating={isLoadingChat}
+                stop={stop}
+                className="h-full"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -2050,59 +2068,30 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 </div>
               </div>
             ) : chatMode === 'specific-flight' ? (
-              // Specific Flight Mode - Show Google Flights-style form on left, results on right
-              <div className="flex h-full">
-                {/* Left side - Flight Search Form */}
-                <div className="w-1/2 p-6 border-r border-gray-700">
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-200 mb-2">Specific Flight Search</h3>
-                    <p className="text-sm text-gray-400">
-                      Search for specific flights with exact dates and routes
-                    </p>
-                  </div>
-                  
-                  <FlightSearchForm 
-                    onSearch={handleSpecificFlightSearch}
-                    isLoading={isSpecificFlightLoading}
+              // Specific Flight Mode - Show flight results
+              <div className="space-y-4">
+                {specificFlightResults.length > 0 ? (
+                  <FlightResultsDisplay
+                    flights={specificFlightResults.map(convertFlightResult)}
+                    onAddToTrip={handleAddToTripFromDisplay}
+                    searchParams={specificFlightSearchParams ? {
+                      origin: specificFlightSearchParams.origin,
+                      destination: specificFlightSearchParams.destination,
+                      departureDate: specificFlightSearchParams.departureDate!,
+                      returnDate: specificFlightSearchParams.returnDate,
+                      passengers: specificFlightSearchParams.passengers,
+                      cabinClass: specificFlightSearchParams.cabinClass
+                    } : undefined}
                   />
-                </div>
-                
-                {/* Right side - Flight Results */}
-                <div className="w-1/2 p-6">
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-200 mb-2">Flight Results</h3>
-                    <p className="text-sm text-gray-400">
-                      {specificFlightResults.length > 0 
-                        ? `Found ${specificFlightResults.length} flights` 
-                        : 'Search for flights to see results here'
-                      }
+                ) : (
+                  <div className="text-center py-12">
+                    <Plane className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-400 mb-2">No flights found yet</p>
+                    <p className="text-sm text-gray-500">
+                      Use the search form on the left to find flights
                     </p>
                   </div>
-                  
-                  {/* Show results if we have any */}
-                  {specificFlightResults.length > 0 ? (
-                    <FlightResultsDisplay
-                      flights={specificFlightResults.map(convertFlightResult)}
-                      onAddToTrip={handleAddToTripFromDisplay}
-                      searchParams={specificFlightSearchParams ? {
-                        origin: specificFlightSearchParams.origin,
-                        destination: specificFlightSearchParams.destination,
-                        departureDate: specificFlightSearchParams.departureDate!,
-                        returnDate: specificFlightSearchParams.returnDate,
-                        passengers: specificFlightSearchParams.passengers,
-                        cabinClass: specificFlightSearchParams.cabinClass
-                      } : undefined}
-                    />
-                  ) : (
-                    <div className="text-center py-12">
-                      <Plane className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                      <p className="text-gray-400 mb-2">No flights found yet</p>
-                      <p className="text-sm text-gray-500">
-                        Use the search form on the left to find flights
-                      </p>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             ) : viewMode === 'grouped' ? (
               <div className="space-y-4">
