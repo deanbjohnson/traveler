@@ -45,75 +45,55 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
   const originRef = useRef<HTMLDivElement>(null);
   const destinationRef = useRef<HTMLDivElement>(null);
 
-  // Popular airports data (like Google Flights)
-  const popularAirports = {
-    'New York': [
-      { code: 'JFK', name: 'John F. Kennedy International Airport', city: 'New York', state: 'NY', distance: '12 mi' },
-      { code: 'LGA', name: 'LaGuardia Airport', city: 'New York', state: 'NY', distance: '8 mi' },
-      { code: 'EWR', name: 'Newark Liberty International Airport', city: 'Newark', state: 'NJ', distance: '8 mi' },
-    ],
-    'San Francisco': [
-      { code: 'SFO', name: 'San Francisco International Airport', city: 'San Francisco', state: 'CA', distance: '12 mi' },
-      { code: 'OAK', name: 'Oakland International Airport', city: 'Oakland', state: 'CA', distance: '8 mi' },
-      { code: 'SJC', name: 'San Jose International Airport', city: 'San Jose', state: 'CA', distance: '15 mi' },
-    ],
-    'Los Angeles': [
-      { code: 'LAX', name: 'Los Angeles International Airport', city: 'Los Angeles', state: 'CA', distance: '16 mi' },
-      { code: 'BUR', name: 'Bob Hope Airport', city: 'Burbank', state: 'CA', distance: '12 mi' },
-      { code: 'ONT', name: 'Ontario International Airport', city: 'Ontario', state: 'CA', distance: '35 mi' },
-    ],
-    'Chicago': [
-      { code: 'ORD', name: "O'Hare International Airport", city: 'Chicago', state: 'IL', distance: '12 mi' },
-      { code: 'MDW', name: 'Midway International Airport', city: 'Chicago', state: 'IL', distance: '8 mi' },
-    ],
-    'Miami': [
-      { code: 'MIA', name: 'Miami International Airport', city: 'Miami', state: 'FL', distance: '8 mi' },
-      { code: 'FLL', name: 'Fort Lauderdale-Hollywood International Airport', city: 'Fort Lauderdale', state: 'FL', distance: '25 mi' },
-    ],
-    'London': [
-      { code: 'LHR', name: 'Heathrow Airport', city: 'London', state: 'UK', distance: '14 mi' },
-      { code: 'LGW', name: 'Gatwick Airport', city: 'London', state: 'UK', distance: '25 mi' },
-      { code: 'STN', name: 'Stansted Airport', city: 'London', state: 'UK', distance: '30 mi' },
-    ],
-    'Tokyo': [
-      { code: 'NRT', name: 'Narita International Airport', city: 'Tokyo', state: 'JP', distance: '40 mi' },
-      { code: 'HND', name: 'Haneda Airport', city: 'Tokyo', state: 'JP', distance: '9 mi' },
-    ],
-    'Paris': [
-      { code: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', state: 'FR', distance: '14 mi' },
-      { code: 'ORY', name: 'Orly Airport', city: 'Paris', state: 'FR', distance: '8 mi' },
-    ],
+  // Real airport search state
+  const [airportResults, setAirportResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Search airports using our API
+  const searchAirports = async (query: string) => {
+    if (!query || query.length < 2) {
+      setAirportResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/airports/search?q=${encodeURIComponent(query)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAirportResults(data.airports || []);
+      } else {
+        console.error('Airport search failed:', response.statusText);
+        setAirportResults([]);
+      }
+    } catch (error) {
+      console.error('Airport search error:', error);
+      setAirportResults([]);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
-  // Filter airports based on search input
-  const getFilteredAirports = (search: string) => {
-    if (!search) return [];
-    
-    const results: Array<{ type: 'city' | 'airport', data: any }> = [];
-    
-    Object.entries(popularAirports).forEach(([city, airports]) => {
-      // Check if city matches search
-      if (city.toLowerCase().includes(search.toLowerCase())) {
-        results.push({
-          type: 'city',
-          data: { city, state: airports[0].state, airports }
-        });
+  // Debounced search to avoid too many API calls
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (originSearch.length >= 2) {
+        searchAirports(originSearch);
       }
-      
-      // Check if airport code or name matches search
-      airports.forEach(airport => {
-        if (airport.code.toLowerCase().includes(search.toLowerCase()) ||
-            airport.name.toLowerCase().includes(search.toLowerCase())) {
-          results.push({
-            type: 'airport',
-            data: airport
-          });
-        }
-      });
-    });
-    
-    return results.slice(0, 8); // Limit results
-  };
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [originSearch]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (destinationSearch.length >= 2) {
+        searchAirports(destinationSearch);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [destinationSearch]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -267,20 +247,25 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           {/* Smart airport dropdown */}
           {showOriginDropdown && (
             <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
-              {getFilteredAirports(originSearch).length > 0 ? (
+              {isSearching ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
+                  Searching airports...
+                </div>
+              ) : airportResults.length > 0 ? (
                 <div className="p-2 space-y-1">
-                  {getFilteredAirports(originSearch).map((result, index) => (
+                  {airportResults.map((result, index) => (
                     <div key={index}>
                       {result.type === 'city' ? (
                         <div 
                           className="p-2 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3"
-                          onClick={() => selectCity(result.data, true)}
+                          onClick={() => selectCity(result, true)}
                         >
-                          <div className="font-medium text-blue-600">{result.data.city}</div>
+                          <div className="font-medium text-blue-600">{result.city}</div>
                           <div className="text-xs text-muted-foreground">
-                            {result.data.state} • {result.data.airports.length} airports
+                            {result.state} • {result.airports.length} airports
                           </div>
-                          {result.data.airports.map((airport: any, airportIndex: number) => (
+                          {result.airports.map((airport: any, airportIndex: number) => (
                             <div 
                               key={airportIndex}
                               className="ml-4 mt-1 p-1 hover:bg-accent/50 rounded cursor-pointer"
@@ -291,32 +276,34 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-medium">{airport.code}</span>
-                                <span className="text-xs text-muted-foreground">{airport.distance}</span>
+                                <span className="text-xs text-muted-foreground">{airport.name}</span>
                               </div>
-                              <div className="text-xs text-muted-foreground">{airport.name}</div>
                             </div>
                           ))}
                         </div>
                       ) : (
                         <div 
                           className="p-2 hover:bg-accent rounded cursor-pointer"
-                          onClick={() => selectAirport(result.data, true)}
+                          onClick={() => selectAirport(result, true)}
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <div className="font-medium">{result.data.code}</div>
-                              <div className="text-xs text-muted-foreground">{result.data.name}</div>
+                              <div className="font-medium">{result.code}</div>
+                              <div className="text-xs text-muted-foreground">{result.name}</div>
                             </div>
-                            <span className="text-xs text-muted-foreground">{result.data.distance}</span>
                           </div>
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : originSearch.length >= 2 ? (
                 <div className="p-4 text-center text-muted-foreground">
                   No airports found
+                </div>
+              ) : (
+                <div className="p-4 text-center text-muted-foreground">
+                  Type to search airports...
                 </div>
               )}
             </div>
@@ -345,38 +332,65 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           {/* Smart airport dropdown */}
           {showDestinationDropdown && (
             <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
-              <div className="p-2">
-                <div className="text-xs text-muted-foreground mb-2">Popular airports</div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">San Francisco</span>
-                      <span className="text-xs text-muted-foreground">(City in California)</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">SFO</span>
-                      <span className="text-xs text-muted-foreground">San Francisco International Airport</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">12 mi to destination</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">OAK</span>
-                      <span className="text-xs text-muted-foreground">Oakland International Airport</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">8 mi to destination</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 hover:bg-accent rounded cursor-pointer">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">SJC</span>
-                      <span className="text-xs text-muted-foreground">San Jose International Airport</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">15 mi to destination</span>
-                  </div>
+              {isSearching ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
+                  Searching airports...
                 </div>
-              </div>
+              ) : airportResults.length > 0 ? (
+                <div className="p-2 space-y-1">
+                  {airportResults.map((result, index) => (
+                    <div key={index}>
+                      {result.type === 'city' ? (
+                        <div 
+                          className="p-2 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3"
+                          onClick={() => selectCity(result, false)}
+                        >
+                          <div className="font-medium text-blue-600">{result.city}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {result.state} • {result.airports.length} airports
+                          </div>
+                          {result.airports.map((airport: any, airportIndex: number) => (
+                            <div 
+                              key={airportIndex}
+                              className="ml-4 mt-1 p-1 hover:bg-accent/50 rounded cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                selectAirport(airport, false);
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{airport.code}</span>
+                                <span className="text-xs text-muted-foreground">{airport.name}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div 
+                          className="p-2 hover:bg-accent rounded cursor-pointer"
+                          onClick={() => selectAirport(result, false)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium">{result.code}</div>
+                              <div className="text-xs text-muted-foreground">{result.name}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : destinationSearch.length >= 2 ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  No airports found
+                </div>
+              ) : (
+                <div className="p-4 text-center text-muted-foreground">
+                  Type to search airports...
+                </div>
+              )}
             </div>
           )}
         </div>
