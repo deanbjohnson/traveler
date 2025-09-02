@@ -164,10 +164,10 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                           (searchParams.tripType === 'round-trip' && !searchParams.returnDate);
 
   return (
-    <div className="space-y-6 p-6 bg-card rounded-lg border">
+    <div className="space-y-6 p-6 bg-card rounded-lg border max-w-4xl mx-auto">
       {/* Trip Type and Passengers Row */}
-      <div className="flex gap-4">
-        <div className="flex-1">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Trip Type
           </label>
@@ -188,7 +188,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </Select>
         </div>
 
-        <div className="flex-1">
+        <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Passengers
           </label>
@@ -211,7 +211,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </Select>
         </div>
 
-        <div className="flex-1">
+        <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Cabin Class
           </label>
@@ -235,8 +235,8 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
       </div>
 
       {/* Origin and Destination Row */}
-      <div className="flex gap-4">
-        <div className="flex-1" ref={originRef}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div ref={originRef}>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             From
           </label>
@@ -257,7 +257,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </div>
           
           {/* Smart airport dropdown */}
-          {showOriginDropdown && (
+          {showOriginDropdown && (isSearching || airportResults.length > 0 || originSearch.length >= 2) && (
             <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
@@ -272,7 +272,10 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                   {airportResults.map((result, index) => (
                     <div key={index}>
                       {result.type === 'city' ? (
-                        <div className="p-2.5 border-l-4 border-blue-500 pl-3 transition-colors">
+                        <div 
+                          className="p-2.5 border-l-4 border-blue-500 pl-3 transition-colors hover:bg-accent/30 rounded cursor-pointer"
+                          onClick={() => selectCity(result, true)}
+                        >
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="font-semibold text-blue-600">{result.city}</div>
@@ -285,6 +288,9 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                                 {result.code}
                               </div>
                             )}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1 ml-1">
+                            Click to select all airports in {result.city}
                           </div>
                           {result.airports.map((airport: any, airportIndex: number) => (
                             <div 
@@ -333,16 +339,12 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                 <div className="p-4 text-center text-muted-foreground">
                   No airports found
                 </div>
-              ) : (
-                <div className="p-4 text-center text-muted-foreground">
-                  Type to search airports...
-                </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>
 
-        <div className="flex-1" ref={destinationRef}>
+        <div ref={destinationRef}>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             To
           </label>
@@ -362,7 +364,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
             <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
           {/* Smart airport dropdown */}
-          {showDestinationDropdown && (
+          {showDestinationDropdown && (isSearching || airportResults.length > 0 || destinationSearch.length >= 2) && (
             <div className="absolute z-50 mt-1 w-full bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
@@ -376,8 +378,11 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                   </div>
                   {airportResults.map((result, index) => (
                     <div key={index}>
-                      {result.type === 'city' ? (
-                        <div className="p-2.5 border-l-4 border-blue-500 pl-3 transition-colors">
+                                            {result.type === 'city' ? (
+                        <div 
+                          className="p-2.5 border-l-4 border-blue-500 pl-3 transition-colors hover:bg-accent/30 rounded cursor-pointer"
+                          onClick={() => selectCity(result, false)}
+                        >
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="font-semibold text-blue-600">{result.city}</div>
@@ -388,8 +393,11 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                             {result.code && (
                               <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">
                                 {result.code}
-                              </div>
+                            </div>
                             )}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1 ml-1">
+                            Click to select all airports in {result.city}
                           </div>
                           {result.airports.map((airport: any, airportIndex: number) => (
                             <div 
@@ -438,19 +446,15 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                 <div className="p-4 text-center text-muted-foreground">
                   No airports found
                 </div>
-              ) : (
-                <div className="p-4 text-center text-muted-foreground">
-                  Type to search airports...
-                </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>
       </div>
 
       {/* Date Selection Row */}
-      <div className="flex gap-4">
-        <div className="flex-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Departure Date
           </label>
@@ -470,7 +474,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
         </div>
 
         {searchParams.tripType === 'round-trip' && (
-          <div className="flex-1">
+          <div>
             <label className="text-sm font-medium text-muted-foreground mb-2 block">
               Return Date
             </label>
