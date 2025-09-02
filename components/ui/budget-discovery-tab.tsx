@@ -23,6 +23,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message } from "ai";
+import { toast } from "sonner";
+import { FlightResultsDisplay } from './flight-results-display';
+import { FlightSearchForm, FlightSearchParams } from './flight-search-form';
 
 interface FlightResult {
   id: string;
@@ -91,6 +94,9 @@ interface FlightResult {
       iata_code: string;
     };
   };
+  // New properties for compatibility with FlightResultsDisplay
+  stops?: number;
+  cabinClass?: string;
 }
 
 interface TripDiscoverTabProps {
@@ -244,6 +250,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
   // Build a set of fingerprints for already-added flights on the timeline
   const [timelineFlightFingerprints, setTimelineFlightFingerprints] = useState<Set<string>>(new Set());
+  
+  // New state for Google Flights-style interface
+  const [specificFlightSearchParams, setSpecificFlightSearchParams] = useState<FlightSearchParams | null>(null);
+  const [specificFlightResults, setSpecificFlightResults] = useState<FlightResult[]>([]);
+  const [isSpecificFlightLoading, setIsSpecificFlightLoading] = useState(false);
+  
   useEffect(() => {
     try {
       const fps = new Set<string>();
@@ -1663,6 +1675,117 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
   const isLoadingChat = status === "submitted" || status === "streaming";
 
+  // New function to handle specific flight searches
+  const handleSpecificFlightSearch = async (searchParams: FlightSearchParams) => {
+    setSpecificFlightSearchParams(searchParams);
+    setIsSpecificFlightLoading(true);
+    
+    try {
+      // Convert search params to the format expected by the AI
+      if (!searchParams.departureDate) {
+        throw new Error('Departure date is required');
+      }
+      
+      const searchQuery = `Find ${searchParams.tripType} flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
+        searchParams.returnDate ? ` returning on ${searchParams.returnDate.toISOString().split('T')[0]}` : ''
+      } for ${searchParams.passengers} passenger${searchParams.passengers === 1 ? '' : 's'} in ${searchParams.cabinClass} class${
+        searchParams.maxPrice ? ` with max price $${searchParams.maxPrice}` : ''
+      }`;
+      
+      // Use the existing chat functionality to search
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: searchQuery }],
+          id: `budget-discovery-${tripId}-specific-flight`,
+        }),
+      });
+      
+      if (response.ok) {
+        // The search will be processed by the existing chat system
+        // and results will appear in the right panel
+        toast.success("Search started! Searching for flights...");
+      } else {
+        throw new Error('Failed to start search');
+      }
+    } catch (error) {
+      console.error('Error starting specific flight search:', error);
+      toast.error("Failed to start flight search.");
+    } finally {
+      setIsSpecificFlightLoading(false);
+    }
+  };
+
+  // Helper function to convert FlightResult to the format expected by FlightResultsDisplay
+  const convertFlightResult = (flight: FlightResult): import('./flight-results-display').FlightResult => {
+    return {
+      id: flight.id,
+      airline: {
+        name: flight.airline?.name || (flight.airlines?.[0] || 'Unknown Airline'),
+        code: flight.airline?.code || 'UNK',
+        logo: undefined
+      },
+      route: {
+        from: flight.route.origin,
+        to: flight.route.destination,
+        fromCode: flight.route.origin,
+        toCode: flight.route.destination
+      },
+      timing: {
+        departure: flight.dates?.departure || '',
+        arrival: flight.dates?.return || '',
+        duration: flight.duration?.outbound || flight.timing?.duration || ''
+      },
+      price: {
+        amount: flight.price.total,
+        currency: flight.price.currency
+      },
+      stops: flight.connections || 0,
+      cabinClass: flight.cabinClass || 'economy'
+    };
+  };
+
+  // Wrapper function for adding flights to timeline from FlightResultsDisplay
+  const handleAddToTripFromDisplay = (flight: import('./flight-results-display').FlightResult) => {
+    // Convert back to the original format and call the existing handler
+    const originalFlight: FlightResult = {
+      id: flight.id,
+      searchId: flight.id,
+      route: {
+        origin: flight.route.from,
+        destination: flight.route.to
+      },
+      dates: {
+        departure: flight.timing.departure,
+        return: flight.timing.arrival
+      },
+      price: {
+        total: flight.price.amount,
+        currency: flight.price.currency
+      },
+      duration: {
+        outbound: flight.timing.duration,
+        return: undefined,
+        total: flight.timing.duration
+      },
+      airlines: [flight.airline.name],
+      connections: flight.stops,
+      offer: null,
+      score: 0,
+      destinationContext: 'specific-flight-search',
+      destinationAirport: {
+        iata_code: flight.route.toCode,
+        city_name: flight.route.to,
+        country_name: 'Unknown'
+      },
+      stops: flight.stops,
+      cabinClass: flight.cabinClass
+    };
+    
+    handleAddToTimeline(originalFlight, {} as React.MouseEvent);
+  };
+
   return (
     <div className="flex h-full p-4 gap-4">
       {/* Chat Section */}
@@ -1711,98 +1834,100 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               }
             </p>
             
-            {/* Filter Controls */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {/* Trip Type */}
-              <div className="relative">
-                <select
-                  value={tripType}
-                  onChange={(e) => {
-                    setTripType(e.target.value as 'round-trip' | 'one-way');
-                    localStorage.setItem(`bd-tripType-${tripId}`, e.target.value);
-                    setFilterVersion(prev => prev + 1);
-                  }}
-                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="round-trip">Round trip</option>
-                  <option value="one-way">One way</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              </div>
+            {/* Filter Controls - Only show for Trip Discover mode */}
+            {chatMode === 'trip-discover' && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {/* Trip Type */}
+                <div className="relative">
+                  <select
+                    value={tripType}
+                    onChange={(e) => {
+                      setTripType(e.target.value as 'round-trip' | 'one-way');
+                      localStorage.setItem(`bd-tripType-${tripId}`, e.target.value);
+                      setFilterVersion(prev => prev + 1);
+                    }}
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="round-trip">Round trip</option>
+                    <option value="one-way">One way</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
 
-              {/* Passengers */}
-              <div className="relative">
-                <select
-                  value={passengers}
-                  onChange={(e) => {
-                    setPassengers(Number(e.target.value));
-                    localStorage.setItem(`bd-passengers-${tripId}`, e.target.value);
-                    setFilterVersion(prev => prev + 1);
-                  }}
-                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {[1, 2, 3, 4, 5, 6].map(num => (
-                    <option key={num} value={num}>{num} {num === 1 ? 'passenger' : 'passengers'}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              </div>
+                {/* Passengers */}
+                <div className="relative">
+                  <select
+                    value={passengers}
+                    onChange={(e) => {
+                      setPassengers(Number(e.target.value));
+                      localStorage.setItem(`bd-passengers-${tripId}`, e.target.value);
+                      setFilterVersion(prev => prev + 1);
+                    }}
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num} {num === 1 ? 'passenger' : 'passengers'}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
 
-              {/* Cabin Class */}
-              <div className="relative">
-                <select
-                  value={cabinClass}
-                  onChange={(e) => {
-                    setCabinClass(e.target.value as 'economy' | 'premium_economy' | 'business' | 'first');
-                    localStorage.setItem(`bd-cabinClass-${tripId}`, e.target.value);
-                    setFilterVersion(prev => prev + 1);
-                  }}
-                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="economy">Economy</option>
-                  <option value="premium_economy">Premium Economy</option>
-                  <option value="business">Business</option>
-                  <option value="first">First Class</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              </div>
+                {/* Cabin Class */}
+                <div className="relative">
+                  <select
+                    value={cabinClass}
+                    onChange={(e) => {
+                      setCabinClass(e.target.value as 'economy' | 'premium_economy' | 'business' | 'first');
+                      localStorage.setItem(`bd-cabinClass-${tripId}`, e.target.value);
+                      setFilterVersion(prev => prev + 1);
+                    }}
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="economy">Economy</option>
+                    <option value="premium_economy">Premium Economy</option>
+                    <option value="business">Business</option>
+                    <option value="first">First Class</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
 
-              {/* Stops */}
-              <div className="relative">
-                <select
-                  value={maxStops ?? ''}
+                {/* Stops */}
+                <div className="relative">
+                  <select
+                    value={maxStops ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? null : Number(e.target.value);
+                      setMaxStops(value);
+                      localStorage.setItem(`bd-maxStops-${tripId}`, value?.toString() ?? '');
+                      setFilterVersion(prev => prev + 1);
+                    }}
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Any stops</option>
+                    <option value="0">Direct only</option>
+                    <option value="1">Max 1 stop</option>
+                    <option value="2">Max 2 stops</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+
+                {/* Price */}
+                <input
+                  type="number"
+                  placeholder="Any price"
+                  value={priceFilter?.toString() ?? ''}
                   onChange={(e) => {
                     const value = e.target.value === '' ? null : Number(e.target.value);
-                    setMaxStops(value);
-                    localStorage.setItem(`bd-maxStops-${tripId}`, value?.toString() ?? '');
+                    setPriceFilter(value);
+                    localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
                     setFilterVersion(prev => prev + 1);
                   }}
-                  className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Any stops</option>
-                  <option value="0">Direct only</option>
-                  <option value="1">Max 1 stop</option>
-                  <option value="2">Max 2 stops</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  className="bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
+                  min="0"
+                  step="50"
+                />
               </div>
-
-              {/* Price */}
-              <input
-                type="number"
-                placeholder="Any price"
-                value={priceFilter?.toString() ?? ''}
-                onChange={(e) => {
-                  const value = e.target.value === '' ? null : Number(e.target.value);
-                  setPriceFilter(value);
-                  localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
-                  setFilterVersion(prev => prev + 1);
-                }}
-                className="bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
-                min="0"
-                step="50"
-              />
-            </div>
+            )}
 
             <div className="mt-2 space-y-1">
               <p className="text-xs text-gray-500">Try these examples:</p>
@@ -1909,121 +2034,30 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 </div>
               </div>
             ) : chatMode === 'specific-flight' ? (
-              // Specific Flight Mode - Show individual flights in a list
-              <div className="space-y-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-md font-semibold text-gray-200">Flight Options</h3>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-400">
-                      {sortedAndFilteredResults.length} flight{sortedAndFilteredResults.length !== 1 ? 's' : ''} found
-                    </span>
+              // Specific Flight Mode - Show Google Flights-style form
+              <div className="space-y-6">
+                <FlightSearchForm 
+                  onSearch={handleSpecificFlightSearch}
+                  isLoading={isSpecificFlightLoading}
+                />
+                
+                {/* Show results if we have any */}
+                {specificFlightResults.length > 0 && (
+                  <div className="mt-6">
+                    <FlightResultsDisplay
+                      flights={specificFlightResults.map(convertFlightResult)}
+                      onAddToTrip={handleAddToTripFromDisplay}
+                      searchParams={specificFlightSearchParams ? {
+                        origin: specificFlightSearchParams.origin,
+                        destination: specificFlightSearchParams.destination,
+                        departureDate: specificFlightSearchParams.departureDate!,
+                        returnDate: specificFlightSearchParams.returnDate,
+                        passengers: specificFlightSearchParams.passengers,
+                        cabinClass: specificFlightSearchParams.cabinClass
+                      } : undefined}
+                    />
                   </div>
-                </div>
-
-                {/* Individual Flight Cards */}
-                <div className="space-y-3">
-                  {sortedAndFilteredResults.map((flight: FlightResult) => (
-                    <Card
-                      key={flight.id}
-                      className="cursor-pointer hover:bg-gray-700/50 transition-colors border-gray-600 relative"
-                      onClick={() => handleFlightClick(flight)}
-                    >
-                      <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-1">
-                        {(addedFlightIds.has(flight.id) || timelineFlightFingerprints.has(getFlightFingerprint(flight))) ? (
-                          <div className="flex items-center gap-1 text-emerald-400 text-xs bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-700">
-                            <Check className="h-3 w-3" /> Added
-                          </div>
-                        ) : (
-                          <button
-                            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-0 flex items-center gap-1"
-                            onClick={(e) => handleAddToTimeline(flight, e)}
-                          >
-                            <Plus className="h-3 w-3" />
-                            Add to Trip
-                          </button>
-                        )}
-                        <Badge variant="outline" className="text-green-400 border-green-400 text-xs">
-                          {formatPrice(flight.price.total, flight.price.currency)}
-                        </Badge>
-                      </div>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm flex items-center space-x-2">
-                            <Plane className="h-3 w-3 text-blue-400" />
-                            <span>
-                              {flight.route.origin} → {flight.route.destination}
-                            </span>
-                          </CardTitle>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1 text-gray-400">
-                              <Calendar className="h-2 w-2" />
-                              <span>Departure</span>
-                            </div>
-                            <p className="text-gray-200">
-                              {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1 text-gray-400">
-                              <Clock className="h-2 w-2" />
-                              <span>Duration</span>
-                            </div>
-                            <p className="text-gray-200">
-                              {flight.duration?.outbound ? formatDuration(flight.duration.outbound) : 'N/A'}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1 text-gray-400">
-                              <Plane className="h-2 w-2" />
-                              <span>Airline</span>
-                            </div>
-                            <p className="text-gray-200">
-                              {flight.airlines?.length > 0 ? flight.airlines.join(', ') : 'N/A'}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-1 text-gray-400">
-                              <MapPin className="h-2 w-2" />
-                              <span>Stops</span>
-                            </div>
-                            <p className="text-gray-200">
-                              {flight.connections === 0 ? 'Direct' : `${flight.connections} stop${flight.connections !== 1 ? 's' : ''}`}
-                            </p>
-                          </div>
-                        </div>
-                        {flight.dates?.return && (
-                          <div className="mt-3 pt-3 border-t border-gray-600">
-                            <div className="text-xs text-gray-400 mb-1">Return Flight</div>
-                            <div className="grid grid-cols-2 gap-3 text-xs">
-                              <div className="space-y-1">
-                                <div className="flex items-center space-x-1 text-gray-400">
-                                  <Calendar className="h-2 w-2" />
-                                  <span>Return Date</span>
-                                </div>
-                                <p className="text-gray-200">
-                                  {formatDate(flight.dates.return)}
-                                </p>
-                              </div>
-                              <div className="space-y-1">
-                                <div className="flex items-center space-x-1 text-gray-400">
-                                  <Clock className="h-2 w-2" />
-                                  <span>Return Duration</span>
-                                </div>
-                                <p className="text-gray-200">
-                                  {flight.duration?.return ? formatDuration(flight.duration.return) : 'N/A'}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                )}
               </div>
             ) : viewMode === 'grouped' ? (
               <div className="space-y-4">
