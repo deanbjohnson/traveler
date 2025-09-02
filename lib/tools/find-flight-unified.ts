@@ -360,16 +360,8 @@ export const findFlightUnifiedTool = tool({
           dateWindow: (() => {
             if (typeof departure === "string") {
               if (departure.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                // Specific date - create a window around it
-                const targetDate = new Date(departure);
-                const start = new Date(targetDate);
-                start.setDate(start.getDate() - 3);
-                const end = new Date(targetDate);
-                end.setDate(end.getDate() + 3);
-                return {
-                  start: start.toISOString().slice(0, 10),
-                  end: end.toISOString().slice(0, 10),
-                };
+                // Specific date - use exact date, not a window
+                return { exactDate: departure };
               } else if (departure.match(/^\d{4}-\d{2}$/)) {
                 return { month: departure };
               } else if (departure === "next-month") {

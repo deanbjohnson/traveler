@@ -273,6 +273,9 @@ export interface FlexibleSearchParams {
       }
     | {
         flexible: boolean; // Next 3 months
+      }
+    | {
+        exactDate: string; // Specific date (YYYY-MM-DD format)
       };
   // Trip parameters
   tripDuration?: number; // days
@@ -468,6 +471,11 @@ function generateDateWindows(
     return eachDayOfInterval({ start: today, end })
       .filter((_, index) => index % 5 === 0)
       .map((date) => format(date, "yyyy-MM-dd"));
+  }
+
+  if ("exactDate" in dateWindow && typeof dateWindow.exactDate === "string") {
+    // Use the exact date provided - no window
+    return [dateWindow.exactDate];
   }
 
   // Handle specific date strings (like "2025-10-01")
