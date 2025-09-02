@@ -384,7 +384,18 @@ export const findFlightUnifiedTool = tool({
             }
             return undefined;
           })(),
-          tripDuration: typeof returnSpec === "number" ? returnSpec : undefined,
+          // For round-trips with specific return dates, calculate trip duration
+          tripDuration: (() => {
+            if (typeof returnSpec === "string" && returnSpec.match(/^\d{4}-\d{2}-\d{2}$/) && typeof departure === "string") {
+              // Calculate days between departure and return
+              const depDate = new Date(departure);
+              const retDate = new Date(returnSpec);
+              const diffTime = retDate.getTime() - depDate.getTime();
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              return diffDays;
+            }
+            return typeof returnSpec === "number" ? returnSpec : undefined;
+          })(),
           tripType: returnSpec === "one-way" ? "one-way" : "round-trip",
           passengers,
           cabinClass,
