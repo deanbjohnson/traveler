@@ -8,6 +8,24 @@ import {
 
 // Helper to clean and sanitize Duffel offers for timeline
 function cleanDuffelOffer(offer: any) {
+  // Debug: Log what we're receiving
+  console.log('[CLEAN-DUFFEL-OFFER] Raw offer structure:', {
+    id: offer.id,
+    hasSlices: !!offer.slices,
+    slicesCount: offer.slices?.length || 0,
+    firstSliceKeys: offer.slices?.[0] ? Object.keys(offer.slices[0]) : [],
+    hasSegments: !!offer.slices?.[0]?.segments,
+    segmentsCount: offer.slices?.[0]?.segments?.length || 0,
+    firstSegmentKeys: offer.slices?.[0]?.segments?.[0] ? Object.keys(offer.slices[0].segments[0]) : [],
+    // Look for departure/arrival times in various locations
+    sliceDeparture: offer.slices?.[0]?.departure_datetime,
+    sliceArrival: offer.slices?.[0]?.arrival_datetime,
+    segmentDeparture: offer.slices?.[0]?.segments?.[0]?.departing_at,
+    segmentArrival: offer.slices?.[0]?.segments?.[0]?.arriving_at,
+    segmentDepartureDatetime: offer.slices?.[0]?.segments?.[0]?.departure_datetime,
+    segmentArrivalDatetime: offer.slices?.[0]?.segments?.[0]?.arrival_datetime
+  });
+  
   return {
     id: offer.id,
     price: {
@@ -31,9 +49,21 @@ function cleanDuffelOffer(offer: any) {
       },
     },
     timing: {
-      departure: offer.slices[0]?.segments?.[0]?.departing_at || offer.slices[0]?.departure_datetime,
-      arrival: offer.slices[0]?.segments?.[0]?.arriving_at || offer.slices[0]?.arrival_datetime,
-      duration: offer.slices[0]?.duration,
+      departure: offer.slices?.[0]?.segments?.[0]?.departing_at || 
+                 offer.slices?.[0]?.segments?.[0]?.departure_datetime ||
+                 offer.slices?.[0]?.departure_datetime ||
+                 offer.slices?.[0]?.origin?.departure_datetime ||
+                 offer.departure_datetime ||
+                 offer.origin?.departure_datetime ||
+                 "",
+      arrival: offer.slices?.[0]?.segments?.[0]?.arriving_at || 
+               offer.slices?.[0]?.segments?.[0]?.arrival_datetime ||
+               offer.slices?.[0]?.arrival_datetime ||
+               offer.slices?.[0]?.destination?.arrival_datetime ||
+               offer.arrival_datetime ||
+               offer.destination?.arrival_datetime ||
+               "",
+      duration: offer.slices?.[0]?.duration || offer.duration || "PT0H0M",
     },
     segments: offer.slices[0]?.segments?.map((seg: any) => ({
       from: seg.origin?.iata_code,
