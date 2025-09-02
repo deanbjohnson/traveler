@@ -1698,6 +1698,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: searchQuery }],
+          tripId: tripId, // Add the required tripId parameter
           id: `budget-discovery-${tripId}-specific-flight`,
         }),
       });
