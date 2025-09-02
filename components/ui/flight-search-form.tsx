@@ -106,8 +106,20 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
       }
     };
 
+    // Also close on escape key
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowOriginDropdown(false);
+        setShowDestinationDropdown(false);
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   // Handle airport selection
@@ -246,7 +258,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           
           {/* Smart airport dropdown */}
           {showOriginDropdown && (
-            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
@@ -254,29 +266,52 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                 </div>
               ) : airportResults.length > 0 ? (
                 <div className="p-2 space-y-1">
+                  <div className="text-xs text-muted-foreground px-2 py-1.5 border-b border-border/50 mb-2">
+                    Found {airportResults.length} result{airportResults.length !== 1 ? 's' : ''}
+                  </div>
                   {airportResults.map((result, index) => (
                     <div key={index}>
                       {result.type === 'city' ? (
                         <div 
-                          className="p-2 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3"
+                          className="p-2.5 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3 transition-colors"
                           onClick={() => selectCity(result, true)}
                         >
-                          <div className="font-medium text-blue-600">{result.city}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {result.state} • {result.airports.length} airports
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-semibold text-blue-600">{result.city}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {result.state && `${result.state} • `}{result.airports.length} airport{result.airports.length !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            {result.code && (
+                              <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">
+                                {result.code}
+                              </div>
+                            )}
                           </div>
                           {result.airports.map((airport: any, airportIndex: number) => (
                             <div 
                               key={airportIndex}
-                              className="ml-4 mt-1 p-1 hover:bg-accent/50 rounded cursor-pointer"
+                              className="ml-4 mt-1 p-1.5 hover:bg-accent/50 rounded cursor-pointer transition-colors group"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 selectAirport(airport, true);
                               }}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-medium">{airport.code}</span>
-                                <span className="text-xs text-muted-foreground">{airport.name}</span>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-blue-600">{airport.code}</span>
+                                    <span className="text-xs text-muted-foreground">•</span>
+                                    <span className="text-sm font-medium">{airport.name}</span>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {airport.city}, {airport.country}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {airport.type}
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -331,7 +366,7 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </div>
           {/* Smart airport dropdown */}
           {showDestinationDropdown && (
-            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-50 mt-1 left-0 right-0 bg-background border border-input rounded-md shadow-lg max-h-48 overflow-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-muted-foreground">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
@@ -339,29 +374,52 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
                 </div>
               ) : airportResults.length > 0 ? (
                 <div className="p-2 space-y-1">
+                  <div className="text-xs text-muted-foreground px-2 py-1.5 border-b border-border/50 mb-2">
+                    Found {airportResults.length} result{airportResults.length !== 1 ? 's' : ''}
+                  </div>
                   {airportResults.map((result, index) => (
                     <div key={index}>
                       {result.type === 'city' ? (
                         <div 
-                          className="p-2 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3"
+                          className="p-2.5 hover:bg-accent rounded cursor-pointer border-l-4 border-blue-500 pl-3 transition-colors"
                           onClick={() => selectCity(result, false)}
                         >
-                          <div className="font-medium text-blue-600">{result.city}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {result.state} • {result.airports.length} airports
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-semibold text-blue-600">{result.city}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {result.state && `${result.state} • `}{result.airports.length} airport{result.airports.length !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            {result.code && (
+                              <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">
+                                {result.code}
+                              </div>
+                            )}
                           </div>
                           {result.airports.map((airport: any, airportIndex: number) => (
                             <div 
                               key={airportIndex}
-                              className="ml-4 mt-1 p-1 hover:bg-accent/50 rounded cursor-pointer"
+                              className="ml-4 mt-1 p-1.5 hover:bg-accent/50 rounded cursor-pointer transition-colors group"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 selectAirport(airport, false);
                               }}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-medium">{airport.code}</span>
-                                <span className="text-xs text-muted-foreground">{airport.name}</span>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-blue-600">{airport.code}</span>
+                                    <span className="text-xs text-muted-foreground">•</span>
+                                    <span className="text-sm font-medium">{airport.name}</span>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {airport.city}, {airport.country}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {airport.type}
+                                </div>
                               </div>
                             </div>
                           ))}
