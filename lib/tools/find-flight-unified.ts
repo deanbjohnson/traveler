@@ -322,7 +322,7 @@ export const findFlightUnifiedTool = tool({
         typeof to !== "string" ||
         to.length !== 3 ||
         !to.match(/^[A-Z]{3}$/) ||
-        // Check if departure is flexible
+        // Check if departure is flexible (not a specific date)
         typeof departure !== "string" ||
         !departure.match(/^\d{4}-\d{2}-\d{2}$/) ||
         // Check if return is a duration rather than specific date
