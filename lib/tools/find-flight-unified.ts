@@ -440,7 +440,16 @@ export const findFlightUnifiedTool = tool({
             hasDuration: !!firstOffer.slices?.[0]?.duration,
             departureDatetime: firstOffer.slices?.[0]?.departure_datetime,
             arrivalDatetime: firstOffer.slices?.[0]?.arrival_datetime,
-            duration: firstOffer.slices?.[0]?.duration
+            duration: firstOffer.slices?.[0]?.duration,
+            // Add more detailed debugging
+            firstSliceFull: firstOffer.slices?.[0] ? JSON.stringify(firstOffer.slices[0], null, 2) : 'No slices',
+            hasSegments: !!firstOffer.slices?.[0]?.segments,
+            segmentsCount: firstOffer.slices?.[0]?.segments?.length || 0,
+            firstSegmentKeys: firstOffer.slices?.[0]?.segments?.[0] ? Object.keys(firstOffer.slices[0].segments[0]) : [],
+            firstSegmentFull: firstOffer.slices?.[0]?.segments?.[0] ? JSON.stringify(firstOffer.slices[0].segments[0], null, 2) : 'No segments',
+            // Add complete offer structure for deep inspection
+            completeOfferKeys: Object.keys(firstOffer),
+            completeOfferStructure: JSON.stringify(firstOffer, null, 2)
           });
         }
 
@@ -515,7 +524,23 @@ export const findFlightUnifiedTool = tool({
           });
 
           // CRITICAL: Clean all offers for timeline compatibility
+          console.log(`[FIND-FLIGHT-TOOL-${toolCallId}] About to clean offers. First offer before cleaning:`, {
+            id: limitedOffers[0]?.id,
+            hasSlices: !!limitedOffers[0]?.slices,
+            firstSliceKeys: limitedOffers[0]?.slices?.[0] ? Object.keys(limitedOffers[0].slices[0]) : [],
+            firstSliceSegments: limitedOffers[0]?.slices?.[0]?.segments?.length || 0
+          });
+          
           const cleanedOffers = limitedOffers.map(cleanDuffelOffer);
+          
+          console.log(`[FIND-FLIGHT-TOOL-${toolCallId}] First offer after cleaning:`, {
+            id: cleanedOffers[0]?.id,
+            timing: cleanedOffers[0]?.timing,
+            hasDeparture: !!cleanedOffers[0]?.timing?.departure,
+            hasArrival: !!cleanedOffers[0]?.timing?.arrival,
+            departure: cleanedOffers[0]?.timing?.departure,
+            arrival: cleanedOffers[0]?.timing?.arrival
+          });
           const successResponse = {
             success: true,
             searchType: "specific",
