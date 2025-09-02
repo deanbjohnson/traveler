@@ -1077,6 +1077,25 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                       duration: firstResult.duration,
                       airlines: firstResult.airlines
                     });
+                    
+                    // NEW: Debug the raw flight data structure to find where times are stored
+                    console.log('🔍 Raw flight data structure analysis:', {
+                      id: flightData[0]?.id,
+                      hasTiming: !!flightData[0]?.timing,
+                      timingKeys: flightData[0]?.timing ? Object.keys(flightData[0].timing) : [],
+                      timingFull: flightData[0]?.timing,
+                      hasTimelineData: !!flightData[0]?.timelineData,
+                      timelineDataKeys: flightData[0]?.timelineData ? Object.keys(flightData[0].timelineData) : [],
+                      hasSlices: !!flightData[0]?.slices,
+                      slicesKeys: flightData[0]?.slices?.[0] ? Object.keys(flightData[0].slices[0]) : [],
+                      hasSegments: !!flightData[0]?.segments,
+                      segmentsKeys: flightData[0]?.segments?.[0] ? Object.keys(flightData[0].segments[0]) : [],
+                      // Look for any field that might contain departure/arrival times
+                      allKeys: Object.keys(flightData[0] || {}),
+                      // Check if there are any datetime fields anywhere
+                      hasDepartureField: !!flightData[0]?.departure || !!flightData[0]?.departure_datetime || !!flightData[0]?.departing_at,
+                      hasArrivalField: !!flightData[0]?.arrival || !!flightData[0]?.arrival_datetime || !!flightData[0]?.arriving_at
+                    });
                   }
                   
                   // Handle location-specific search results
