@@ -901,14 +901,16 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     // Prioritize actual flight departure dates from the offer data
     // For budget discovery results, the raw object IS the Duffel offer
     // For findFlight results, the raw object has been cleaned and may not have full timing data
-    const actualDepartureDate = raw.slices?.[0]?.segments?.[0]?.departing_at || 
+    const actualDepartureDate = raw.timelineData?.slices?.[0]?.segments?.[0]?.departing_at ||
+                               raw.slices?.[0]?.segments?.[0]?.departing_at || 
                                raw.slices?.[0]?.departure_datetime || 
                                raw.offer?.slices?.[0]?.departure_datetime || 
                                raw.timelineData?.slices?.[0]?.departure_datetime || 
                                raw.dates?.departure ||
                                raw.timing?.departure || "";
     
-    const actualReturnDate = raw.slices?.[1]?.segments?.[0]?.departing_at || 
+    const actualReturnDate = raw.timelineData?.slices?.[1]?.segments?.[0]?.departing_at ||
+                            raw.slices?.[1]?.segments?.[0]?.departing_at || 
                             raw.slices?.[1]?.departure_datetime || 
                             raw.offer?.slices?.[1]?.departure_datetime || 
                             raw.timelineData?.slices?.[1]?.departure_datetime || 
@@ -920,9 +922,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       return: actualReturnDate,
     };
 
-    const price = raw.price || {
-      total: typeof raw.total === 'number' ? raw.total : (parseFloat(raw.total_amount || raw.offer?.total_amount || raw.price?.amount) || 0),
-      currency: raw.currency || raw.total_currency || raw.offer?.total_currency || raw.price?.currency || 'USD',
+    const price = {
+      total: typeof raw.total === 'number' ? raw.total : 
+             parseFloat(raw.price?.amount || raw.total_amount || raw.offer?.total_amount || raw.price?.total || 0),
+      currency: raw.price?.currency || raw.currency || raw.total_currency || raw.offer?.total_currency || 'USD',
     };
 
     const duration = raw.duration || {
