@@ -1741,50 +1741,87 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             // The AI tool response should contain the flight data
             if (accumulatedData.includes('"offers":')) {
               try {
-                // Try to extract JSON from the response
-                const jsonMatch = accumulatedData.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                  const parsed = JSON.parse(jsonMatch[0]);
-                  if (parsed.offers && Array.isArray(parsed.offers)) {
-                    // Convert the offers to FlightResult format
-                    flightResults = parsed.offers.map((offer: any, index: number) => ({
-                      id: offer.id || `flight-${index}`,
-                      searchId: parsed.id || `search-${Date.now()}`,
-                      route: {
-                        origin: offer.slices?.[0]?.origin?.iata_code || searchParams.origin,
-                        destination: offer.slices?.[0]?.destination?.iata_code || searchParams.destination
-                      },
-                      dates: {
-                        departure: offer.slices?.[0]?.segments?.[0]?.departing_at || searchParams.departureDate?.toISOString(),
-                        return: offer.slices?.[1]?.segments?.[0]?.departing_at || searchParams.returnDate?.toISOString()
-                      },
-                      price: {
-                        total: parseFloat(offer.total_amount) || 0,
-                        currency: offer.total_currency || 'USD'
-                      },
-                      duration: {
-                        outbound: offer.slices?.[0]?.duration || '',
-                        return: offer.slices?.[1]?.duration || '',
-                        total: ''
-                      },
-                      airlines: [offer.owner?.name || 'Unknown Airline'],
-                      connections: (offer.slices?.[0]?.segments?.length || 1) - 1,
-                      offer: offer,
-                      score: 0,
-                      destinationContext: 'specific-flight-search',
-                      destinationAirport: {
-                        iata_code: offer.slices?.[0]?.destination?.iata_code || searchParams.destination,
-                        city_name: offer.slices?.[0]?.destination?.city_name || searchParams.destination,
-                        country_name: offer.slices?.[0]?.destination?.iata_country_code || 'Unknown'
-                      },
-                      stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
-                      cabinClass: searchParams.cabinClass
-                    }));
-                    
-                    // Update the state with the flight results
-                    setSpecificFlightResults(flightResults);
-                    break; // We found the results, no need to continue reading
+                // The chat response contains multiple JSON objects, we need to find the one with offers
+                // Split by lines and look for JSON objects that contain offers
+                const lines = accumulatedData.split('\n');
+                for (const line of lines) {
+                  if (line.includes('"offers":') && line.includes('{')) {
+                    try {
+                      // Find the complete JSON object starting from this line
+                      const startIndex = accumulatedData.indexOf(line);
+                      let braceCount = 0;
+                      let endIndex = startIndex;
+                      
+                      // Find the matching closing brace
+                      for (let i = startIndex; i < accumulatedData.length; i++) {
+                        if (accumulatedData[i] === '{') braceCount++;
+                        if (accumulatedData[i] === '}') {
+                          braceCount--;
+                          if (braceCount === 0) {
+                            endIndex = i + 1;
+                            break;
+                          }
+                        }
+                      }
+                      
+                      if (endIndex > startIndex) {
+                        const jsonStr = accumulatedData.substring(startIndex, endIndex);
+                        const parsed = JSON.parse(jsonStr);
+                        
+                        if (parsed.offers && Array.isArray(parsed.offers)) {
+                          console.log('Successfully parsed flight results:', parsed.offers.length, 'offers');
+                          
+                          // Convert the offers to FlightResult format
+                          flightResults = parsed.offers.map((offer: any, index: number) => ({
+                            id: offer.id || `flight-${index}`,
+                            searchId: parsed.id || `search-${Date.now()}`,
+                            route: {
+                              origin: offer.slices?.[0]?.origin?.iata_code || searchParams.origin,
+                              destination: offer.slices?.[0]?.destination?.iata_code || searchParams.destination
+                            },
+                            dates: {
+                              departure: offer.slices?.[0]?.segments?.[0]?.departing_at || searchParams.departureDate?.toISOString(),
+                              return: offer.slices?.[1]?.segments?.[0]?.departing_at || searchParams.returnDate?.toISOString()
+                            },
+                            price: {
+                              total: parseFloat(offer.total_amount) || 0,
+                              currency: offer.total_currency || 'USD'
+                            },
+                            duration: {
+                              outbound: offer.slices?.[0]?.duration || '',
+                              return: offer.slices?.[1]?.duration || '',
+                              total: ''
+                            },
+                            airlines: [offer.owner?.name || 'Unknown Airline'],
+                            connections: (offer.slices?.[0]?.segments?.length || 1) - 1,
+                            offer: offer,
+                            score: 0,
+                            destinationContext: 'specific-flight-search',
+                            destinationAirport: {
+                              iata_code: offer.slices?.[0]?.destination?.iata_code || searchParams.destination,
+                              city_name: offer.slices?.[0]?.destination?.city_name || searchParams.destination,
+                              country_name: offer.slices?.[0]?.destination?.iata_country_code || 'Unknown'
+                            },
+                            stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
+                            cabinClass: searchParams.cabinClass
+                          }));
+                          
+                          // Update the state with the flight results
+                          setSpecificFlightResults(flightResults);
+                          console.log('Flight results set in state:', flightResults.length);
+                          break; // We found the results, no need to continue reading
+                        }
+                      }
+                    } catch (lineParseError) {
+                      console.log('Error parsing line:', lineParseError);
+                      // Continue to next line
+                    }
                   }
+                }
+                
+                // If we found results, break out of the main loop
+                if (flightResults.length > 0) {
+                  break;
                 }
               } catch (parseError) {
                 console.log('Error parsing flight results:', parseError);
