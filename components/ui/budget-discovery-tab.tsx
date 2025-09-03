@@ -1741,33 +1741,33 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             // The AI tool response should contain the flight data
             if (accumulatedData.includes('"offers":')) {
               try {
-                // The chat response contains multiple JSON objects, we need to find the one with offers
-                // Split by lines and look for JSON objects that contain offers
+                // The chat response is likely in Server-Sent Events format (a:{"data":...})
+                // We need to extract the JSON part from lines like "a:{"toolCall":...}"
                 const lines = accumulatedData.split('\n');
                 for (const line of lines) {
-                  if (line.includes('"offers":') && line.includes('{')) {
+                  if (line.includes('"offers":')) {
                     try {
-                      // Find the complete JSON object starting from this line
-                      const startIndex = accumulatedData.indexOf(line);
-                      let braceCount = 0;
-                      let endIndex = startIndex;
+                      // Handle different response formats
+                      let jsonStr = '';
                       
-                      // Find the matching closing brace
-                      for (let i = startIndex; i < accumulatedData.length; i++) {
-                        if (accumulatedData[i] === '{') braceCount++;
-                        if (accumulatedData[i] === '}') {
-                          braceCount--;
-                          if (braceCount === 0) {
-                            endIndex = i + 1;
-                            break;
-                          }
+                      if (line.startsWith('a:')) {
+                        // Server-Sent Events format: a:{"data":...}
+                        jsonStr = line.substring(2); // Remove "a:" prefix
+                      } else if (line.includes('{') && line.includes('}')) {
+                        // Direct JSON line
+                        jsonStr = line;
+                      } else {
+                        // Look for JSON in the line
+                        const jsonMatch = line.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                          jsonStr = jsonMatch[0];
                         }
                       }
                       
-                      if (endIndex > startIndex) {
-                        const jsonStr = accumulatedData.substring(startIndex, endIndex);
+                      if (jsonStr) {
                         const parsed = JSON.parse(jsonStr);
                         
+                        // Check if this is a tool call response with offers
                         if (parsed.offers && Array.isArray(parsed.offers)) {
                           console.log('Successfully parsed flight results:', parsed.offers.length, 'offers');
                           
@@ -1811,9 +1811,54 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                           console.log('Flight results set in state:', flightResults.length);
                           break; // We found the results, no need to continue reading
                         }
+                        
+                        // Also check if this is a tool call response that contains the offers
+                        if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
+                          console.log('Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
+                          
+                          // Convert the offers to FlightResult format
+                          flightResults = parsed.toolCall.result.offers.map((offer: any, index: number) => ({
+                            id: offer.id || `flight-${index}`,
+                            searchId: parsed.toolCall.result.id || `search-${Date.now()}`,
+                            route: {
+                              origin: offer.slices?.[0]?.origin?.iata_code || searchParams.origin,
+                              destination: offer.slices?.[0]?.destination?.iata_code || searchParams.destination
+                            },
+                            dates: {
+                              departure: offer.slices?.[0]?.segments?.[0]?.departing_at || searchParams.departureDate?.toISOString(),
+                              return: offer.slices?.[1]?.segments?.[0]?.departing_at || searchParams.returnDate?.toISOString()
+                            },
+                            price: {
+                              total: parseFloat(offer.total_amount) || 0,
+                              currency: offer.total_currency || 'USD'
+                            },
+                            duration: {
+                              outbound: offer.slices?.[0]?.duration || '',
+                              return: offer.slices?.[1]?.duration || '',
+                              total: ''
+                            },
+                            airlines: [offer.owner?.name || 'Unknown Airline'],
+                            connections: (offer.slices?.[0]?.segments?.length || 1) - 1,
+                            offer: offer,
+                            score: 0,
+                            destinationContext: 'specific-flight-search',
+                            destinationAirport: {
+                              iata_code: offer.slices?.[0]?.destination?.iata_code || searchParams.destination,
+                              city_name: offer.slices?.[0]?.destination?.city_name || searchParams.destination,
+                              country_name: offer.slices?.[0]?.destination?.iata_country_code || 'Unknown'
+                            },
+                            stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
+                            cabinClass: searchParams.cabinClass
+                          }));
+                          
+                          // Update the state with the flight results
+                          setSpecificFlightResults(flightResults);
+                          console.log('Flight results set in state:', flightResults.length);
+                          break; // We found the results, no need to continue reading
+                        }
                       }
                     } catch (lineParseError) {
-                      console.log('Error parsing line:', lineParseError);
+                      console.log('Error parsing line:', lineParseError, 'Line content:', line.substring(0, 100));
                       // Continue to next line
                     }
                   }
