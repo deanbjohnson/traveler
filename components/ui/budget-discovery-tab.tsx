@@ -1791,121 +1791,129 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             
             // Also log the raw chunk to see the exact format
             console.log('🔍 Raw chunk received:', chunk);
+          }
+          
+          // After the stream is complete, try to parse the accumulated data
+          console.log('🔍 Stream complete, attempting to parse accumulated data...');
+          console.log('🔍 Final accumulated data length:', accumulatedData.length);
+          console.log('🔍 Final accumulated data preview:', accumulatedData.substring(0, 1000));
+          
+          // Look for flight results in the complete accumulated data
+          if (accumulatedData.includes('"offers":') || accumulatedData.includes('"result":')) {
+            // Debug: Show the structure of the accumulated data
+            console.log('🔍 Accumulated data structure analysis:');
+            console.log('🔍 - Lines count:', accumulatedData.split('\n').length);
+            console.log('🔍 - First few lines:', accumulatedData.split('\n').slice(0, 5).map((line, i) => `${i}: ${line.substring(0, 100)}`));
+            console.log('🔍 - Contains f: prefix:', accumulatedData.includes('f:'));
+            console.log('🔍 - Contains 9: prefix:', accumulatedData.includes('9:'));
+            console.log('🔍 - Contains a: prefix:', accumulatedData.includes('a:'));
             
-            // Look for flight results in the accumulated data
-            // The AI tool response should contain the flight data
-            // Also check for tool call results that might contain offers
-            if (accumulatedData.includes('"offers":') || accumulatedData.includes('"result":')) {
-              // Debug: Show the structure of the accumulated data
-              console.log('🔍 Accumulated data structure analysis:');
-              console.log('🔍 - Lines count:', accumulatedData.split('\n').length);
-              console.log('🔍 - First few lines:', accumulatedData.split('\n').slice(0, 5).map((line, i) => `${i}: ${line.substring(0, 100)}`));
-              console.log('🔍 - Contains f: prefix:', accumulatedData.includes('f:'));
-              console.log('🔍 - Contains 9: prefix:', accumulatedData.includes('9:'));
-              console.log('🔍 - Contains a: prefix:', accumulatedData.includes('a:'));
+            try {
+              console.log('🎯 Found "offers" in response, attempting to parse...');
+              
+              // Try to parse the entire accumulated data as JSON first
               try {
-                console.log('🎯 Found "offers" in response, attempting to parse...');
+                const parsed = JSON.parse(accumulatedData);
+                console.log('📦 Parsed full response keys:', Object.keys(parsed));
+                console.log('📦 Parsed full response type:', typeof parsed);
                 
-                // Try to parse the entire accumulated data as JSON first
-                try {
-                  const parsed = JSON.parse(accumulatedData);
-                  console.log('📦 Parsed full response keys:', Object.keys(parsed));
-                  console.log('📦 Parsed full response type:', typeof parsed);
-                  
-                  // Check if this is a tool call response with offers
-                  if (parsed.offers && Array.isArray(parsed.offers)) {
-                    console.log('✅ Found offers directly in response:', parsed.offers.length, 'offers');
-                    flightResults = convertOffersToFlightResults(parsed.offers, searchParams);
-                    console.log('🎯 About to set flight results in state (full parse):', flightResults.length, 'flights');
-                    setSpecificFlightResults(flightResults);
-                    console.log('✅ Flight results set in state (full parse):', flightResults.length);
-                    break;
-                  }
-                  
-                  // Check if this is a tool call response that contains the offers
-                  if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
-                    console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
-                    flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
-                    console.log('🎯 About to set flight results in state (full parse toolCall):', flightResults.length, 'flights');
-                    setSpecificFlightResults(flightResults);
-                    console.log('✅ Flight results set in state (full parse toolCall):', flightResults.length);
-                    break;
-                  }
-                  
-                  // Log the full structure to see what we actually have
+                // Check if this is a tool call response with offers
+                if (parsed.offers && Array.isArray(parsed.offers)) {
+                  console.log('✅ Found offers directly in response:', parsed.offers.length, 'offers');
+                  flightResults = convertOffersToFlightResults(parsed.offers, searchParams);
+                  console.log('🎯 About to set flight results in state (full parse):', flightResults.length, 'flights');
+                  setSpecificFlightResults(flightResults);
+                  console.log('✅ Flight results set in state (full parse):', flightResults.length);
+                }
+                
+                // Check if this is a tool call response that contains the offers
+                else if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
+                  console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
+                  flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
+                  console.log('🎯 About to set flight results in state (full parse toolCall):', flightResults.length, 'flights');
+                  setSpecificFlightResults(flightResults);
+                  console.log('✅ Flight results set in state (full parse toolCall):', flightResults.length);
+                }
+                
+                // Log the full structure to see what we actually have
+                else {
                   console.log('🔍 Full response structure:', JSON.stringify(parsed, null, 2).substring(0, 1000));
-                } catch (fullParseError) {
-                  console.log('⚠️ Full response parse failed:', fullParseError);
-                  console.log('⚠️ Trying line-by-line parsing...');
-                  
-                  // Fallback to line-by-line parsing for Server-Sent Events format
-                  const lines = accumulatedData.split('\n');
-                  console.log('🔍 Processing', lines.length, 'lines for parsing');
-                  for (const line of lines) {
-                    // Check for lines that contain offers or result data
-                    if (line.includes('"offers":') || line.includes('"result":')) {
-                      console.log('🔍 Processing line with offers/result:', line.substring(0, 200));
-                      try {
-                        // Handle different response formats with various prefixes
-                        let jsonStr = '';
-                        
-                        // Handle prefixes like f:, 9:, a:, etc.
-                        if (line.match(/^[a-z0-9]+:/)) {
-                          // Remove any prefix (e.g., f:, 9:, a:, etc.)
-                          const colonIndex = line.indexOf(':');
-                          jsonStr = line.substring(colonIndex + 1);
-                        } else if (line.includes('{') && line.includes('}')) {
-                          // Direct JSON line
-                          jsonStr = line;
-                        } else {
-                          // Look for JSON in the line
-                          const jsonMatch = line.match(/\{[\s\S]*\}/);
-                          if (jsonMatch) {
-                            jsonStr = jsonMatch[0];
-                          }
+                }
+              } catch (fullParseError) {
+                console.log('⚠️ Full response parse failed:', fullParseError);
+                console.log('⚠️ Trying line-by-line parsing...');
+                
+                // Fallback to line-by-line parsing for Server-Sent Events format
+                const lines = accumulatedData.split('\n');
+                console.log('🔍 Processing', lines.length, 'lines for parsing');
+                for (const line of lines) {
+                  // Check for lines that contain offers or result data
+                  if (line.includes('"offers":') || line.includes('"result":')) {
+                    console.log('🔍 Processing line with offers/result:', line.substring(0, 200));
+                    try {
+                      // Handle different response formats with various prefixes
+                      let jsonStr = '';
+                      
+                      // Handle prefixes like f:, 9:, a:, etc.
+                      if (line.match(/^[a-z0-9]+:/)) {
+                        // Remove any prefix (e.g., f:, 9:, a:, etc.)
+                        const colonIndex = line.indexOf(':');
+                        jsonStr = line.substring(colonIndex + 1);
+                      } else if (line.includes('{') && line.includes('}')) {
+                        // Direct JSON line
+                        jsonStr = line;
+                      } else {
+                        // Look for JSON in the line
+                        const jsonMatch = line.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                          jsonStr = jsonMatch[0];
                         }
-                        
-                        if (jsonStr) {
-                          console.log('🔍 Extracted JSON string:', jsonStr.substring(0, 200));
-                          const parsed = JSON.parse(jsonStr);
-                          console.log('🔍 Parsed line:', parsed);
-                          
-                          // Check if this is a tool call response with offers
-                          if (parsed.offers && Array.isArray(parsed.offers)) {
-                            console.log('✅ Found offers in line:', parsed.offers.length, 'offers');
-                            flightResults = convertOffersToFlightResults(parsed.offers, searchParams);
-                            console.log('🎯 About to set flight results in state (line parse direct offers):', flightResults.length, 'flights');
-                            setSpecificFlightResults(flightResults);
-                            console.log('✅ Flight results set in state (line parse direct offers):', flightResults.length);
-                            break;
-                          }
-                          
-                          // Also check if this is a tool call response that contains the offers
-                          if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
-                            console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
-                            flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
-                            console.log('🎯 About to set flight results in state:', flightResults.length, 'flights');
-                            setSpecificFlightResults(flightResults);
-                            console.log('✅ Flight results set in state (line parse toolCall offers):', flightResults.length);
-                            break;
-                          }
-                        }
-                      } catch (lineParseError) {
-                        console.log('❌ Error parsing line:', lineParseError, 'Line content:', line.substring(0, 100));
-                        // Continue to next line
                       }
+                      
+                      if (jsonStr) {
+                        console.log('🔍 Extracted JSON string:', jsonStr.substring(0, 200));
+                        const parsed = JSON.parse(jsonStr);
+                        console.log('🔍 Parsed line:', parsed);
+                        
+                        // Check if this is a tool call response with offers
+                        if (parsed.offers && Array.isArray(parsed.offers)) {
+                          console.log('✅ Found offers in line:', parsed.offers.length, 'offers');
+                          flightResults = convertOffersToFlightResults(parsed.offers, searchParams);
+                          console.log('🎯 About to set flight results in state (line parse direct offers):', flightResults.length, 'flights');
+                          setSpecificFlightResults(flightResults);
+                          console.log('✅ Flight results set in state (line parse direct offers):', flightResults.length);
+                          break;
+                        }
+                        
+                        // Also check if this is a tool call response that contains the offers
+                        else if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
+                          console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
+                          flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
+                          console.log('🎯 About to set flight results in state:', parsed.toolCall.result.offers.length, 'flights');
+                          setSpecificFlightResults(flightResults);
+                          console.log('✅ Flight results set in state (line parse toolCall offers):', flightResults.length);
+                          break;
+                        }
+                        
+                        // Check if this is a result object that contains offers
+                        else if (parsed.result && parsed.result.offers && Array.isArray(parsed.result.offers)) {
+                          console.log('✅ Found offers in result object:', parsed.result.offers.length, 'offers');
+                          flightResults = convertOffersToFlightResults(parsed.result.offers, searchParams);
+                          console.log('🎯 About to set flight results in state (line parse result offers):', flightResults.length, 'flights');
+                          setSpecificFlightResults(flightResults);
+                          console.log('✅ Flight results set in state (line parse result offers):', flightResults.length);
+                          break;
+                        }
+                      }
+                    } catch (lineParseError) {
+                      console.log('❌ Error parsing line:', lineParseError, 'Line content:', line.substring(0, 100));
+                      // Continue to next line
                     }
                   }
                 }
-                
-                // If we found results, break out of the main loop
-                if (flightResults.length > 0) {
-                  break;
-                }
-              } catch (parseError) {
-                console.log('❌ Error parsing flight results:', parseError);
-                // Continue reading in case more data arrives
               }
+            } catch (parseError) {
+              console.log('❌ Error parsing flight results:', parseError);
             }
           }
         } finally {
