@@ -1389,10 +1389,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         }));
         // Apply client-side filters that backend doesn't enforce
         if (typeof priceFilter === 'number' && priceFilter > 0) {
-          normalized = normalized.filter(f => (f.price?.total ?? 0) <= priceFilter);
+          normalized = normalized.filter((f: FlightResult) => (f.price?.total ?? 0) <= priceFilter);
         }
         if (typeof maxStops === 'number' && maxStops >= 0) {
-          normalized = normalized.filter(f => (f.connections ?? 0) <= maxStops);
+          normalized = normalized.filter((f: FlightResult) => (f.connections ?? 0) <= maxStops);
         }
         // Deduplicate expanded results by fingerprint (route+date+airline+price)
         setLocationFlightResults(prev => {
@@ -1477,10 +1477,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           destinationAirport: { iata_code: destinationAirport, city_name: locationName, country_name: '' },
         }));
         if (typeof priceFilter === 'number' && priceFilter > 0) {
-          normalized = normalized.filter(f => (f.price?.total ?? 0) <= priceFilter);
+          normalized = normalized.filter((f: FlightResult) => (f.price?.total ?? 0) <= priceFilter);
         }
         if (typeof maxStops === 'number' && maxStops >= 0) {
-          normalized = normalized.filter(f => (f.connections ?? 0) <= maxStops);
+          normalized = normalized.filter((f: FlightResult) => (f.connections ?? 0) <= maxStops);
         }
         setLocationFlightResults(prev => {
           const existing = prev[locationName] || [];
@@ -1645,10 +1645,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       }
       
       // Handle actual Duffel API format (slices property) - This is what the server is actually returning
-      else if (offer.slices && Array.isArray(offer.slices)) {
+      else if (offer.timelineData?.slices && Array.isArray(offer.timelineData.slices)) {
         console.log(`🔧 Converting offer ${index} using actual Duffel API format`);
-        const firstSlice = offer.slices[0];
-        const secondSlice = offer.slices[1];
+        const firstSlice = offer.timelineData.slices[0];
+        const secondSlice = offer.timelineData.slices[1];
         const firstSegment = firstSlice?.segments?.[0];
         const secondSegment = secondSlice?.segments?.[0];
         
@@ -2319,6 +2319,11 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             ) : chatMode === 'specific-flight' ? (
               // Specific Flight Mode - Show flight results
               <div className="space-y-4">
+                {(() => {
+                  console.log('🔍 Render check - specificFlightResults length:', specificFlightResults.length);
+                  console.log('🔍 Render check - specificFlightResults data:', specificFlightResults);
+                  return null;
+                })()}
                 {specificFlightResults.length > 0 ? (
                   <FlightResultsDisplay
                     flights={specificFlightResults.map(convertFlightResult)}

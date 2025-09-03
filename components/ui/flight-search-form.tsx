@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './button';
 import { Input } from './input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
+import { Select } from './select';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { CalendarIcon, Plane, Search, ChevronDown, MapPin, Clock } from 'lucide-react';
 import { format } from 'date-fns';
@@ -380,18 +380,13 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </label>
           <Select
             value={searchParams.tripType}
-            onValueChange={(value: 'one-way' | 'round-trip' | 'multi-city') =>
-              setSearchParams(prev => ({ ...prev, tripType: value }))
+            onChange={(e) =>
+              setSearchParams(prev => ({ ...prev, tripType: e.target.value as 'one-way' | 'round-trip' | 'multi-city' }))
             }
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="one-way">One-way</SelectItem>
-              <SelectItem value="round-trip">Round-trip</SelectItem>
-              <SelectItem value="multi-city">Multi-city</SelectItem>
-            </SelectContent>
+            <option value="one-way">One-way</option>
+            <option value="round-trip">Round-trip</option>
+            <option value="multi-city">Multi-city</option>
           </Select>
         </div>
 
@@ -401,20 +396,15 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </label>
           <Select
             value={searchParams.passengers.toString()}
-            onValueChange={(value) =>
-              setSearchParams(prev => ({ ...prev, passengers: parseInt(value) }))
+            onChange={(e) =>
+              setSearchParams(prev => ({ ...prev, passengers: parseInt(e.target.value) }))
             }
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-                <SelectItem key={num} value={num.toString()}>
-                  {num} {num === 1 ? 'passenger' : 'passengers'}
-                </SelectItem>
-              ))}
-            </SelectContent>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
+              <option key={num} value={num.toString()}>
+                {num} {num === 1 ? 'passenger' : 'passengers'}
+              </option>
+            ))}
           </Select>
         </div>
 
@@ -424,19 +414,14 @@ export function FlightSearchForm({ onSearch, isLoading = false }: FlightSearchFo
           </label>
           <Select
             value={searchParams.cabinClass}
-            onValueChange={(value) =>
-              setSearchParams(prev => ({ ...prev, cabinClass: value }))
+            onChange={(e) =>
+              setSearchParams(prev => ({ ...prev, cabinClass: e.target.value }))
             }
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="economy">Economy</SelectItem>
-              <SelectItem value="premium-economy">Premium Economy</SelectItem>
-              <SelectItem value="business">Business</SelectItem>
-              <SelectItem value="first">First Class</SelectItem>
-            </SelectContent>
+            <option value="economy">Economy</option>
+            <option value="premium-economy">Premium Economy</option>
+            <option value="business">Business</option>
+            <option value="first">First Class</option>
           </Select>
         </div>
       </div>
