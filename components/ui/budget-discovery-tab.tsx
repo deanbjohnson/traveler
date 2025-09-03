@@ -1685,39 +1685,123 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
   // Helper function to convert offers to FlightResult format
   const convertOffersToFlightResults = (offers: any[], searchParams: FlightSearchParams): FlightResult[] => {
-    return offers.map((offer: any, index: number) => ({
-      id: offer.id || `flight-${index}`,
-      searchId: `search-${Date.now()}`,
-      route: {
-        origin: offer.slices?.[0]?.origin?.iata_code || searchParams.origin,
-        destination: offer.slices?.[0]?.destination?.iata_code || searchParams.destination
-      },
-      dates: {
-        departure: offer.slices?.[0]?.segments?.[0]?.departing_at || searchParams.departureDate?.toISOString(),
-        return: offer.slices?.[1]?.segments?.[0]?.departing_at || searchParams.returnDate?.toISOString()
-      },
-      price: {
-        total: parseFloat(offer.total_amount) || 0,
-        currency: offer.total_currency || 'USD'
-      },
-      duration: {
-        outbound: offer.slices?.[0]?.duration || '',
-        return: offer.slices?.[1]?.duration || '',
-        total: ''
-      },
-      airlines: [offer.owner?.name || 'Unknown Airline'],
-      connections: (offer.slices?.[0]?.segments?.length || 1) - 1,
-      offer: offer,
-      score: 0,
-      destinationContext: 'specific-flight-search',
-      destinationAirport: {
-        iata_code: offer.slices?.[0]?.destination?.iata_code || searchParams.destination,
-        city_name: offer.slices?.[0]?.destination?.city_name || searchParams.destination,
-        country_name: offer.slices?.[0]?.destination?.iata_country_code || 'Unknown'
-      },
-      stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
-      cabinClass: searchParams.cabinClass
-    }));
+    console.log('🔧 Converting offers to FlightResult format. First offer structure:', JSON.stringify(offers[0], null, 2));
+    
+    return offers.map((offer: any, index: number) => {
+      // Handle new API format (route, timing, airline properties)
+      if (offer.route && offer.timing && offer.airline) {
+        console.log(`🔧 Converting offer ${index} using new API format`);
+        return {
+          id: offer.id || `flight-${index}`,
+          searchId: `search-${Date.now()}`,
+          route: {
+            origin: offer.route.from?.code || offer.route.from || searchParams.origin,
+            destination: offer.route.to?.code || offer.route.to || searchParams.destination
+          },
+          dates: {
+            departure: offer.timing.departure || searchParams.departureDate?.toISOString(),
+            return: offer.timing.arrival || searchParams.returnDate?.toISOString()
+          },
+          price: {
+            total: parseFloat(offer.price?.amount || offer.price?.total || '0') || 0,
+            currency: offer.price?.currency || 'USD'
+          },
+          duration: {
+            outbound: offer.timing.duration || '',
+            return: '',
+            total: offer.timing.duration || ''
+          },
+          airlines: [offer.airline?.name || 'Unknown Airline'],
+          connections: (offer.segments?.length || 1) - 1,
+          offer: offer,
+          score: 0,
+          destinationContext: 'specific-flight-search',
+          destinationAirport: {
+            iata_code: offer.route.to?.code || offer.route.to || searchParams.destination,
+            city_name: offer.route.to?.city || offer.route.to || searchParams.destination,
+            country_name: 'Unknown'
+          },
+          stops: (offer.segments?.length || 1) - 1,
+          cabinClass: searchParams.cabinClass
+        };
+      }
+      
+      // Handle legacy Duffel API format (slices property)
+      else if (offer.slices) {
+        console.log(`🔧 Converting offer ${index} using legacy Duffel format`);
+        return {
+          id: offer.id || `flight-${index}`,
+          searchId: `search-${Date.now()}`,
+          route: {
+            origin: offer.slices?.[0]?.origin?.iata_code || searchParams.origin,
+            destination: offer.slices?.[0]?.destination?.iata_code || searchParams.destination
+          },
+          dates: {
+            departure: offer.slices?.[0]?.segments?.[0]?.departing_at || searchParams.departureDate?.toISOString(),
+            return: offer.slices?.[1]?.segments?.[0]?.departing_at || searchParams.returnDate?.toISOString()
+          },
+          price: {
+            total: parseFloat(offer.total_amount) || 0,
+            currency: offer.total_currency || 'USD'
+          },
+          duration: {
+            outbound: offer.slices?.[0]?.duration || '',
+            return: offer.slices?.[1]?.duration || '',
+            total: ''
+          },
+          airlines: [offer.owner?.name || 'Unknown Airline'],
+          connections: (offer.slices?.[0]?.segments?.length || 1) - 1,
+          offer: offer,
+          score: 0,
+          destinationContext: 'specific-flight-search',
+          destinationAirport: {
+            iata_code: offer.slices?.[0]?.destination?.iata_code || searchParams.destination,
+            city_name: offer.slices?.[0]?.destination?.city_name || searchParams.destination,
+            country_name: offer.slices?.[0]?.destination?.iata_country_code || 'Unknown'
+          },
+          stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
+          cabinClass: searchParams.cabinClass
+        };
+      }
+      
+      // Fallback for unknown format
+      else {
+        console.log(`🔧 Converting offer ${index} using fallback format`);
+        return {
+          id: offer.id || `flight-${index}`,
+          searchId: `search-${Date.now()}`,
+          route: {
+            origin: searchParams.origin,
+            destination: searchParams.destination
+          },
+          dates: {
+            departure: searchParams.departureDate?.toISOString(),
+            return: searchParams.returnDate?.toISOString()
+          },
+          price: {
+            total: parseFloat(offer.price?.amount || offer.price?.total || offer.total_amount || '0') || 0,
+            currency: offer.price?.currency || offer.total_currency || 'USD'
+          },
+          duration: {
+            outbound: offer.duration || offer.timing?.duration || '',
+            return: '',
+            total: offer.duration || offer.timing?.duration || ''
+          },
+          airlines: [offer.airline?.name || offer.owner?.name || 'Unknown Airline'],
+          connections: 0,
+          offer: offer,
+          score: 0,
+          destinationContext: 'specific-flight-search',
+          destinationAirport: {
+            iata_code: searchParams.destination,
+            city_name: searchParams.destination,
+            country_name: 'Unknown'
+          },
+          stops: 0,
+          cabinClass: searchParams.cabinClass
+        };
+      }
+    });
   };
 
   // New function to handle specific flight searches
