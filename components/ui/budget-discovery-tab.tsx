@@ -1775,7 +1775,11 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             accumulatedData += chunk;
             
             // Debug: Log the accumulated data to see what we're receiving
-            console.log('🔍 Accumulated streaming data:', accumulatedData);
+            console.log('🔍 Accumulated streaming data length:', accumulatedData.length);
+            console.log('🔍 Accumulated streaming data preview:', accumulatedData.substring(0, 500));
+            console.log('🔍 Contains "offers":', accumulatedData.includes('"offers":'));
+            console.log('🔍 Contains "toolCall":', accumulatedData.includes('"toolCall":'));
+            console.log('🔍 Contains "result":', accumulatedData.includes('"result":'));
             
             // Look for flight results in the accumulated data
             // The AI tool response should contain the flight data
@@ -1786,7 +1790,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 // Try to parse the entire accumulated data as JSON first
                 try {
                   const parsed = JSON.parse(accumulatedData);
-                  console.log('📦 Parsed full response:', parsed);
+                  console.log('📦 Parsed full response keys:', Object.keys(parsed));
+                  console.log('📦 Parsed full response type:', typeof parsed);
                   
                   // Check if this is a tool call response with offers
                   if (parsed.offers && Array.isArray(parsed.offers)) {
@@ -1800,11 +1805,14 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
                     console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
                     flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
-                    setSpecificFlightResults(flightResults);
                     break;
                   }
+                  
+                  // Log the full structure to see what we actually have
+                  console.log('🔍 Full response structure:', JSON.stringify(parsed, null, 2).substring(0, 1000));
                 } catch (fullParseError) {
-                  console.log('⚠️ Full response parse failed, trying line-by-line parsing...');
+                  console.log('⚠️ Full response parse failed:', fullParseError);
+                  console.log('⚠️ Trying line-by-line parsing...');
                   
                   // Fallback to line-by-line parsing for Server-Sent Events format
                   const lines = accumulatedData.split('\n');
