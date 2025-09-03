@@ -1791,7 +1791,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             
             // Look for flight results in the accumulated data
             // The AI tool response should contain the flight data
-            if (accumulatedData.includes('"offers":')) {
+            // Also check for tool call results that might contain offers
+            if (accumulatedData.includes('"offers":') || accumulatedData.includes('"result":')) {
               try {
                 console.log('🎯 Found "offers" in response, attempting to parse...');
                 
@@ -1829,15 +1830,20 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   
                   // Fallback to line-by-line parsing for Server-Sent Events format
                   const lines = accumulatedData.split('\n');
+                  console.log('🔍 Processing', lines.length, 'lines for parsing');
                   for (const line of lines) {
-                    if (line.includes('"offers":')) {
+                    // Check for lines that contain offers or result data
+                    if (line.includes('"offers":') || line.includes('"result":')) {
+                      console.log('🔍 Processing line with offers/result:', line.substring(0, 200));
                       try {
-                        // Handle different response formats
+                        // Handle different response formats with various prefixes
                         let jsonStr = '';
                         
-                        if (line.startsWith('a:')) {
-                          // Server-Sent Events format: a:{"data":...}
-                          jsonStr = line.substring(2); // Remove "a:" prefix
+                        // Handle prefixes like f:, 9:, a:, etc.
+                        if (line.match(/^[a-z0-9]+:/)) {
+                          // Remove any prefix (e.g., f:, 9:, a:, etc.)
+                          const colonIndex = line.indexOf(':');
+                          jsonStr = line.substring(colonIndex + 1);
                         } else if (line.includes('{') && line.includes('}')) {
                           // Direct JSON line
                           jsonStr = line;
@@ -1850,6 +1856,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                         }
                         
                         if (jsonStr) {
+                          console.log('🔍 Extracted JSON string:', jsonStr.substring(0, 200));
                           const parsed = JSON.parse(jsonStr);
                           console.log('🔍 Parsed line:', parsed);
                           
