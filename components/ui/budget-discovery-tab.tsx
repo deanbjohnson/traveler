@@ -1789,10 +1789,20 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             console.log('🔍 Contains "toolCall":', accumulatedData.includes('"toolCall":'));
             console.log('🔍 Contains "result":', accumulatedData.includes('"result":'));
             
+            // Also log the raw chunk to see the exact format
+            console.log('🔍 Raw chunk received:', chunk);
+            
             // Look for flight results in the accumulated data
             // The AI tool response should contain the flight data
             // Also check for tool call results that might contain offers
             if (accumulatedData.includes('"offers":') || accumulatedData.includes('"result":')) {
+              // Debug: Show the structure of the accumulated data
+              console.log('🔍 Accumulated data structure analysis:');
+              console.log('🔍 - Lines count:', accumulatedData.split('\n').length);
+              console.log('🔍 - First few lines:', accumulatedData.split('\n').slice(0, 5).map((line, i) => `${i}: ${line.substring(0, 100)}`));
+              console.log('🔍 - Contains f: prefix:', accumulatedData.includes('f:'));
+              console.log('🔍 - Contains 9: prefix:', accumulatedData.includes('9:'));
+              console.log('🔍 - Contains a: prefix:', accumulatedData.includes('a:'));
               try {
                 console.log('🎯 Found "offers" in response, attempting to parse...');
                 
