@@ -1722,6 +1722,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
   // New function to handle specific flight searches
   const handleSpecificFlightSearch = async (searchParams: FlightSearchParams) => {
+    console.log('🚀 Starting specific flight search with params:', searchParams);
     setSpecificFlightSearchParams(searchParams);
     setIsSpecificFlightLoading(true);
     
@@ -1745,12 +1746,16 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         }
       };
       
+      console.log('🔍 Converted flight search params:', flightSearchParams);
+      
       // Use the existing chat functionality to search, but with a simpler message
       const searchQuery = `Search for flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
         searchParams.returnDate ? ` returning on ${searchParams.returnDate.toISOString().split('T')[0]}` : ''
       } for ${searchParams.passengers} passenger${searchParams.passengers === 1 ? '' : 's'} in ${searchParams.cabinClass} class${
         searchParams.maxPrice ? ` with max price $${searchParams.maxPrice}` : ''
       }.`;
+      
+      console.log('🔍 Search query:', searchQuery);
       
       // Use the existing chat functionality to search
       const response = await fetch('/api/chat', {
@@ -1762,6 +1767,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           id: `budget-discovery-${tripId}-specific-flight`,
         }),
       });
+      
+      console.log('🔍 API response status:', response.status, response.statusText);
       
       if (response.ok) {
         // Process the streaming response to extract flight results
@@ -1816,12 +1823,15 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 const parsed = JSON.parse(accumulatedData);
                 console.log('📦 Parsed full response keys:', Object.keys(parsed));
                 console.log('📦 Parsed full response type:', typeof parsed);
+                console.log('📦 Full parsed response:', JSON.stringify(parsed, null, 2));
                 
                 // Check if this is a tool call response with offers
                 if (parsed.offers && Array.isArray(parsed.offers)) {
                   console.log('✅ Found offers directly in response:', parsed.offers.length, 'offers');
+                  console.log('✅ First offer structure:', JSON.stringify(parsed.offers[0], null, 2));
                   flightResults = convertOffersToFlightResults(parsed.offers, searchParams);
                   console.log('🎯 About to set flight results in state (full parse):', flightResults.length, 'flights');
+                  console.log('🎯 First converted flight result:', JSON.stringify(flightResults[0], null, 2));
                   setSpecificFlightResults(flightResults);
                   console.log('✅ Flight results set in state (full parse):', flightResults.length);
                 }
@@ -1829,8 +1839,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 // Check if this is a tool call response that contains the offers
                 else if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
                   console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
+                  console.log('✅ Tool call result structure:', JSON.stringify(parsed.toolCall.result, null, 2));
                   flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
                   console.log('🎯 About to set flight results in state (full parse toolCall):', flightResults.length, 'flights');
+                  console.log('🎯 First converted flight result:', JSON.stringify(flightResults[0], null, 2));
                   setSpecificFlightResults(flightResults);
                   console.log('✅ Flight results set in state (full parse toolCall):', flightResults.length);
                 }
@@ -1838,6 +1850,36 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 // Log the full structure to see what we actually have
                 else {
                   console.log('🔍 Full response structure:', JSON.stringify(parsed, null, 2).substring(0, 1000));
+                  console.log('🔍 No offers found in expected locations, checking entire structure...');
+                  
+                  // Try to find offers anywhere in the structure
+                  const findOffersInObject = (obj: any, path: string = ''): any[] | null => {
+                    if (Array.isArray(obj)) {
+                      for (let i = 0; i < obj.length; i++) {
+                        const result = findOffersInObject(obj[i], `${path}[${i}]`);
+                        if (result) return result;
+                      }
+                    } else if (obj && typeof obj === 'object') {
+                      if (obj.offers && Array.isArray(obj.offers)) {
+                        console.log('🔍 Found offers at path:', path, 'with', obj.offers.length, 'offers');
+                        return obj.offers;
+                      }
+                      for (const key in obj) {
+                        const result = findOffersInObject(obj[key], `${path}.${key}`);
+                        if (result) return result;
+                      }
+                    }
+                    return null;
+                  };
+                  
+                  const foundOffers = findOffersInObject(parsed);
+                  if (foundOffers) {
+                    console.log('✅ Found offers in nested structure:', foundOffers.length, 'offers');
+                    flightResults = convertOffersToFlightResults(foundOffers, searchParams);
+                    console.log('🎯 About to set flight results in state (nested structure):', flightResults.length, 'flights');
+                    setSpecificFlightResults(flightResults);
+                    console.log('✅ Flight results set in state (nested structure):', flightResults.length);
+                  }
                 }
               } catch (fullParseError) {
                 console.log('⚠️ Full response parse failed:', fullParseError);
@@ -1887,7 +1929,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                         
                         // Also check if this is a tool call response that contains the offers
                         else if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
-                          console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
+                          console.log('✅ Found offers in line:', parsed.toolCall.result.offers.length, 'offers');
                           flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
                           console.log('🎯 About to set flight results in state:', parsed.toolCall.result.offers.length, 'flights');
                           setSpecificFlightResults(flightResults);
@@ -1897,7 +1939,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                         
                         // Check if this is a result object that contains offers
                         else if (parsed.result && parsed.result.offers && Array.isArray(parsed.result.offers)) {
-                          console.log('✅ Found offers in result object:', parsed.result.offers.length, 'offers');
+                          console.log('✅ Found offers in line:', parsed.result.offers.length, 'offers');
                           flightResults = convertOffersToFlightResults(parsed.result.offers, searchParams);
                           console.log('🎯 About to set flight results in state (line parse result offers):', flightResults.length, 'flights');
                           setSpecificFlightResults(flightResults);
@@ -1915,6 +1957,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             } catch (parseError) {
               console.log('❌ Error parsing flight results:', parseError);
             }
+          } else {
+            console.log('🔍 No "offers" or "result" found in accumulated data');
+            console.log('🔍 Data contains:', accumulatedData);
           }
         } finally {
           reader.releaseLock();
