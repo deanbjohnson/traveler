@@ -256,6 +256,14 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   const [specificFlightResults, setSpecificFlightResults] = useState<FlightResult[]>([]);
   const [isSpecificFlightLoading, setIsSpecificFlightLoading] = useState(false);
   
+  // Debug: Monitor specificFlightResults state changes
+  useEffect(() => {
+    console.log('🔄 specificFlightResults state changed:', specificFlightResults.length, 'flights');
+    if (specificFlightResults.length > 0) {
+      console.log('📊 First flight result:', specificFlightResults[0]);
+    }
+  }, [specificFlightResults]);
+  
   useEffect(() => {
     try {
       const fps = new Set<string>();
@@ -1797,7 +1805,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   if (parsed.offers && Array.isArray(parsed.offers)) {
                     console.log('✅ Found offers directly in response:', parsed.offers.length, 'offers');
                     flightResults = convertOffersToFlightResults(parsed.offers, searchParams);
+                    console.log('🎯 About to set flight results in state (full parse):', flightResults.length, 'flights');
                     setSpecificFlightResults(flightResults);
+                    console.log('✅ Flight results set in state (full parse):', flightResults.length);
                     break;
                   }
                   
@@ -1805,6 +1815,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
                     console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
                     flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
+                    console.log('🎯 About to set flight results in state (full parse toolCall):', flightResults.length, 'flights');
+                    setSpecificFlightResults(flightResults);
+                    console.log('✅ Flight results set in state (full parse toolCall):', flightResults.length);
                     break;
                   }
                   
@@ -1844,7 +1857,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                           if (parsed.offers && Array.isArray(parsed.offers)) {
                             console.log('✅ Found offers in line:', parsed.offers.length, 'offers');
                             flightResults = convertOffersToFlightResults(parsed.offers, searchParams);
+                            console.log('🎯 About to set flight results in state (line parse direct offers):', flightResults.length, 'flights');
                             setSpecificFlightResults(flightResults);
+                            console.log('✅ Flight results set in state (line parse direct offers):', flightResults.length);
                             break;
                           }
                           
@@ -1852,7 +1867,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                           if (parsed.toolCall && parsed.toolCall.result && parsed.toolCall.result.offers) {
                             console.log('✅ Found offers in tool call result:', parsed.toolCall.result.offers.length, 'offers');
                             flightResults = convertOffersToFlightResults(parsed.toolCall.result.offers, searchParams);
+                            console.log('🎯 About to set flight results in state:', flightResults.length, 'flights');
                             setSpecificFlightResults(flightResults);
+                            console.log('✅ Flight results set in state (line parse toolCall offers):', flightResults.length);
                             break;
                           }
                         }
@@ -1877,6 +1894,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         } finally {
           reader.releaseLock();
         }
+        
+        console.log('🔍 After streaming loop - flightResults length:', flightResults.length);
+        console.log('🔍 Current specificFlightResults state length:', specificFlightResults.length);
         
         if (flightResults.length > 0) {
           toast.success(`Found ${flightResults.length} flights!`);
