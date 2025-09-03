@@ -1988,7 +1988,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
   // Helper function to convert FlightResult to the format expected by FlightResultsDisplay
   const convertFlightResult = (flight: FlightResult): import('./flight-results-display').FlightResult => {
-    return {
+    console.log('🔧 convertFlightResult called with:', flight);
+    const result = {
       id: flight.id,
       airline: {
         name: flight.airline?.name || (flight.airlines?.[0] || 'Unknown Airline'),
@@ -2013,6 +2014,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       stops: flight.connections || 0,
       cabinClass: flight.cabinClass || 'economy'
     };
+    console.log('🔧 convertFlightResult returning:', result);
+    return result;
   };
 
   // Wrapper function for adding flights to timeline from FlightResultsDisplay
