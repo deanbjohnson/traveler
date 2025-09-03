@@ -1644,40 +1644,45 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         };
       }
       
-      // Handle legacy Duffel API format (slices property)
-      else if (offer.slices) {
-        console.log(`🔧 Converting offer ${index} using legacy Duffel format`);
+      // Handle actual Duffel API format (slices property) - This is what the server is actually returning
+      else if (offer.slices && Array.isArray(offer.slices)) {
+        console.log(`🔧 Converting offer ${index} using actual Duffel API format`);
+        const firstSlice = offer.slices[0];
+        const secondSlice = offer.slices[1];
+        const firstSegment = firstSlice?.segments?.[0];
+        const secondSegment = secondSlice?.segments?.[0];
+        
         return {
           id: offer.id || `flight-${index}`,
           searchId: `search-${Date.now()}`,
           route: {
-            origin: offer.slices?.[0]?.origin?.iata_code || searchParams.origin,
-            destination: offer.slices?.[0]?.destination?.iata_code || searchParams.destination
+            origin: firstSlice?.origin?.iata_code || searchParams.origin,
+            destination: firstSlice?.destination?.iata_code || searchParams.destination
           },
           dates: {
-            departure: offer.slices?.[0]?.segments?.[0]?.departing_at || searchParams.departureDate?.toISOString(),
-            return: offer.slices?.[1]?.segments?.[0]?.departing_at || searchParams.returnDate?.toISOString()
+            departure: firstSegment?.departing_at || searchParams.departureDate?.toISOString(),
+            return: secondSegment?.departing_at || searchParams.returnDate?.toISOString()
           },
           price: {
-            total: parseFloat(offer.total_amount) || 0,
+            total: parseFloat(offer.total_amount || '0') || 0,
             currency: offer.total_currency || 'USD'
           },
           duration: {
-            outbound: offer.slices?.[0]?.duration || '',
-            return: offer.slices?.[1]?.duration || '',
+            outbound: firstSlice?.duration || '',
+            return: secondSlice?.duration || '',
             total: ''
           },
-          airlines: [offer.owner?.name || 'Unknown Airline'],
-          connections: (offer.slices?.[0]?.segments?.length || 1) - 1,
+          airlines: [firstSegment?.operating_carrier?.name || firstSegment?.marketing_carrier?.name || 'Unknown Airline'],
+          connections: (firstSlice?.segments?.length || 1) - 1,
           offer: offer,
           score: 0,
           destinationContext: 'specific-flight-search',
           destinationAirport: {
-            iata_code: offer.slices?.[0]?.destination?.iata_code || searchParams.destination,
-            city_name: offer.slices?.[0]?.destination?.city_name || searchParams.destination,
-            country_name: offer.slices?.[0]?.destination?.iata_country_code || 'Unknown'
+            iata_code: firstSlice?.destination?.iata_code || searchParams.destination,
+            city_name: firstSlice?.destination?.city_name || searchParams.destination,
+            country_name: firstSlice?.destination?.iata_country_code || 'Unknown'
           },
-          stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
+          stops: (firstSlice?.segments?.length || 1) - 1,
           cabinClass: searchParams.cabinClass
         };
       }
