@@ -34,6 +34,6 @@ export async function createNewTrip() {
     console.warn("[CREATE-TRIP] Could not invalidate cache after trip creation", e);
   }
 
-  // Redirect to the specific trip page
-  redirect(`/discover/${trip.id}`);
+  // Return the trip ID so the client can handle navigation
+  return { success: true, tripId: trip.id };
 }

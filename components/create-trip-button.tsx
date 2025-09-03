@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { createNewTrip } from "@/app/server/actions/create-trip";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface CreateTripButtonProps {
     variant?: "default" | "outline" | "ghost";
@@ -19,11 +20,17 @@ export function CreateTripButton({
     className
 }: CreateTripButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
     const handleCreateTrip = async () => {
         try {
             setIsLoading(true);
-            await createNewTrip();
+            const result = await createNewTrip();
+            
+            if (result?.success && result.tripId) {
+                // Navigate to the new trip page
+                router.push(`/discover/${result.tripId}`);
+            }
         } catch (error) {
             console.error("Error creating trip:", error);
             // You might want to show a toast notification here
