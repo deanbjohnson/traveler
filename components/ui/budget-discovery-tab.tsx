@@ -1199,104 +1199,22 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     }
   };
 
-  // Debug: Log total flights before filtering
-  console.log(`🔍 Total flights before filtering: ${searchResults.length}`);
-  console.log(`🔍 Price filter: ${priceFilter ? `$${priceFilter}` : 'None'}`);
+
   
-  const sortedAndFilteredResults = searchResults
-    .filter((flight) => {
-      // Filter out invalid flight data
-      if (!flight || !flight.route || !flight.price) {
-        console.warn('Invalid flight data:', flight);
-        return false;
-      }
-      
-      // Debug price filtering
-      if (priceFilter && flight.price.total > priceFilter) {
-        console.log(`🔍 Flight filtered out by price: $${flight.price.total} > $${priceFilter} (${flight.route.origin}-${flight.route.destination})`);
-        return false;
-      }
-      
-      if (destinationFilter && !flight.destinationContext.toLowerCase().includes(destinationFilter.toLowerCase())) return false;
-      return true;
-    });
-    
-  // Debug: Log total flights after filtering
-  console.log(`🔍 Total flights after filtering: ${sortedAndFilteredResults.length}`);
+  // Create a simple sortedRegions for compatibility with existing code
+  const sortedRegions: Array<{
+    region: string;
+    countries: Array<{
+      country: string;
+      flights: FlightResult[];
+      count: number;
+      avgPrice: number;
+    }>;
+    totalFlights: number;
+    avgPrice: number;
+  }> = [];
+
   
-  const sortedResults = sortedAndFilteredResults.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case 'price':
-          comparison = a.price.total - b.price.total;
-          break;
-        case 'duration':
-          // Parse duration for proper comparison (shortest to longest)
-          const durationA = a.duration?.outbound ? parseDurationToMinutes(a.duration.outbound) : 0;
-          const durationB = b.duration?.outbound ? parseDurationToMinutes(b.duration.outbound) : 0;
-          comparison = durationA - durationB;
-          break;
-        case 'date':
-          comparison = (a.dates?.departure ? new Date(a.dates.departure).getTime() : 0) - 
-                      (b.dates?.departure ? new Date(b.dates.departure).getTime() : 0);
-          break;
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-  // Group flights by idea (query/interest) then by location (city/airport city)
-  const groupedFlights = sortedAndFilteredResults.reduce((groups, flight) => {
-    // Idea name taken from destinationContext (e.g., "Skiing", "Beach", etc.)
-    const idea = (flight.destinationContext || 'Ideas').toString();
-    // Location name from destination airport city; fall back to destination code
-    const location = flight.destinationAirport?.city_name || flight.route.destination || 'Unknown';
-
-    if (!groups[idea]) groups[idea] = {};
-    if (!groups[idea][location]) groups[idea][location] = [];
-    groups[idea][location].push(flight);
-    return groups;
-  }, {} as Record<string, Record<string, FlightResult[]>>);
-
-  // For each location, keep only the cheapest flight initially (poster flight)
-  const posterFlights = Object.entries(groupedFlights).reduce((acc, [idea, locations]) => {
-    acc[idea] = {};
-    Object.entries(locations).forEach(([location, flights]) => {
-      // Sort flights by price and take the cheapest one as the poster flight
-      const sortedFlights = [...flights].sort((a, b) => a.price.total - b.price.total);
-      acc[idea][location] = [sortedFlights[0]]; // Only show the cheapest flight initially
-    });
-    return acc;
-  }, {} as Record<string, Record<string, FlightResult[]>>);
-
-  // Sort regions and countries (using poster flights for display)
-  const sortedRegions = Object.entries(posterFlights)
-    .map(([idea, locations]) => {
-      const locationEntries = Object.entries(locations).map(([location, flights]) => ({
-        location,
-        flights,
-        count: flights.length,
-        avgPrice: flights.reduce((sum, f) => sum + f.price.total, 0) / flights.length,
-      }));
-
-      // Sort locations by flight count then by average price
-      locationEntries.sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count;
-        return a.avgPrice - b.avgPrice;
-      });
-
-      return {
-        region: idea, // keep property name 'region' to minimize changes downstream
-        countries: locationEntries.map((e) => ({ country: e.location, flights: e.flights, count: e.count, avgPrice: e.avgPrice })),
-        totalFlights: locationEntries.reduce((sum, c) => sum + c.count, 0),
-        avgPrice: locationEntries.reduce((sum, c) => sum + c.avgPrice * c.count, 0) / locationEntries.reduce((sum, c) => sum + c.count, 0),
-      };
-    })
-    .sort((a, b) => {
-      // Sort regions by total flight count first, then by average price
-      if (b.totalFlights !== a.totalFlights) return b.totalFlights - a.totalFlights;
-      return a.avgPrice - b.avgPrice;
-    });
-
   const toggleLocation = (location: string) => {
     setExpandedLocations(prev => {
       const newSet = new Set(prev);
@@ -2378,7 +2296,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   <p className="text-gray-400 mt-2">Searching for flights...</p>
                 </div>
               </div>
-            ) : sortedAndFilteredResults.length === 0 ? (
+            ) : searchResults.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Search className="h-12 w-12 text-gray-600 mx-auto mb-4" />
@@ -2666,7 +2584,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               </div>
             ) : (
               // List View (original)
-              sortedAndFilteredResults.map((flight) => (
+              searchResults.map((flight) => (
                 <Card
                   key={flight.id}
                   className="cursor-pointer hover:bg-gray-800/50 transition-colors border-gray-700 relative"
