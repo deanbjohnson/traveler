@@ -685,22 +685,10 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       if (hasBudgetDiscovery || hasFindFlight) {
         console.log('🔍 Flight search results detected');
         setIsLoading(false);
-        
-        // If we're in Specific Flight mode, extract results for that mode
-        if (chatMode === 'specific-flight') {
-          console.log('🔍 Specific Flight mode - extracting results for specificFlightResults');
-          const flightResults = extractFlightResults(messageAny);
-          if (flightResults && flightResults.length > 0) {
-            console.log('🔍 Setting specificFlightResults:', flightResults.length, 'flights');
-            setSpecificFlightResults(flightResults);
-            setIsSpecificFlightLoading(false);
-          }
-        } else {
-          // Regular Trip Discover mode
-          console.log('🔍 About to call extractFlightResults');
-          extractFlightResults(messageAny);
-          console.log('🔍 extractFlightResults called');
-        }
+        // Extract flight results from the message
+        console.log('🔍 About to call extractFlightResults');
+        extractFlightResults(messageAny);
+        console.log('🔍 extractFlightResults called');
       } else if (hasAddToTimeline) {
         console.log('📝 Add to timeline completed');
         // Clear loading state for addToTimeline calls
@@ -1013,15 +1001,13 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     return `${origin}-${destination}-${dep}-${airline}`.toUpperCase();
   };
 
-  const extractFlightResults = (message: any): FlightResult[] => {
+  const extractFlightResults = (message: any) => {
     console.log('🔍 extractFlightResults called with message:', {
       hasToolInvocations: !!message.toolInvocations,
       toolInvocationsCount: message.toolInvocations?.length || 0,
       content: message.content?.substring(0, 200),
       messageKeys: Object.keys(message)
     });
-    
-    let extractedResults: FlightResult[] = [];
     
     try {
       const mergeResults = (incoming: FlightResult[]) => {
@@ -1032,8 +1018,6 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           });
           return Array.from(byId.values());
         });
-        // Also collect results for return
-        extractedResults = [...extractedResults, ...incoming];
       };
 
       // Check if this is a location-specific search by looking at the user message
@@ -1213,8 +1197,6 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     } catch (error) {
       console.error('Failed to extract flight results:', error);
     }
-    
-    return extractedResults;
   };
 
 
@@ -1232,7 +1214,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     avgPrice: number;
   }> = [];
 
-  
+
   const toggleLocation = (location: string) => {
     setExpandedLocations(prev => {
       const newSet = new Set(prev);
@@ -1745,42 +1727,57 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     });
   };
 
-  // New function to handle specific flight searches - using the sneaky chat approach!
+  // New function to handle specific flight searches
   const handleSpecificFlightSearch = async (searchParams: FlightSearchParams) => {
     console.log('🚀 Starting specific flight search with params:', searchParams);
     setSpecificFlightSearchParams(searchParams);
     setIsSpecificFlightLoading(true);
     
     try {
+      // Convert search params to the format expected by the AI
       if (!searchParams.departureDate) {
         throw new Error('Departure date is required');
       }
       
-      // Create a search query that will trigger the AI to find flights
+      // Convert the search params to the format expected by the findFlight tool
+      const flightSearchParams = {
+        from: searchParams.origin,
+        to: searchParams.destination,
+        departure: searchParams.departureDate.toISOString().split('T')[0],
+        return: searchParams.returnDate ? searchParams.returnDate.toISOString().split('T')[0] : undefined,
+        passengers: searchParams.passengers,
+        cabinClass: searchParams.cabinClass,
+        preferences: {
+          maxPrice: searchParams.maxPrice,
+          maxConnections: 2, // Default to max 2 connections
+        }
+      };
+      
+      console.log('🔍 Converted flight search params:', flightSearchParams);
+      
+      // Use the existing chat functionality to search, but with a simpler message
       const searchQuery = `Search for flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
         searchParams.returnDate ? ` returning on ${searchParams.returnDate.toISOString().split('T')[0]}` : ''
       } for ${searchParams.passengers} passenger${searchParams.passengers === 1 ? '' : 's'} in ${searchParams.cabinClass} class${
         searchParams.maxPrice ? ` with max price $${searchParams.maxPrice}` : ''
       }.`;
       
-      console.log('🔍 Using sneaky chat approach with query:', searchQuery);
+      console.log('🔍 Search query:', searchQuery);
       
-      // Use the existing useChat append function - this will trigger the AI to search for flights
-      await append({
-        role: 'user',
-        content: searchQuery
+      // Use the existing chat functionality to search
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: searchQuery }],
+          tripId: tripId,
+          id: `budget-discovery-${tripId}-specific-flight`,
+        }),
       });
       
-      // The flight results will be extracted in the onFinish callback below
+      console.log('🔍 API response status:', response.status, response.statusText);
       
-    } catch (error) {
-      console.error('🔍 Error in specific flight search:', error);
-    } finally {
-      setIsSpecificFlightLoading(false);
-    }
-  };
-
-  // Helper function to convert FlightResult to the format expected by FlightResultsDisplay
+      if (response.ok) {
         // Process the streaming response to extract flight results
         const reader = response.body?.getReader();
         if (!reader) {
@@ -1975,6 +1972,24 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           reader.releaseLock();
         }
         
+        console.log('🔍 After streaming loop - flightResults length:', flightResults.length);
+        console.log('🔍 Current specificFlightResults state length:', specificFlightResults.length);
+        
+        if (flightResults.length > 0) {
+          toast.success(`Found ${flightResults.length} flights!`);
+        } else {
+          toast.error("No flights found for the specified criteria.");
+        }
+      } else {
+        throw new Error('Failed to start search');
+      }
+    } catch (error) {
+      console.error('Error starting specific flight search:', error);
+      toast.error("Failed to start flight search.");
+    } finally {
+      setIsSpecificFlightLoading(false);
+    }
+  };
 
   // Helper function to convert FlightResult to the format expected by FlightResultsDisplay
   const convertFlightResult = (flight: FlightResult): import('./flight-results-display').FlightResult => {
@@ -2088,117 +2103,117 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             
             {chatMode === 'trip-discover' && (
               <>
-                <h2 className="text-lg font-semibold text-gray-200">
+            <h2 className="text-lg font-semibold text-gray-200">
                   Trip Discover Chat
-                </h2>
-                <p className="text-sm text-gray-400">
+            </h2>
+            <p className="text-sm text-gray-400">
                   Ask me to find flights, plan your trip, and discover amazing destinations
-                </p>
-                
-                {/* Filter Controls - Only show for Trip Discover mode */}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {/* Trip Type */}
-                  <div className="relative">
-                    <select
-                      value={tripType}
-                      onChange={(e) => {
-                        setTripType(e.target.value as 'round-trip' | 'one-way');
-                        localStorage.setItem(`bd-tripType-${tripId}`, e.target.value);
-                        setFilterVersion(prev => prev + 1);
-                      }}
-                      className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="round-trip">Round trip</option>
-                      <option value="one-way">One way</option>
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                  </div>
-
-                  {/* Passengers */}
-                  <div className="relative">
-                    <select
-                      value={passengers}
-                      onChange={(e) => {
-                        setPassengers(Number(e.target.value));
-                        localStorage.setItem(`bd-passengers-${tripId}`, e.target.value);
-                        setFilterVersion(prev => prev + 1);
-                      }}
-                      className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {[1, 2, 3, 4, 5, 6].map(num => (
-                        <option key={num} value={num}>{num} {num === 1 ? 'passenger' : 'passengers'}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                  </div>
-
-                  {/* Cabin Class */}
-                  <div className="relative">
-                    <select
-                      value={cabinClass}
-                      onChange={(e) => {
-                        setCabinClass(e.target.value as 'economy' | 'premium_economy' | 'business' | 'first');
-                        localStorage.setItem(`bd-cabinClass-${tripId}`, e.target.value);
-                        setFilterVersion(prev => prev + 1);
-                      }}
-                      className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="economy">Economy</option>
-                      <option value="premium_economy">Premium Economy</option>
-                      <option value="business">Business</option>
-                      <option value="first">First Class</option>
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                  </div>
-
-                  {/* Stops */}
-                  <div className="relative">
-                    <select
-                      value={maxStops ?? ''}
-                      onChange={(e) => {
-                        const value = e.target.value === '' ? null : Number(e.target.value);
-                        setMaxStops(value);
-                        localStorage.setItem(`bd-maxStops-${tripId}`, value?.toString() ?? '');
-                        setFilterVersion(prev => prev + 1);
-                      }}
-                      className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Any stops</option>
-                      <option value="0">Direct only</option>
-                      <option value="1">Max 1 stop</option>
-                      <option value="2">Max 2 stops</option>
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                  </div>
-
-                  {/* Price */}
-                  <input
-                    type="number"
-                    placeholder="Any price"
-                    value={priceFilter?.toString() ?? ''}
+            </p>
+            
+            {/* Filter Controls - Only show for Trip Discover mode */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {/* Trip Type */}
+                <div className="relative">
+                  <select
+                    value={tripType}
                     onChange={(e) => {
-                      const value = e.target.value === '' ? null : Number(e.target.value);
-                      setPriceFilter(value);
-                      localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
+                      setTripType(e.target.value as 'round-trip' | 'one-way');
+                      localStorage.setItem(`bd-tripType-${tripId}`, e.target.value);
                       setFilterVersion(prev => prev + 1);
                     }}
-                    className="bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
-                    min="0"
-                    step="50"
-                  />
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="round-trip">Round trip</option>
+                    <option value="one-way">One way</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 </div>
 
-                <div className="mt-2 space-y-1">
-                  <p className="text-xs text-gray-500">Try these examples:</p>
-                  <ul className="text-xs text-gray-500 space-y-1 ml-4">
+                {/* Passengers */}
+                <div className="relative">
+                  <select
+                    value={passengers}
+                    onChange={(e) => {
+                      setPassengers(Number(e.target.value));
+                      localStorage.setItem(`bd-passengers-${tripId}`, e.target.value);
+                      setFilterVersion(prev => prev + 1);
+                    }}
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num} {num === 1 ? 'passenger' : 'passengers'}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+
+                {/* Cabin Class */}
+                <div className="relative">
+                  <select
+                    value={cabinClass}
+                    onChange={(e) => {
+                      setCabinClass(e.target.value as 'economy' | 'premium_economy' | 'business' | 'first');
+                      localStorage.setItem(`bd-cabinClass-${tripId}`, e.target.value);
+                      setFilterVersion(prev => prev + 1);
+                    }}
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="economy">Economy</option>
+                    <option value="premium_economy">Premium Economy</option>
+                    <option value="business">Business</option>
+                    <option value="first">First Class</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+
+                {/* Stops */}
+                <div className="relative">
+                  <select
+                    value={maxStops ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? null : Number(e.target.value);
+                      setMaxStops(value);
+                      localStorage.setItem(`bd-maxStops-${tripId}`, value?.toString() ?? '');
+                      setFilterVersion(prev => prev + 1);
+                    }}
+                    className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Any stops</option>
+                    <option value="0">Direct only</option>
+                    <option value="1">Max 1 stop</option>
+                    <option value="2">Max 2 stops</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+
+                {/* Price */}
+                <input
+                  type="number"
+                  placeholder="Any price"
+                  value={priceFilter?.toString() ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? null : Number(e.target.value);
+                    setPriceFilter(value);
+                    localStorage.setItem(`bd-priceFilter-${tripId}`, value?.toString() ?? '');
+                    setFilterVersion(prev => prev + 1);
+                  }}
+                  className="bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
+                  min="0"
+                  step="50"
+                />
+              </div>
+
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-gray-500">Try these examples:</p>
+              <ul className="text-xs text-gray-500 space-y-1 ml-4">
                     <li>• "Find cheap flights to warm places in the next 6 months"</li>
                     <li>• "Show me the best deals to Asia over the next year"</li>
                     <li>• "What are the cheapest flights to Europe in the next 3 months?"</li>
                     <li>• "Find budget-friendly trips to anywhere interesting"</li>
                   </ul>
                 </div>
-              </>
-            )}
+                  </>
+                )}
           </div>
           <div className="flex-1 min-h-0 overflow-hidden" ref={chatScrollRef}>
             {chatMode === 'specific-flight' ? (
@@ -2218,24 +2233,24 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               </div>
             ) : (
               // Show chat for trip discover mode
-              <Chat
-                messages={[...messages, ...systemMessages.map(msg => ({
-                  role: 'assistant' as const,
-                  content: msg.content,
-                  id: msg.id,
-                  createdAt: msg.timestamp
-                }))].sort((a, b) => {
-                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                  return aTime - bTime;
-                })}
-                input={input}
-                handleInputChange={handleInputChange}
-                handleSubmit={handleSubmit}
-                isGenerating={isLoadingChat}
-                stop={stop}
-                className="h-full"
-              />
+            <Chat
+              messages={[...messages, ...systemMessages.map(msg => ({
+                role: 'assistant' as const,
+                content: msg.content,
+                id: msg.id,
+                createdAt: msg.timestamp
+              }))].sort((a, b) => {
+                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return aTime - bTime;
+              })}
+              input={input}
+              handleInputChange={handleInputChange}
+              handleSubmit={handleSubmit}
+              isGenerating={isLoadingChat}
+              stop={stop}
+              className="h-full"
+            />
             )}
           </div>
         </div>
@@ -2289,18 +2304,6 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   <p className="text-gray-400 mt-2">Searching for flights...</p>
                 </div>
               </div>
-            ) : searchResults.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Search className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">
-                    {chatMode === 'trip-discover' 
-                      ? 'No trips found. Try searching for flights or destinations!' 
-                      : 'No flights found. Try searching for specific routes and dates!'
-                    }
-                  </p>
-                </div>
-              </div>
             ) : chatMode === 'specific-flight' ? (
               // Specific Flight Mode - Show flight results
               <div className="space-y-4">
@@ -2310,18 +2313,18 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   return null;
                 })()}
                 {specificFlightResults.length > 0 ? (
-                  <FlightResultsDisplay
-                    flights={specificFlightResults.map(convertFlightResult)}
-                    onAddToTrip={handleAddToTripFromDisplay}
-                    searchParams={specificFlightSearchParams ? {
-                      origin: specificFlightSearchParams.origin,
-                      destination: specificFlightSearchParams.destination,
-                      departureDate: specificFlightSearchParams.departureDate!,
-                      returnDate: specificFlightSearchParams.returnDate,
-                      passengers: specificFlightSearchParams.passengers,
-                      cabinClass: specificFlightSearchParams.cabinClass
-                    } : undefined}
-                  />
+                    <FlightResultsDisplay
+                      flights={specificFlightResults.map(convertFlightResult)}
+                      onAddToTrip={handleAddToTripFromDisplay}
+                      searchParams={specificFlightSearchParams ? {
+                        origin: specificFlightSearchParams.origin,
+                        destination: specificFlightSearchParams.destination,
+                        departureDate: specificFlightSearchParams.departureDate!,
+                        returnDate: specificFlightSearchParams.returnDate,
+                        passengers: specificFlightSearchParams.passengers,
+                        cabinClass: specificFlightSearchParams.cabinClass
+                      } : undefined}
+                    />
                 ) : (
                   <div className="text-center py-12">
                     <Plane className="h-12 w-12 text-gray-600 mx-auto mb-4" />
@@ -2664,6 +2667,16 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   </CardContent>
                 </Card>
               ))
+            ) : (
+              // Empty state for Trip Discover mode
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Search className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-400">
+                    No trips found. Try searching for flights or destinations!
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
