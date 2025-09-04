@@ -8,8 +8,9 @@ import { FlightSearchForm } from '../flight-search-form';
 import { ModeToggle } from './mode-toggle';
 import { FilterControls } from './filter-controls';
 import { EmptyState } from './empty-state';
-import { useFlightSearch } from './use-flight-search';
-import { useSpecificFlightSearch } from './use-specific-flight-search';
+import { PerformanceMonitor } from './performance-monitor';
+import { useOptimizedChatSearch } from './use-optimized-chat-search';
+import { useOptimizedFlightSearch } from './use-optimized-flight-search';
 import { 
   TripDiscoverTabProps, 
   ChatMode, 
@@ -89,7 +90,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   // Timeline flight fingerprints
   const [timelineFlightFingerprints, setTimelineFlightFingerprints] = useState<Set<string>>(new Set());
 
-  // Custom hooks
+  // Custom hooks - using optimized versions
   const {
     messages,
     input,
@@ -102,14 +103,14 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     progress,
     systemMessages,
     handleAddToTimeline,
-  } = useFlightSearch(tripId, chatMode);
+  } = useOptimizedChatSearch(tripId, chatMode);
 
   const {
     specificFlightSearchParams,
     specificFlightResults,
     isSpecificFlightLoading,
     handleSpecificFlightSearch,
-  } = useSpecificFlightSearch();
+  } = useOptimizedFlightSearch();
 
   // Update timeline flight fingerprints when timeline changes
   useEffect(() => {
@@ -230,7 +231,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
   };
 
   return (
-    <div className="flex h-full p-4 gap-4">
+    <>
+      <div className="flex h-full p-4 gap-4">
       {/* Chat Section */}
       <div className="flex-1 min-w-0 overflow-hidden border border-gray-700 rounded-lg bg-gray-900/30">
         <div className="flex flex-col h-full">
@@ -420,6 +422,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      
+      {/* Performance Monitor - only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <PerformanceMonitor isVisible={true} />
+      )}
+    </>
   );
 }
