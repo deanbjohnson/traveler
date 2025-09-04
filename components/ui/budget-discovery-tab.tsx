@@ -685,10 +685,22 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
       if (hasBudgetDiscovery || hasFindFlight) {
         console.log('🔍 Flight search results detected');
         setIsLoading(false);
-        // Extract flight results from the message
-        console.log('🔍 About to call extractFlightResults');
-        extractFlightResults(messageAny);
-        console.log('🔍 extractFlightResults called');
+        
+        // If we're in Specific Flight mode, extract results for that mode
+        if (chatMode === 'specific-flight') {
+          console.log('🔍 Specific Flight mode - extracting results for specificFlightResults');
+          const flightResults = extractFlightResults(messageAny);
+          if (flightResults && flightResults.length > 0) {
+            console.log('🔍 Setting specificFlightResults:', flightResults.length, 'flights');
+            setSpecificFlightResults(flightResults);
+            setIsSpecificFlightLoading(false);
+          }
+        } else {
+          // Regular Trip Discover mode
+          console.log('🔍 About to call extractFlightResults');
+          extractFlightResults(messageAny);
+          console.log('🔍 extractFlightResults called');
+        }
       } else if (hasAddToTimeline) {
         console.log('📝 Add to timeline completed');
         // Clear loading state for addToTimeline calls
@@ -1001,13 +1013,15 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     return `${origin}-${destination}-${dep}-${airline}`.toUpperCase();
   };
 
-  const extractFlightResults = (message: any) => {
+  const extractFlightResults = (message: any): FlightResult[] => {
     console.log('🔍 extractFlightResults called with message:', {
       hasToolInvocations: !!message.toolInvocations,
       toolInvocationsCount: message.toolInvocations?.length || 0,
       content: message.content?.substring(0, 200),
       messageKeys: Object.keys(message)
     });
+    
+    let extractedResults: FlightResult[] = [];
     
     try {
       const mergeResults = (incoming: FlightResult[]) => {
@@ -1018,6 +1032,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           });
           return Array.from(byId.values());
         });
+        // Also collect results for return
+        extractedResults = [...extractedResults, ...incoming];
       };
 
       // Check if this is a location-specific search by looking at the user message
@@ -1197,6 +1213,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     } catch (error) {
       console.error('Failed to extract flight results:', error);
     }
+    
+    return extractedResults;
   };
 
 
@@ -1727,57 +1745,42 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     });
   };
 
-  // New function to handle specific flight searches
+  // New function to handle specific flight searches - using the sneaky chat approach!
   const handleSpecificFlightSearch = async (searchParams: FlightSearchParams) => {
     console.log('🚀 Starting specific flight search with params:', searchParams);
     setSpecificFlightSearchParams(searchParams);
     setIsSpecificFlightLoading(true);
     
     try {
-      // Convert search params to the format expected by the AI
       if (!searchParams.departureDate) {
         throw new Error('Departure date is required');
       }
       
-      // Convert the search params to the format expected by the findFlight tool
-      const flightSearchParams = {
-        from: searchParams.origin,
-        to: searchParams.destination,
-        departure: searchParams.departureDate.toISOString().split('T')[0],
-        return: searchParams.returnDate ? searchParams.returnDate.toISOString().split('T')[0] : undefined,
-        passengers: searchParams.passengers,
-        cabinClass: searchParams.cabinClass,
-        preferences: {
-          maxPrice: searchParams.maxPrice,
-          maxConnections: 2, // Default to max 2 connections
-        }
-      };
-      
-      console.log('🔍 Converted flight search params:', flightSearchParams);
-      
-      // Use the existing chat functionality to search, but with a simpler message
+      // Create a search query that will trigger the AI to find flights
       const searchQuery = `Search for flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate.toISOString().split('T')[0]}${
         searchParams.returnDate ? ` returning on ${searchParams.returnDate.toISOString().split('T')[0]}` : ''
       } for ${searchParams.passengers} passenger${searchParams.passengers === 1 ? '' : 's'} in ${searchParams.cabinClass} class${
         searchParams.maxPrice ? ` with max price $${searchParams.maxPrice}` : ''
       }.`;
       
-      console.log('🔍 Search query:', searchQuery);
+      console.log('🔍 Using sneaky chat approach with query:', searchQuery);
       
-      // Use the existing chat functionality to search
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: searchQuery }],
-          tripId: tripId,
-          id: `budget-discovery-${tripId}-specific-flight`,
-        }),
+      // Use the existing useChat append function - this will trigger the AI to search for flights
+      await append({
+        role: 'user',
+        content: searchQuery
       });
       
-      console.log('🔍 API response status:', response.status, response.statusText);
+      // The flight results will be extracted in the onFinish callback below
       
-      if (response.ok) {
+    } catch (error) {
+      console.error('🔍 Error in specific flight search:', error);
+    } finally {
+      setIsSpecificFlightLoading(false);
+    }
+  };
+
+  // Helper function to convert FlightResult to the format expected by FlightResultsDisplay
         // Process the streaming response to extract flight results
         const reader = response.body?.getReader();
         if (!reader) {
@@ -1972,24 +1975,6 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
           reader.releaseLock();
         }
         
-        console.log('🔍 After streaming loop - flightResults length:', flightResults.length);
-        console.log('🔍 Current specificFlightResults state length:', specificFlightResults.length);
-        
-        if (flightResults.length > 0) {
-          toast.success(`Found ${flightResults.length} flights!`);
-        } else {
-          toast.error("No flights found for the specified criteria.");
-        }
-      } else {
-        throw new Error('Failed to start search');
-      }
-    } catch (error) {
-      console.error('Error starting specific flight search:', error);
-      toast.error("Failed to start flight search.");
-    } finally {
-      setIsSpecificFlightLoading(false);
-    }
-  };
 
   // Helper function to convert FlightResult to the format expected by FlightResultsDisplay
   const convertFlightResult = (flight: FlightResult): import('./flight-results-display').FlightResult => {
