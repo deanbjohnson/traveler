@@ -10,6 +10,8 @@ import { ModeToggle } from './mode-toggle';
 import { FilterControls } from './filter-controls';
 import { EmptyState } from './empty-state';
 import { PerformanceMonitor } from './performance-monitor';
+import { LocationGroupedResults } from './location-grouped-results';
+import { useLocationExpansion } from './use-location-expansion';
 import { useOptimizedChatSearch } from './use-optimized-chat-search';
 import { useOptimizedFlightSearch } from './use-optimized-flight-search';
 import { 
@@ -112,6 +114,16 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     isSpecificFlightLoading,
     handleSpecificFlightSearch,
   } = useOptimizedFlightSearch();
+
+  // Location expansion management
+  const {
+    expandedLocations,
+    locationFlightResults,
+    loadingMoreFlights,
+    toggleLocation,
+    loadMoreFlights,
+    setLocationFlightResults
+  } = useLocationExpansion({ tripId, chatMode });
 
   // Update timeline flight fingerprints when timeline changes
   useEffect(() => {
@@ -430,11 +442,24 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 )}
               </div>
             ) : searchResults.length > 0 ? (
-              // Trip Discover Mode - Show search results using the rich display component
-              <FlightResultsDisplay
-                flights={searchResults.map(convertFlightResult)}
-                onAddToTrip={handleAddToTripFromDisplay}
-                isLoading={isLoading}
+              // Trip Discover Mode - Show location-grouped results
+              <LocationGroupedResults
+                flights={searchResults}
+                onAddToTrip={handleAddToTimeline}
+                onLoadMoreFlights={(locationName, destinationAirport) => {
+                  loadMoreFlights(locationName, destinationAirport, {
+                    origin: searchResults[0]?.route?.origin || 'JFK',
+                    passengers: 1,
+                    cabinClass: 'economy',
+                    tripType: 'round-trip',
+                    maxStops: maxStops,
+                    priceFilter: priceFilter
+                  });
+                }}
+                loadingMoreFlights={loadingMoreFlights}
+                expandedLocations={expandedLocations}
+                onToggleLocation={toggleLocation}
+                addedFlightIds={addedFlightIds}
               />
             ) : (
               <EmptyState mode="trip-discover" />
