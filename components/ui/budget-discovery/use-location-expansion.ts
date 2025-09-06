@@ -106,11 +106,6 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
       });
       
       const data = await res.json();
-      console.log('🔍 Location expansion API response:', {
-        success: data?.success,
-        hasResults: Array.isArray(data.results),
-        resultsLength: data.results?.length
-      });
       
       if (data?.success && Array.isArray(data.results)) {
         let normalized = data.results.map((r: any) => normalizeFlightResult({
@@ -131,10 +126,6 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
           normalized = normalized.filter((f: FlightResult) => (f.connections ?? 0) <= searchParams.maxStops);
         }
 
-        console.log('🔍 Normalized flights for location expansion:', {
-          locationName,
-          normalizedCount: normalized.length
-        });
 
         // Deduplicate by fingerprint (route+date+airline+price)
         setLocationFlightResults(prev => {
@@ -147,10 +138,6 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
           });
           
           const finalResults = Array.from(byFingerprint.values());
-          console.log('🔍 Setting location flight results:', {
-            locationName,
-            finalCount: finalResults.length
-          });
           
           return { ...prev, [locationName]: finalResults };
         });

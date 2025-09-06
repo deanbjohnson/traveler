@@ -451,9 +451,18 @@ function generateDateWindows(
   if ("start" in dateWindow && "end" in dateWindow) {
     const start = new Date(dateWindow.start);
     const end = new Date(dateWindow.end);
-    return eachDayOfInterval({ start, end })
-      .filter((_, index) => index % 2 === 0)
-      .map((date) => format(date, "yyyy-MM-dd"));
+    const allDates = eachDayOfInterval({ start, end });
+    
+    // Generate exactly 8 random dates over the period
+    const numDates = Math.min(8, allDates.length);
+    const randomDates: Date[] = [];
+    
+    for (let i = 0; i < numDates; i++) {
+      const randomIndex = Math.floor(Math.random() * allDates.length);
+      randomDates.push(allDates[randomIndex]);
+    }
+    
+    return randomDates.map((date) => format(date, "yyyy-MM-dd"));
   }
 
   if ("month" in dateWindow) {

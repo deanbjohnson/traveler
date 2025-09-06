@@ -18,7 +18,7 @@ import { format } from 'date-fns';
 interface LocationGroupedResultsProps {
   flights: FlightResult[];
   locationFlightResults?: Record<string, FlightResult[]>;
-  onAddToTrip: (flight: FlightResult) => void;
+  onAddToTrip: (flight: FlightResult, event: React.MouseEvent) => void;
   onLoadMoreFlights: (locationName: string, destinationAirport: string) => void;
   loadingMoreFlights: Set<string>;
   expandedLocations: Set<string>;
@@ -92,11 +92,6 @@ export function LocationGroupedResults({
     const sortBy = locationSortBy[locationName] || 'price';
     const sorted = [...flightsToUse];
 
-    console.log('🔍 getSortedFlightsForLocation:', {
-      locationName,
-      hasExpandedResults: !!locationFlightResults[locationName],
-      finalCount: flightsToUse.length
-    });
 
     switch (sortBy) {
       case 'price':
@@ -284,14 +279,25 @@ export function LocationGroupedResults({
                                 </div>
                                 <div className="text-sm text-gray-400">
                                   {flight.route.origin} → {flight.route.destination}
+                                  {flight.dates?.return && (
+                                    <span className="ml-2">→ {flight.route.origin}</span>
+                                  )}
                                 </div>
                                 <div className="flex items-center space-x-4 text-xs text-gray-400">
                                   <div className="flex items-center space-x-1">
                                     <Clock className="h-3 w-3" />
-                                    <span>{formatDuration(flight.duration?.outbound || flight.duration?.total || 'PT0H0M')}</span>
+                                    <span>
+                                      {flight.duration?.outbound && flight.duration?.return 
+                                        ? `${formatDuration(flight.duration.outbound)} + ${formatDuration(flight.duration.return)}`
+                                        : formatDuration(flight.duration?.outbound || flight.duration?.total || 'PT0H0M')
+                                      }
+                                    </span>
                                   </div>
                                   <div>
                                     {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
+                                    {flight.dates?.return && (
+                                      <span className="ml-2">- {formatDate(flight.dates.return)}</span>
+                                    )}
                                   </div>
                                   {flight.connections > 0 && (
                                     <Badge variant="secondary" className="text-xs">
@@ -305,8 +311,7 @@ export function LocationGroupedResults({
                           <div className="ml-4">
                             <Button
                               onClick={(e) => {
-                                e.stopPropagation();
-                                onAddToTrip(flight);
+                                onAddToTrip(flight, e);
                               }}
                               disabled={isAdded}
                               variant={isAdded ? "secondary" : "default"}

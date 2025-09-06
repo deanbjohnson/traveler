@@ -447,7 +447,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               <LocationGroupedResults
                 flights={searchResults}
                 locationFlightResults={locationFlightResults}
-                onAddToTrip={handleAddToTimeline}
+                onAddToTrip={(flight, event) => handleAddToTimeline(flight, event)}
                 onLoadMoreFlights={(locationName, destinationAirport) => {
                   loadMoreFlights(locationName, destinationAirport, {
                     origin: searchResults[0]?.route?.origin || 'JFK',
