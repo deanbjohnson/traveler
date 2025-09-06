@@ -451,9 +451,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 onLoadMoreFlights={(locationName, destinationAirport) => {
                   loadMoreFlights(locationName, destinationAirport, {
                     origin: searchResults[0]?.route?.origin || 'JFK',
-                    passengers: 1,
-                    cabinClass: 'economy',
-                    tripType: 'round-trip',
+                    passengers: passengers,
+                    cabinClass: cabinClass,
+                    tripType: tripType,
                     maxStops: maxStops || undefined,
                     priceFilter: priceFilter || undefined
                   });
@@ -467,9 +467,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   
                   toggleLocationWithAutoLoad(locationName, destinationAirport, {
                     origin: searchResults[0]?.route?.origin || 'JFK',
-                    passengers: 1,
-                    cabinClass: 'economy',
-                    tripType: 'round-trip',
+                    passengers: passengers,
+                    cabinClass: cabinClass,
+                    tripType: tripType,
                     maxStops: maxStops || undefined,
                     priceFilter: priceFilter || undefined
                   });

@@ -150,8 +150,51 @@ function formatDate(dateString: string): string {
   });
 }
 
+// Validation function to check if destinations make geographic sense
+function validateDestinations(destinations: any[], userQuery: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const query = userQuery.toLowerCase();
+  
+  // Check for obvious geographic mismatches
+  const knownMismatches = [
+    { name: 'pinehurst', correctLocation: 'North Carolina, USA', wrongLocation: 'Spain' },
+    { name: 'pebble beach', correctLocation: 'California, USA', wrongLocation: 'France' },
+    { name: 'augusta', correctLocation: 'Georgia, USA', wrongLocation: 'Europe' },
+    { name: 'bandon', correctLocation: 'Oregon, USA', wrongLocation: 'Europe' }
+  ];
+  
+  destinations.forEach((dest, index) => {
+    const destName = dest.name.toLowerCase();
+    const destCountry = dest.country?.toLowerCase() || '';
+    
+    // Check for known mismatches
+    knownMismatches.forEach(mismatch => {
+      if (destName.includes(mismatch.name) && destCountry.includes(mismatch.wrongLocation.toLowerCase())) {
+        errors.push(`Destination ${index + 1}: "${dest.name}" is actually in ${mismatch.correctLocation}, not ${mismatch.wrongLocation}`);
+      }
+    });
+    
+    // Check for Europe-specific queries
+    if (query.includes('europe') && !destCountry.includes('europe') && !destCountry.includes('spain') && !destCountry.includes('france') && !destCountry.includes('italy') && !destCountry.includes('germany') && !destCountry.includes('portugal') && !destCountry.includes('ireland') && !destCountry.includes('scotland') && !destCountry.includes('england') && !destCountry.includes('uk')) {
+      errors.push(`Destination ${index + 1}: "${dest.name}" doesn't appear to be in Europe but user requested Europe`);
+    }
+  });
+  
+  return { valid: errors.length === 0, errors };
+}
+
 export const budgetDiscoveryTool = tool({
-  description: `AI-Powered Budget Discovery Flight Search. The model should provide EXACTLY 5 concrete destinations (city + primary IATA airport) based on the user's query; this tool will then fetch the cheapest direct flight for each destination. DO NOT provide more than 5 destinations.`,
+  description: `AI-Powered Budget Discovery Flight Search. The model should provide EXACTLY 5 concrete destinations (city + primary IATA airport) based on the user's query. 
+
+IMPORTANT LOCATION INTELLIGENCE RULES:
+- If user mentions a specific region/continent (e.g., "Europe", "Asia", "South America"), ALL destinations must be in that region
+- If user mentions a specific country, prioritize destinations in that country
+- If user mentions an activity (e.g., "golf", "beach", "skiing"), suggest destinations KNOWN for that activity in the specified region
+- NEVER suggest destinations that don't match the geographic context (e.g., don't suggest "Pinehurst, Spain" - Pinehurst is in North Carolina, USA)
+- Use real, well-known destinations that travelers actually visit
+- Ensure airport codes are correct and correspond to the actual city/region
+
+This tool will then fetch the cheapest direct flight for each destination. DO NOT provide more than 5 destinations.`,
   parameters: z.object({
     from: z.string().describe("Origin airport code or 'anywhere' for flexible origin"),
     destinationSuggestion: z.string().describe("Natural language request that informed the AI's destination shortlist (for logging only)"),
@@ -159,10 +202,10 @@ export const budgetDiscoveryTool = tool({
     destinations: z
       .array(
         z.object({
-          name: z.string().describe("City or area display name"),
-          airport: z.string().length(3).describe("Primary IATA airport for that destination"),
-          country: z.string().optional(),
-          category: z.string().optional().describe("Optional descriptor like 'golf', 'beach' (free text from the model)")
+          name: z.string().describe("City or area display name (e.g., 'St. Andrews', 'Costa del Sol', 'Algarve')"),
+          airport: z.string().length(3).describe("Primary IATA airport for that destination (must be correct IATA code)"),
+          country: z.string().optional().describe("Country name for verification"),
+          category: z.string().optional().describe("Activity/theme descriptor like 'golf', 'beach', 'skiing'")
         })
       )
       .min(1)
@@ -192,6 +235,13 @@ export const budgetDiscoveryTool = tool({
     preferences = {} 
   }: any) => {
     const toolCallId = Math.random().toString(36).substring(7);
+    // Validate destinations for geographic accuracy
+    const validation = validateDestinations(destinations, destinationSuggestion);
+    if (!validation.valid) {
+      console.warn(`[BUDGET-DISCOVERY-${toolCallId}] DESTINATION VALIDATION WARNINGS:`, validation.errors);
+      // Continue with search but log warnings
+    }
+
     console.log(`[BUDGET-DISCOVERY-${toolCallId}] RECEIVED PARAMETERS:`, {
       from,
       destinationSuggestion,
