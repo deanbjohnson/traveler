@@ -59,9 +59,20 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
     raw.airline?.code ? [raw.airline.code] : []
   );
 
+  // Calculate connections/stops from Duffel API format
   const connections: number = typeof raw.connections === 'number'
     ? raw.connections
-    : (Array.isArray(raw.segments) ? Math.max(raw.segments.length - 1, 0) : 0);
+    : (() => {
+        // For Duffel API format, check segments within slices
+        if (raw.slices && Array.isArray(raw.slices) && raw.slices.length > 0) {
+          const firstSlice = raw.slices[0];
+          if (firstSlice.segments && Array.isArray(firstSlice.segments)) {
+            return Math.max(firstSlice.segments.length - 1, 0);
+          }
+        }
+        // Fallback to old format
+        return Array.isArray(raw.segments) ? Math.max(raw.segments.length - 1, 0) : 0;
+      })();
 
   const offer = raw.offer || null;
   const score = typeof raw.score === 'number' ? raw.score : 0;
@@ -88,5 +99,8 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
     timing: raw.timing,
     segments: raw.segments,
     timelineData: raw.timelineData,
+    // Ensure stops property matches connections for consistency
+    stops: connections,
+    cabinClass: raw.cabinClass,
   } as FlightResult;
 };

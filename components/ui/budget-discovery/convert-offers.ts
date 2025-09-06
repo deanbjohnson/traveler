@@ -43,10 +43,11 @@ export const convertOffersToFlightResults = (offers: any[], searchParams: Flight
     }
     
     // Handle actual Duffel API format (slices property) - This is what the server is actually returning
-    else if (offer.timelineData?.slices && Array.isArray(offer.timelineData.slices)) {
+    else if ((offer.slices && Array.isArray(offer.slices)) || (offer.timelineData?.slices && Array.isArray(offer.timelineData.slices))) {
       console.log(`🔧 Converting offer ${index} using actual Duffel API format`);
-      const firstSlice = offer.timelineData.slices[0];
-      const secondSlice = offer.timelineData.slices[1];
+      const slices = offer.slices || offer.timelineData.slices;
+      const firstSlice = slices[0];
+      const secondSlice = slices[1];
       const firstSegment = firstSlice?.segments?.[0];
       const secondSegment = secondSlice?.segments?.[0];
       
