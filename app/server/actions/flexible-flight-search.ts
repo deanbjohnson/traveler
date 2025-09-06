@@ -405,13 +405,11 @@ async function expandOrigins(from: string | string[]): Promise<string[]> {
   }
 
   if (from.toLowerCase() === "anywhere") {
-    // For "anywhere", we need to provide actual airport codes for the search
-    // The budget discovery tool should handle "anywhere" by letting Cohere choose destinations
-    // But this flexible search needs real airport codes to work with Duffel API
-    // Use a diverse but limited set of major airports for performance
-    return [
-      "JFK", "LAX", "LHR", "CDG", "NRT", "SIN", "DXB", "SYD", "GRU", "YYZ"
-    ];
+    // For "anywhere", let Cohere's intelligence handle airport selection
+    // Cohere should choose specific airport codes based on context
+    // This is much better than hardcoded lists - Cohere knows airports worldwide
+    // and can make contextually appropriate choices based on the user's query
+    return ["anywhere"];
   }
 
   const airports = await getAirportsInArea(from);
@@ -640,7 +638,7 @@ export async function flexibleFlightSearch(
           }
 
           searchCombinations.push({
-            from: origin,
+            from: origin === "anywhere" ? "JFK" : origin,
             to: destination,
             date,
             returnDate,
