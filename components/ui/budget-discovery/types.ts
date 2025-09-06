@@ -20,6 +20,10 @@ export interface FlightResult {
   };
   airlines: string[];
   connections: number;
+  routing?: {
+    outbound: FlightSegment[];
+    return?: FlightSegment[];
+  };
   offer: any; // The raw Duffel offer
   score: number;
   destinationContext: string;
@@ -84,6 +88,17 @@ export interface FlightSearchParams {
 export interface TripDiscoverTabProps {
   tripId: string;
   timeline?: any;
+}
+
+export interface FlightSegment {
+  origin: string;
+  destination: string;
+  originName?: string;
+  destinationName?: string;
+  carrier: string;
+  departureTime: string;
+  arrivalTime: string;
+  duration: string;
 }
 
 export type ChatMode = 'trip-discover' | 'specific-flight';

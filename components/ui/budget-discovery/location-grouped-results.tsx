@@ -196,6 +196,14 @@ export function LocationGroupedResults({
     return duration;
   };
 
+  const formatTime = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'HH:mm');
+    } catch {
+      return dateString;
+    }
+  };
+
   if (groupedFlights.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400">
@@ -414,42 +422,94 @@ export function LocationGroupedResults({
                       {/* Expanded legs for round-trip flights */}
                       {isRoundTrip && isFlightExpandedState && (
                         <div className="ml-4 space-y-2">
-                          {/* Outbound leg */}
+                          {/* Outbound leg with detailed routing */}
                           <Card className="bg-gray-600/30 border-gray-500">
                             <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <Plane className="h-3 w-3 text-blue-400" />
-                                    <span className="text-sm font-medium text-gray-200">Outbound</span>
-                                    <Badge variant="outline" className="text-xs">
-                                      {flight.route.origin} → {flight.route.destination}
-                                    </Badge>
-                                  </div>
-                                  <div className="text-xs text-gray-400 mt-1">
-                                    {formatDate(flight.dates.departure)} • {formatDuration(flight.duration.outbound)}
-                                  </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Plane className="h-3 w-3 text-blue-400" />
+                                  <span className="text-sm font-medium text-gray-200">Outbound</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {flight.route.origin} → {flight.route.destination}
+                                  </Badge>
                                 </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDate(flight.dates.departure)} • {formatDuration(flight.duration.outbound)}
+                                </div>
+                                
+                                {/* Detailed routing for outbound */}
+                                {flight.routing?.outbound && flight.routing.outbound.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {flight.routing.outbound.map((segment, segmentIndex) => (
+                                      <div key={segmentIndex} className="flex items-center space-x-2 text-xs text-gray-300">
+                                        <div className="flex items-center space-x-1">
+                                          <span className="font-mono">{segment.origin}</span>
+                                          <span className="text-gray-500">→</span>
+                                          <span className="font-mono">{segment.destination}</span>
+                                        </div>
+                                        <span className="text-gray-500">•</span>
+                                        <span className="text-gray-400">{segment.carrier}</span>
+                                        <span className="text-gray-500">•</span>
+                                        <span className="text-gray-400">
+                                          {segment.departureTime ? formatTime(segment.departureTime) : ''} - 
+                                          {segment.arrivalTime ? formatTime(segment.arrivalTime) : ''}
+                                        </span>
+                                        {segment.duration && (
+                                          <>
+                                            <span className="text-gray-500">•</span>
+                                            <span className="text-gray-400">{formatDuration(segment.duration)}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
 
-                          {/* Return leg */}
+                          {/* Return leg with detailed routing */}
                           <Card className="bg-gray-600/30 border-gray-500">
                             <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <Plane className="h-3 w-3 text-green-400" />
-                                    <span className="text-sm font-medium text-gray-200">Return</span>
-                                    <Badge variant="outline" className="text-xs">
-                                      {flight.route.destination} → {flight.route.origin}
-                                    </Badge>
-                                  </div>
-                                  <div className="text-xs text-gray-400 mt-1">
-                                    {formatDate(flight.dates.return)} • {formatDuration(flight.duration.return)}
-                                  </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Plane className="h-3 w-3 text-green-400" />
+                                  <span className="text-sm font-medium text-gray-200">Return</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {flight.route.destination} → {flight.route.origin}
+                                  </Badge>
                                 </div>
+                                <div className="text-xs text-gray-400">
+                                  {formatDate(flight.dates.return)} • {formatDuration(flight.duration.return)}
+                                </div>
+                                
+                                {/* Detailed routing for return */}
+                                {flight.routing?.return && flight.routing.return.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {flight.routing.return.map((segment, segmentIndex) => (
+                                      <div key={segmentIndex} className="flex items-center space-x-2 text-xs text-gray-300">
+                                        <div className="flex items-center space-x-1">
+                                          <span className="font-mono">{segment.origin}</span>
+                                          <span className="text-gray-500">→</span>
+                                          <span className="font-mono">{segment.destination}</span>
+                                        </div>
+                                        <span className="text-gray-500">•</span>
+                                        <span className="text-gray-400">{segment.carrier}</span>
+                                        <span className="text-gray-500">•</span>
+                                        <span className="text-gray-400">
+                                          {segment.departureTime ? formatTime(segment.departureTime) : ''} - 
+                                          {segment.arrivalTime ? formatTime(segment.arrivalTime) : ''}
+                                        </span>
+                                        {segment.duration && (
+                                          <>
+                                            <span className="text-gray-500">•</span>
+                                            <span className="text-gray-400">{formatDuration(segment.duration)}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>

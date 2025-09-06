@@ -328,8 +328,23 @@ export interface FlightOption {
   };
   airlines: string[];
   connections: number;
+  routing: {
+    outbound: FlightSegment[];
+    return?: FlightSegment[];
+  };
   offer: unknown; // Raw Duffel offer
   score: number; // Composite score for ranking
+}
+
+export interface FlightSegment {
+  origin: string;
+  destination: string;
+  originName?: string;
+  destinationName?: string;
+  carrier: string;
+  departureTime: string;
+  arrivalTime: string;
+  duration: string;
 }
 
 interface Airport {
@@ -727,6 +742,7 @@ export async function flexibleFlightSearch(
                 },
                 airlines: extractAirlines(offer.slices || []),
                 connections: calculateConnections(offer.slices || []),
+                routing: extractDetailedRouting(offer.slices || []),
                 offer,
                 score: 0, // Will calculate after
               };
@@ -868,4 +884,35 @@ function calculateConnections(slices: DuffelSlice[]): number {
   }));
   
   return maxStopsPerSlice;
+}
+
+function extractDetailedRouting(slices: DuffelSlice[]): { outbound: FlightSegment[]; return?: FlightSegment[] } {
+  if (!slices.length) return { outbound: [] };
+  
+  const outbound = slices[0]?.segments?.map(segment => ({
+    origin: segment.origin?.iata_code || '',
+    destination: segment.destination?.iata_code || '',
+    originName: segment.origin?.name,
+    destinationName: segment.destination?.name,
+    carrier: segment.marketing_carrier?.iata_code || segment.operating_carrier?.iata_code || '',
+    departureTime: segment.departing_at || segment.departure_datetime || '',
+    arrivalTime: segment.arriving_at || segment.arrival_datetime || '',
+    duration: segment.duration || '0:00'
+  })) || [];
+  
+  const returnRouting = slices[1]?.segments?.map(segment => ({
+    origin: segment.origin?.iata_code || '',
+    destination: segment.destination?.iata_code || '',
+    originName: segment.origin?.name,
+    destinationName: segment.destination?.name,
+    carrier: segment.marketing_carrier?.iata_code || segment.operating_carrier?.iata_code || '',
+    departureTime: segment.departing_at || segment.departure_datetime || '',
+    arrivalTime: segment.arriving_at || segment.arrival_datetime || '',
+    duration: segment.duration || '0:00'
+  })) || [];
+  
+  return {
+    outbound,
+    return: returnRouting.length > 0 ? returnRouting : undefined
+  };
 }
