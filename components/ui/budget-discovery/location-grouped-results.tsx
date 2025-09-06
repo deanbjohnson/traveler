@@ -46,6 +46,38 @@ export function LocationGroupedResults({
   addedFlightIds
 }: LocationGroupedResultsProps) {
   const [locationSortBy, setLocationSortBy] = useState<Record<string, 'price' | 'duration' | 'date'>>({});
+  const [expandedFlights, setExpandedFlights] = useState<Set<string>>(new Set());
+  const [addingToTimeline, setAddingToTimeline] = useState<Set<string>>(new Set());
+
+  const toggleFlightExpansion = (flightId: string) => {
+    setExpandedFlights(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(flightId)) {
+        newSet.delete(flightId);
+      } else {
+        newSet.add(flightId);
+      }
+      return newSet;
+    });
+  };
+
+  const isFlightExpanded = (flightId: string) => expandedFlights.has(flightId);
+
+  const handleAddToTrip = async (flight: FlightResult, event: React.MouseEvent) => {
+    setAddingToTimeline(prev => new Set(prev).add(flight.id));
+    try {
+      await onAddToTrip(flight, event);
+    } finally {
+      // Remove loading state after a short delay to show feedback
+      setTimeout(() => {
+        setAddingToTimeline(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(flight.id);
+          return newSet;
+        });
+      }, 1000);
+    }
+  };
 
   // Group flights by destination
   const groupedFlights = React.useMemo(() => {
@@ -87,10 +119,26 @@ export function LocationGroupedResults({
     const group = groupedFlights.find(g => g.name === locationName);
     if (!group) return [];
 
-    // Use expanded flight results if available, otherwise use original flights
-    const flightsToUse = locationFlightResults[locationName] || group.flights;
+    // Always use original flights first, then add expanded results as additional options
+    const originalFlights = group.flights;
+    const expandedFlights = locationFlightResults[locationName] || [];
+    
+    // Combine original flights with expanded flights, avoiding duplicates
+    const allFlights = [...originalFlights];
+    const existingFingerprints = new Set(
+      originalFlights.map(f => `${f.route.origin}-${f.route.destination}-${f.dates?.departure?.slice(0,10)}-${f.price?.total}`)
+    );
+    
+    // Add expanded flights that aren't duplicates
+    expandedFlights.forEach(expandedFlight => {
+      const fingerprint = `${expandedFlight.route.origin}-${expandedFlight.route.destination}-${expandedFlight.dates?.departure?.slice(0,10)}-${expandedFlight.price?.total}`;
+      if (!existingFingerprints.has(fingerprint)) {
+        allFlights.push(expandedFlight);
+      }
+    });
+    
     const sortBy = locationSortBy[locationName] || 'price';
-    const sorted = [...flightsToUse];
+    const sorted = [...allFlights];
 
 
     switch (sortBy) {
@@ -259,81 +307,155 @@ export function LocationGroupedResults({
                                     flight.airlines?.[0] || 
                                     flight.airline?.name || 
                                     'Unknown Airline';
+                  const isRoundTrip = flight.dates?.return && flight.duration?.return;
+                  const isFlightExpandedState = isFlightExpanded(flight.id);
 
                   return (
-                    <Card key={flight.id} className="bg-gray-700/50 border-gray-600">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center space-x-4">
-                              <div className="text-center">
-                                <div className="text-lg font-semibold text-gray-200">
-                                  {formatPrice(flight.price.total, flight.price.currency)}
-                                </div>
-                                <div className="text-xs text-gray-400">per person</div>
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2">
-                                  <Plane className="h-4 w-4 text-blue-400" />
-                                  <span className="font-medium text-gray-200">{airlineName}</span>
-                                </div>
-                                <div className="text-sm text-gray-400">
-                                  {flight.route.origin} → {flight.route.destination}
-                                  {flight.dates?.return && (
-                                    <span className="ml-2">→ {flight.route.origin}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center space-x-4 text-xs text-gray-400">
-                                  <div className="flex items-center space-x-1">
-                                    <Clock className="h-3 w-3" />
-                                    <span>
-                                      {flight.duration?.outbound && flight.duration?.return 
-                                        ? `${formatDuration(flight.duration.outbound)} + ${formatDuration(flight.duration.return)}`
-                                        : formatDuration(flight.duration?.outbound || flight.duration?.total || 'PT0H0M')
-                                      }
-                                    </span>
+                    <div key={flight.id} className="space-y-2">
+                      {/* Main flight card */}
+                      <Card className="bg-gray-700/50 border-gray-600">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center space-x-4">
+                                <div className="text-center">
+                                  <div className="text-lg font-semibold text-gray-200">
+                                    {formatPrice(flight.price.total, flight.price.currency)}
                                   </div>
-                                  <div>
-                                    {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
-                                    {flight.dates?.return && (
-                                      <span className="ml-2">- {formatDate(flight.dates.return)}</span>
+                                  <div className="text-xs text-gray-400">per person</div>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <Plane className="h-4 w-4 text-blue-400" />
+                                    <span className="font-medium text-gray-200">{airlineName}</span>
+                                    {isRoundTrip && (
+                                      <Badge variant="outline" className="text-xs ml-2">
+                                        Round Trip
+                                      </Badge>
                                     )}
                                   </div>
-                                  {flight.connections > 0 && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {flight.connections} stop{flight.connections > 1 ? 's' : ''}
-                                    </Badge>
-                                  )}
+                                  <div className="text-sm text-gray-400">
+                                    {flight.route.origin} → {flight.route.destination}
+                                    {isRoundTrip && (
+                                      <span className="ml-2">→ {flight.route.origin}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center space-x-4 text-xs text-gray-400">
+                                    <div className="flex items-center space-x-1">
+                                      <Clock className="h-3 w-3" />
+                                      <span>
+                                        {isRoundTrip
+                                          ? `${formatDuration(flight.duration.outbound)} + ${formatDuration(flight.duration.return)}`
+                                          : formatDuration(flight.duration?.outbound || flight.duration?.total || 'PT0H0M')
+                                        }
+                                      </span>
+                                    </div>
+                                    <div>
+                                      {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
+                                      {isRoundTrip && (
+                                        <span className="ml-2">- {formatDate(flight.dates.return)}</span>
+                                      )}
+                                    </div>
+                                    {flight.connections > 0 && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        {flight.connections} stop{flight.connections > 1 ? 's' : ''}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="ml-4">
-                            <Button
-                              onClick={(e) => {
-                                onAddToTrip(flight, e);
-                              }}
-                              disabled={isAdded}
-                              variant={isAdded ? "secondary" : "default"}
-                              size="sm"
-                              className="min-w-[100px]"
-                            >
-                              {isAdded ? (
-                                <>
-                                  <Check className="mr-2 h-4 w-4" />
-                                  Added
-                                </>
-                              ) : (
-                                <>
-                                  <Plus className="mr-2 h-4 w-4" />
-                                  Add to Trip
-                                </>
+                            <div className="ml-4 flex items-center space-x-2">
+                              {isRoundTrip && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleFlightExpansion(flight.id)}
+                                  className="text-gray-400 hover:text-gray-200"
+                                >
+                                  {isFlightExpandedState ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
                               )}
-                            </Button>
+                              <Button
+                                onClick={(e) => {
+                                  handleAddToTrip(flight, e);
+                                }}
+                                disabled={isAdded || addingToTimeline.has(flight.id)}
+                                variant={isAdded ? "secondary" : "default"}
+                                size="sm"
+                                className="min-w-[100px]"
+                              >
+                                {isAdded ? (
+                                  <>
+                                    <Check className="mr-2 h-4 w-4" />
+                                    Added
+                                  </>
+                                ) : addingToTimeline.has(flight.id) ? (
+                                  <>
+                                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    Adding...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add to Trip
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Expanded legs for round-trip flights */}
+                      {isRoundTrip && isFlightExpandedState && (
+                        <div className="ml-4 space-y-2">
+                          {/* Outbound leg */}
+                          <Card className="bg-gray-600/30 border-gray-500">
+                            <CardContent className="p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <Plane className="h-3 w-3 text-blue-400" />
+                                    <span className="text-sm font-medium text-gray-200">Outbound</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {flight.route.origin} → {flight.route.destination}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    {formatDate(flight.dates.departure)} • {formatDuration(flight.duration.outbound)}
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Return leg */}
+                          <Card className="bg-gray-600/30 border-gray-500">
+                            <CardContent className="p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <Plane className="h-3 w-3 text-green-400" />
+                                    <span className="text-sm font-medium text-gray-200">Return</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {flight.route.destination} → {flight.route.origin}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    {formatDate(flight.dates.return)} • {formatDuration(flight.duration.return)}
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         </div>
-                      </CardContent>
-                    </Card>
+                      )}
+                    </div>
                   );
                 })}
               </div>
