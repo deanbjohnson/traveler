@@ -432,6 +432,28 @@ async function expandDestinations(to: string | string[]): Promise<string[]> {
   return codes.slice(0, 10);
 }
 
+/**
+ * Generate random dates within a range (ChatGPT-style "surprise me" approach)
+ * @param startDate - beginning of the window
+ * @param endDate - end of the window
+ * @param count - how many random dates to generate
+ */
+function getRandomDatesInRange(startDate: Date, endDate: Date, count: number = 1): Date[] {
+  const results: Date[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const start = startDate.getTime();
+    const end = endDate.getTime();
+
+    // random timestamp between start and end
+    const randomTime = start + Math.random() * (end - start);
+    results.push(new Date(randomTime));
+  }
+
+  // Optional: sort them chronologically
+  return results.sort((a, b) => a.getTime() - b.getTime());
+}
+
 function generateDateWindows(
   dateWindow: FlexibleSearchParams["dateWindow"]
 ): string[] {
@@ -450,35 +472,16 @@ function generateDateWindows(
     const start = new Date(dateWindow.start);
     const end = new Date(dateWindow.end);
     
-    // Calculate the number of months in the range
+    // Calculate the number of months in the range for "surprise me" count
     const startYear = start.getFullYear();
     const startMonth = start.getMonth();
     const endYear = end.getFullYear();
     const endMonth = end.getMonth();
     const totalMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
     
-    // Generate one random date per month
-    const randomDates: Date[] = [];
-    
-    for (let i = 0; i < totalMonths; i++) {
-      const currentMonth = new Date(startYear, startMonth + i, 1);
-      const nextMonth = new Date(startYear, startMonth + i + 1, 0); // Last day of current month
-      
-      // Ensure we don't go beyond the end date
-      const monthEnd = nextMonth > end ? end : nextMonth;
-      const monthStart = currentMonth < start ? start : currentMonth;
-      
-      // Generate a random day within this month
-      const daysInMonth = Math.floor((monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      const randomDay = Math.floor(Math.random() * daysInMonth);
-      const randomDate = new Date(monthStart);
-      randomDate.setDate(monthStart.getDate() + randomDay);
-      
-      randomDates.push(randomDate);
-    }
-    
-    // Sort dates chronologically for better UX
-    randomDates.sort((a, b) => a.getTime() - b.getTime());
+    // Generate random dates across the entire range (ChatGPT's "surprise me" approach)
+    const count = Math.min(totalMonths, 8); // Limit to 8 dates max for performance
+    const randomDates = getRandomDatesInRange(start, end, count);
     
     return randomDates.map((date) => format(date, "yyyy-MM-dd"));
   }
