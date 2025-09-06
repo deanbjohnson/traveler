@@ -121,6 +121,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     locationFlightResults,
     loadingMoreFlights,
     toggleLocation,
+    toggleLocationWithAutoLoad,
     loadMoreFlights,
     setLocationFlightResults
   } = useLocationExpansion({ tripId, chatMode });
@@ -452,13 +453,26 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                     passengers: 1,
                     cabinClass: 'economy',
                     tripType: 'round-trip',
-                    maxStops: maxStops,
-                    priceFilter: priceFilter
+                    maxStops: maxStops || undefined,
+                    priceFilter: priceFilter || undefined
                   });
                 }}
                 loadingMoreFlights={loadingMoreFlights}
                 expandedLocations={expandedLocations}
-                onToggleLocation={toggleLocation}
+                onToggleLocation={(locationName) => {
+                  const destinationAirport = searchResults.find((f: any) => 
+                    (f.destinationAirport?.city_name || f.destinationContext) === locationName
+                  )?.destinationAirport?.iata_code || '';
+                  
+                  toggleLocationWithAutoLoad(locationName, destinationAirport, {
+                    origin: searchResults[0]?.route?.origin || 'JFK',
+                    passengers: 1,
+                    cabinClass: 'economy',
+                    tripType: 'round-trip',
+                    maxStops: maxStops || undefined,
+                    priceFilter: priceFilter || undefined
+                  });
+                }}
                 addedFlightIds={addedFlightIds}
               />
             ) : (

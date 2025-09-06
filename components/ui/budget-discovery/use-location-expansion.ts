@@ -94,14 +94,12 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          origin: searchParams.origin, 
-          destination: destinationAirport, 
+          from: searchParams.origin, 
+          to: destinationAirport, 
           months: 6, // Keep 6 months for good coverage
           maxResults: 8, // Slightly reduced for speed while keeping good coverage
-          directOnly: searchParams.maxStops === 0,
           passengers: searchParams.passengers,
-          cabinClass: searchParams.cabinClass,
-          tripType: searchParams.tripType
+          cabinClass: searchParams.cabinClass
         })
       });
       
@@ -150,11 +148,43 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
     }
   }, [locationFlightResults, loadingMoreFlights]);
 
+  const toggleLocationWithAutoLoad = useCallback(async (
+    locationName: string,
+    destinationAirport: string,
+    searchParams: {
+      origin: string;
+      passengers: number;
+      cabinClass: string;
+      tripType: string;
+      maxStops?: number;
+      priceFilter?: number;
+    }
+  ) => {
+    const isExpanding = !expandedLocations.has(locationName);
+    
+    // Toggle the location
+    setExpandedLocations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(locationName)) {
+        newSet.delete(locationName);
+      } else {
+        newSet.add(locationName);
+      }
+      return newSet;
+    });
+
+    // If expanding and no flights loaded yet, auto-load more flights
+    if (isExpanding && !locationFlightResults[locationName] && !loadingMoreFlights.has(locationName)) {
+      await loadMoreFlights(locationName, destinationAirport, searchParams);
+    }
+  }, [expandedLocations, locationFlightResults, loadingMoreFlights, loadMoreFlights]);
+
   return {
     expandedLocations,
     locationFlightResults,
     loadingMoreFlights,
     toggleLocation,
+    toggleLocationWithAutoLoad,
     loadMoreFlights,
     setLocationFlightResults
   };

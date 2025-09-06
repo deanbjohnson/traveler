@@ -17,10 +17,35 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { from, to, date, returnDate, passengers = 1, cabinClass = 'economy', maxResults = 10 } = body;
+    const { 
+      from, 
+      to, 
+      date, 
+      returnDate, 
+      passengers = 1, 
+      cabinClass = 'economy', 
+      maxResults = 10,
+      // Alternative parameter names for location expansion
+      origin,
+      destination,
+      months
+    } = body;
+
+    // Handle both parameter formats
+    const finalFrom = from || origin;
+    const finalTo = to || destination;
+    let finalDate = date;
+    
+    // If no date provided but months is provided, generate a date range
+    if (!finalDate && months) {
+      const today = new Date();
+      const futureDate = new Date(today);
+      futureDate.setMonth(today.getMonth() + months);
+      finalDate = futureDate.toISOString().split('T')[0];
+    }
 
     // Generate cache key
-    const cacheKey = `${from}-${to}-${date}-${returnDate || 'oneway'}-${passengers}-${cabinClass}-${maxResults}`;
+    const cacheKey = `${finalFrom}-${finalTo}-${finalDate}-${returnDate || 'oneway'}-${passengers}-${cabinClass}-${maxResults}`;
     
     // Check cache first
     const cached = apiCache.get(cacheKey);
@@ -35,20 +60,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required parameters
-    if (!from || !to || !date) {
+    if (!finalFrom || !finalTo || !finalDate) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required parameters: from, to, and date are required'
+        error: 'Missing required parameters: from/to and date are required'
       }, { status: 400 });
     }
 
-    console.log('🚀 Direct flight search API called with:', { from, to, date, returnDate, passengers, cabinClass, maxResults });
+    console.log('🚀 Direct flight search API called with:', { 
+      from: finalFrom, 
+      to: finalTo, 
+      date: finalDate, 
+      returnDate, 
+      passengers, 
+      cabinClass, 
+      maxResults 
+    });
 
     // Call the flight search function
     const result = await searchFlights({
-      from,
-      to,
-      date,
+      from: finalFrom,
+      to: finalTo,
+      date: finalDate,
       returnDate,
       passengers,
       cabinClass,
@@ -74,6 +107,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: responseData,
+        results: limitedOffers, // Add results array for location expansion compatibility
         cached: false,
         responseTime: Date.now() - startTime,
         offersCount: limitedOffers.length
