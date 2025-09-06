@@ -405,13 +405,30 @@ async function expandOrigins(from: string | string[]): Promise<string[]> {
   }
 
   if (from.toLowerCase() === "anywhere") {
-    // For "anywhere", use major global hubs for performance
-    return [
-      "JFK", "LAX", "ORD", "ATL", "DFW", "SFO", "MIA", "BOS", "SEA", "DEN", "CLT", "PHX", "IAH", "MCO", "LAS",
-      "LHR", "CDG", "FRA", "AMS", "MAD", "BCN", "MUC", "ZRH", "CPH", "ARN", "OSL", "HEL", "VIE", "WAW", "PRG",
-      "DXB", "SIN", "HKG", "NRT", "ICN", "BKK", "KUL", "DEL", "BOM", "PEK", "PVG", "CAN", "CTU", "HGH", "XIY",
-      "SYD", "MEL", "BNE", "PER", "AKL", "CHC", "YVR", "YYZ", "YUL", "YYC", "YOW", "YEG", "YQB", "YWG", "YHZ"
+    // For "anywhere", use a diverse mix of airports including smaller regional ones
+    // This prevents always showing the same major hubs and gives more variety
+    const diverseAirports = [
+      // Major US hubs (but not all of them)
+      "JFK", "LAX", "ORD", "ATL", "SFO", "MIA", "BOS", "SEA", "DEN", "PHX",
+      // European diversity (mix of major and regional)
+      "LHR", "CDG", "FRA", "AMS", "BCN", "MAD", "MUC", "ZRH", "VIE", "WAW", "PRG", "BUD", "ATH", "IST",
+      // Asia-Pacific variety
+      "NRT", "ICN", "BKK", "KUL", "SIN", "HKG", "TPE", "MNL", "CGK", "BOM", "DEL", "BKK", "KHH",
+      // Australia/New Zealand
+      "SYD", "MEL", "BNE", "AKL", "CHC",
+      // Canada (mix of major and regional)
+      "YVR", "YYZ", "YUL", "YYC", "YOW",
+      // Latin America
+      "MEX", "GRU", "EZE", "SCL", "BOG", "LIM", "PTY", "SJO",
+      // Middle East/Africa
+      "DXB", "DOH", "JNB", "CAI", "TLV", "RUH", "KWI", "BAH",
+      // Smaller European cities for variety
+      "DUB", "MAN", "EDI", "GLA", "BRU", "LIS", "OPO", "ARN", "CPH", "OSL", "HEL"
     ];
+    
+    // Randomly select 15-20 airports to avoid overwhelming the API
+    const shuffled = diverseAirports.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 18);
   }
 
   const airports = await getAirportsInArea(from);
