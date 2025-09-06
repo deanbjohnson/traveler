@@ -483,7 +483,10 @@ function generateDateWindows(
     const count = Math.min(totalMonths, 8); // Limit to 8 dates max for performance
     const randomDates = getRandomDatesInRange(start, end, count);
     
-    return randomDates.map((date) => format(date, "yyyy-MM-dd"));
+    // Deduplicate dates to prevent duplicate searches
+    const uniqueDates = Array.from(new Set(randomDates.map((date) => format(date, "yyyy-MM-dd"))));
+    
+    return uniqueDates;
   }
 
   if ("month" in dateWindow) {
@@ -847,8 +850,14 @@ function extractAirlines(slices: DuffelSlice[]): string[] {
 }
 
 function calculateConnections(slices: DuffelSlice[]): number {
-  return slices.reduce((total, slice) => {
+  // For round-trip flights, show the maximum stops from any single slice
+  // This gives users a better sense of the worst-case connection scenario
+  if (slices.length === 0) return 0;
+  
+  const maxStopsPerSlice = Math.max(...slices.map(slice => {
     const segments = slice.segments?.length || 1;
-    return total + Math.max(0, segments - 1);
-  }, 0);
+    return Math.max(0, segments - 1);
+  }));
+  
+  return maxStopsPerSlice;
 }
