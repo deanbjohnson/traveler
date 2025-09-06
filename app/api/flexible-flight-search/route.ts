@@ -38,12 +38,14 @@ export async function POST(request: NextRequest) {
       end: futureDate.toISOString().split('T')[0]
     };
 
-    // Generate cache key
-    const cacheKey = `${from}-${to}-${months}-${maxResults}-${passengers}-${cabinClass}-${tripType}-${maxStops || 'any'}`;
+    // Generate cache key with timestamp to ensure variety in random date generation
+    // Use a 1-hour window to allow some caching but ensure date variety
+    const hourWindow = Math.floor(Date.now() / (60 * 60 * 1000)); // 1-hour windows
+    const cacheKey = `${from}-${to}-${months}-${maxResults}-${passengers}-${cabinClass}-${tripType}-${maxStops || 'any'}-${hourWindow}`;
     
-    // Check cache first
+    // Check cache first (but with shorter duration for date variety)
     const cached = apiCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < API_CACHE_DURATION) {
+    if (cached && (Date.now() - cached.timestamp) < (API_CACHE_DURATION / 2)) { // 2.5 minutes instead of 5
       console.log('🎯 Using cached flexible search response for:', cacheKey);
       return NextResponse.json({
         success: true,

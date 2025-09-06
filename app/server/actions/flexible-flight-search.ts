@@ -453,14 +453,31 @@ function generateDateWindows(
     const end = new Date(dateWindow.end);
     const allDates = eachDayOfInterval({ start, end });
     
-    // Generate exactly 8 random dates over the period
+    // Generate exactly 8 random dates over the period with proper distribution
     const numDates = Math.min(8, allDates.length);
     const randomDates: Date[] = [];
+    const usedIndices = new Set<number>();
     
-    for (let i = 0; i < numDates; i++) {
-      const randomIndex = Math.floor(Math.random() * allDates.length);
-      randomDates.push(allDates[randomIndex]);
+    // Use crypto.getRandomValues for better randomness (if available) or fallback to Math.random
+    const getRandomIndex = (max: number): number => {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
+        return array[0] % max;
+      }
+      return Math.floor(Math.random() * max);
+    };
+    
+    while (randomDates.length < numDates && usedIndices.size < allDates.length) {
+      const randomIndex = getRandomIndex(allDates.length);
+      if (!usedIndices.has(randomIndex)) {
+        usedIndices.add(randomIndex);
+        randomDates.push(allDates[randomIndex]);
+      }
     }
+    
+    // Sort dates chronologically for better UX
+    randomDates.sort((a, b) => a.getTime() - b.getTime());
     
     return randomDates.map((date) => format(date, "yyyy-MM-dd"));
   }
@@ -529,9 +546,10 @@ export async function flexibleFlightSearch(
   params: FlexibleSearchParams
 ): Promise<FlexibleSearchResult> {
   const searchStartTime = Date.now();
+  // Add timestamp and random component to ensure unique search IDs and prevent caching issues
   const searchId = `flex_${Date.now()}_${Math.random()
     .toString(36)
-    .substr(2, 9)}`;
+    .substr(2, 9)}_${Math.random().toString(36).substr(2, 5)}`;
 
   try {
     // Check authentication
