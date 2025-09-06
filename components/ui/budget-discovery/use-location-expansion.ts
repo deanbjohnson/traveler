@@ -90,7 +90,7 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
     setLoadingMoreFlights(prev => new Set(prev).add(locationName));
     
     try {
-      const res = await fetch('/api/find-flights', {
+      const res = await fetch('/api/flexible-flight-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -99,7 +99,9 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
           months: 6, // Keep 6 months for good coverage
           maxResults: 8, // Slightly reduced for speed while keeping good coverage
           passengers: searchParams.passengers,
-          cabinClass: searchParams.cabinClass
+          cabinClass: searchParams.cabinClass,
+          tripType: searchParams.tripType,
+          maxStops: searchParams.maxStops
         })
       });
       
@@ -107,10 +109,7 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
       console.log('🔍 Location expansion API response:', {
         success: data?.success,
         hasResults: Array.isArray(data.results),
-        resultsLength: data.results?.length,
-        hasOffers: Array.isArray(data.data?.offers),
-        offersLength: data.data?.offers?.length,
-        fullResponse: data
+        resultsLength: data.results?.length
       });
       
       if (data?.success && Array.isArray(data.results)) {
@@ -134,8 +133,7 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
 
         console.log('🔍 Normalized flights for location expansion:', {
           locationName,
-          normalizedCount: normalized.length,
-          firstFlight: normalized[0]
+          normalizedCount: normalized.length
         });
 
         // Deduplicate by fingerprint (route+date+airline+price)
@@ -151,8 +149,6 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
           const finalResults = Array.from(byFingerprint.values());
           console.log('🔍 Setting location flight results:', {
             locationName,
-            existingCount: existing.length,
-            newCount: normalized.length,
             finalCount: finalResults.length
           });
           

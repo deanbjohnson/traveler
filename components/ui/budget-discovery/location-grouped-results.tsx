@@ -95,8 +95,6 @@ export function LocationGroupedResults({
     console.log('🔍 getSortedFlightsForLocation:', {
       locationName,
       hasExpandedResults: !!locationFlightResults[locationName],
-      expandedCount: locationFlightResults[locationName]?.length || 0,
-      originalCount: group.flights.length,
       finalCount: flightsToUse.length
     });
 
@@ -306,7 +304,10 @@ export function LocationGroupedResults({
                           </div>
                           <div className="ml-4">
                             <Button
-                              onClick={() => onAddToTrip(flight)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddToTrip(flight);
+                              }}
                               disabled={isAdded}
                               variant={isAdded ? "secondary" : "default"}
                               size="sm"
