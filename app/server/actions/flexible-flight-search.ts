@@ -688,12 +688,20 @@ export async function flexibleFlightSearch(
             const offers = result.data.offers as DuffelOffer[];
 
             return offers.slice(0, 2).map((offer: DuffelOffer) => {
-              // Debug: Log the actual offer structure
+              // Debug: Log the actual offer structure and segments
               console.log('🔍 Duffel offer structure:', {
                 offerId: offer.id,
                 offerKeys: Object.keys(offer),
-                slices: offer.slices,
-                rawOffer: JSON.stringify(offer, null, 2).substring(0, 500) + '...'
+                slices: offer.slices?.map(slice => ({
+                  origin: slice.origin?.iata_code,
+                  destination: slice.destination?.iata_code,
+                  segmentCount: slice.segments?.length || 0,
+                  segments: slice.segments?.map(seg => ({
+                    origin: seg.origin?.iata_code,
+                    destination: seg.destination?.iata_code,
+                    carrier: seg.marketing_carrier?.iata_code
+                  }))
+                }))
               });
               
               const option: FlightOption = {
