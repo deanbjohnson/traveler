@@ -405,30 +405,13 @@ async function expandOrigins(from: string | string[]): Promise<string[]> {
   }
 
   if (from.toLowerCase() === "anywhere") {
-    // For "anywhere", use a diverse mix of airports including smaller regional ones
-    // This prevents always showing the same major hubs and gives more variety
-    const diverseAirports = [
-      // Major US hubs (but not all of them)
-      "JFK", "LAX", "ORD", "ATL", "SFO", "MIA", "BOS", "SEA", "DEN", "PHX",
-      // European diversity (mix of major and regional)
-      "LHR", "CDG", "FRA", "AMS", "BCN", "MAD", "MUC", "ZRH", "VIE", "WAW", "PRG", "BUD", "ATH", "IST",
-      // Asia-Pacific variety
-      "NRT", "ICN", "BKK", "KUL", "SIN", "HKG", "TPE", "MNL", "CGK", "BOM", "DEL", "BKK", "KHH",
-      // Australia/New Zealand
-      "SYD", "MEL", "BNE", "AKL", "CHC",
-      // Canada (mix of major and regional)
-      "YVR", "YYZ", "YUL", "YYC", "YOW",
-      // Latin America
-      "MEX", "GRU", "EZE", "SCL", "BOG", "LIM", "PTY", "SJO",
-      // Middle East/Africa
-      "DXB", "DOH", "JNB", "CAI", "TLV", "RUH", "KWI", "BAH",
-      // Smaller European cities for variety
-      "DUB", "MAN", "EDI", "GLA", "BRU", "LIS", "OPO", "ARN", "CPH", "OSL", "HEL"
+    // For "anywhere", we need to provide actual airport codes for the search
+    // The budget discovery tool should handle "anywhere" by letting Cohere choose destinations
+    // But this flexible search needs real airport codes to work with Duffel API
+    // Use a diverse but limited set of major airports for performance
+    return [
+      "JFK", "LAX", "LHR", "CDG", "NRT", "SIN", "DXB", "SYD", "GRU", "YYZ"
     ];
-    
-    // Randomly select 15-20 airports to avoid overwhelming the API
-    const shuffled = diverseAirports.sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 18);
   }
 
   const airports = await getAirportsInArea(from);
