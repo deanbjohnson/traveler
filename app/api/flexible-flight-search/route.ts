@@ -28,6 +28,16 @@ export async function POST(request: NextRequest) {
       maxStops
     } = body;
 
+    // Convert months to dateWindow format
+    const today = new Date();
+    const futureDate = new Date(today);
+    futureDate.setMonth(today.getMonth() + months);
+    
+    const dateWindow = {
+      start: today.toISOString().split('T')[0],
+      end: futureDate.toISOString().split('T')[0]
+    };
+
     // Generate cache key
     const cacheKey = `${from}-${to}-${months}-${maxResults}-${passengers}-${cabinClass}-${tripType}-${maxStops || 'any'}`;
     
@@ -55,6 +65,7 @@ export async function POST(request: NextRequest) {
       from, 
       to, 
       months,
+      dateWindow,
       maxResults, 
       passengers, 
       cabinClass,
@@ -66,7 +77,7 @@ export async function POST(request: NextRequest) {
     const result = await flexibleFlightSearch({
       from,
       to,
-      dateWindow: `${months}-months`,
+      dateWindow,
       tripType: tripType as 'round-trip' | 'one-way',
       passengers,
       cabinClass: cabinClass as 'economy' | 'premium_economy' | 'business' | 'first',
@@ -92,6 +103,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       console.error('❌ Flexible flight search failed:', result.error);
+      console.error('❌ Full result object:', result);
       return NextResponse.json({
         success: false,
         error: result.error || 'Flexible flight search failed',
@@ -101,6 +113,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Flexible flight search API error:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error',
