@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 
 interface LocationGroupedResultsProps {
   flights: FlightResult[];
+  locationFlightResults?: Record<string, FlightResult[]>;
   onAddToTrip: (flight: FlightResult) => void;
   onLoadMoreFlights: (locationName: string, destinationAirport: string) => void;
   loadingMoreFlights: Set<string>;
@@ -36,6 +37,7 @@ interface LocationGroup {
 
 export function LocationGroupedResults({
   flights,
+  locationFlightResults = {},
   onAddToTrip,
   onLoadMoreFlights,
   loadingMoreFlights,
@@ -85,8 +87,18 @@ export function LocationGroupedResults({
     const group = groupedFlights.find(g => g.name === locationName);
     if (!group) return [];
 
+    // Use expanded flight results if available, otherwise use original flights
+    const flightsToUse = locationFlightResults[locationName] || group.flights;
     const sortBy = locationSortBy[locationName] || 'price';
-    const sorted = [...group.flights];
+    const sorted = [...flightsToUse];
+
+    console.log('🔍 getSortedFlightsForLocation:', {
+      locationName,
+      hasExpandedResults: !!locationFlightResults[locationName],
+      expandedCount: locationFlightResults[locationName]?.length || 0,
+      originalCount: group.flights.length,
+      finalCount: flightsToUse.length
+    });
 
     switch (sortBy) {
       case 'price':

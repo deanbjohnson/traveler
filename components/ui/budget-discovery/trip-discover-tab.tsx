@@ -446,6 +446,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
               // Trip Discover Mode - Show location-grouped results
               <LocationGroupedResults
                 flights={searchResults}
+                locationFlightResults={locationFlightResults}
                 onAddToTrip={handleAddToTimeline}
                 onLoadMoreFlights={(locationName, destinationAirport) => {
                   loadMoreFlights(locationName, destinationAirport, {
