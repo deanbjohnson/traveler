@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       filterVersion: body.filterVersion,
     });
 
-    const { messages, tripId, model, currentFlightResults } = body;
+    const { messages, tripId, model, currentFlightResults, filters } = body;
 
     if (!tripId) {
       console.error(`[CHAT-${requestId}] ERROR: Missing tripId in request`);

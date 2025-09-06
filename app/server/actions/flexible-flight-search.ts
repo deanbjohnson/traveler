@@ -609,8 +609,13 @@ export async function flexibleFlightSearch(
                 addDays(new Date(date), params.tripDuration),
                 "yyyy-MM-dd"
               );
+            } else {
+              // Default to 7 days later for round-trip if no duration specified
+              returnDate = format(
+                addDays(new Date(date), 7),
+                "yyyy-MM-dd"
+              );
             }
-            // For exact dates, returnDate will be undefined and handled separately
           }
 
           searchCombinations.push({

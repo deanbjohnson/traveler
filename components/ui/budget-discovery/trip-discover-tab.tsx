@@ -106,7 +106,13 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     progress,
     systemMessages,
     handleAddToTimeline,
-  } = useOptimizedChatSearch(tripId, chatMode);
+  } = useOptimizedChatSearch(tripId, chatMode, {
+    tripType,
+    passengers,
+    cabinClass,
+    maxStops,
+    priceFilter
+  });
 
   const {
     specificFlightSearchParams,

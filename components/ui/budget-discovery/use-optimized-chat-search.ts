@@ -10,7 +10,17 @@ import { serializeMessages, deserializeMessages } from './utils';
 const chatSearchCache = new Map<string, { results: FlightResult[], timestamp: number }>();
 const CHAT_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes for chat searches
 
-export const useOptimizedChatSearch = (tripId: string, chatMode: ChatMode) => {
+export const useOptimizedChatSearch = (
+  tripId: string, 
+  chatMode: ChatMode,
+  filters?: {
+    tripType?: string;
+    passengers?: number;
+    cabinClass?: string;
+    maxStops?: number;
+    priceFilter?: number;
+  }
+) => {
   const router = useRouter();
   const isAddingFlightDetails = useRef(false);
   
@@ -65,6 +75,7 @@ export const useOptimizedChatSearch = (tripId: string, chatMode: ChatMode) => {
     id: `budget-discovery-${tripId}-${chatMode}`,
     body: {
       tripId,
+      filters: filters || {},
     },
     onFinish: async (message) => {
       console.log('🔍 onFinish callback triggered with message:', {
