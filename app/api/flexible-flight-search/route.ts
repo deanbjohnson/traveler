@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { flexibleFlightSearch } from '@/app/server/actions/flexible-flight-search';
 
-// Cache for API responses
-const apiCache = new Map<string, { data: any, timestamp: number }>();
-const API_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// No caching for flexible flight search to ensure fresh random dates
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -38,22 +36,9 @@ export async function POST(request: NextRequest) {
       end: futureDate.toISOString().split('T')[0]
     };
 
-    // Generate cache key with timestamp to ensure variety in random date generation
-    // Use a 1-hour window to allow some caching but ensure date variety
-    const hourWindow = Math.floor(Date.now() / (60 * 60 * 1000)); // 1-hour windows
-    const cacheKey = `${from}-${to}-${months}-${maxResults}-${passengers}-${cabinClass}-${tripType}-${maxStops || 'any'}-${hourWindow}`;
-    
-    // Check cache first (but with shorter duration for date variety)
-    const cached = apiCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < (API_CACHE_DURATION / 2)) { // 2.5 minutes instead of 5
-      console.log('🎯 Using cached flexible search response for:', cacheKey);
-      return NextResponse.json({
-        success: true,
-        results: cached.data,
-        cached: true,
-        responseTime: Date.now() - startTime
-      });
-    }
+    // Disable caching for flexible flight search to ensure fresh random dates every time
+    // This ensures we get truly random dates across months instead of cached results
+    console.log('🚀 Generating fresh random dates for flexible search (no cache)');
 
     // Validate required parameters
     if (!from || !to) {
@@ -88,12 +73,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (result.success && result.results) {
-      // Cache the response
-      apiCache.set(cacheKey, {
-        data: result.results,
-        timestamp: Date.now()
-      });
-
       console.log(`✅ Flexible search completed: ${result.results.length} results in ${Date.now() - startTime}ms`);
 
       return NextResponse.json({
@@ -124,12 +103,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Clean up cache periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of apiCache.entries()) {
-    if (now - value.timestamp > API_CACHE_DURATION) {
-      apiCache.delete(key);
-    }
-  }
-}, API_CACHE_DURATION);
+// No cache cleanup needed since we disabled caching

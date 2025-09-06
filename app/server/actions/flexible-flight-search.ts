@@ -451,29 +451,32 @@ function generateDateWindows(
   if ("start" in dateWindow && "end" in dateWindow) {
     const start = new Date(dateWindow.start);
     const end = new Date(dateWindow.end);
-    const allDates = eachDayOfInterval({ start, end });
     
-    // Generate exactly 8 random dates over the period with proper distribution
-    const numDates = Math.min(8, allDates.length);
+    // Calculate the number of months in the range
+    const startYear = start.getFullYear();
+    const startMonth = start.getMonth();
+    const endYear = end.getFullYear();
+    const endMonth = end.getMonth();
+    const totalMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+    
+    // Generate one random date per month
     const randomDates: Date[] = [];
-    const usedIndices = new Set<number>();
     
-    // Use crypto.getRandomValues for better randomness (if available) or fallback to Math.random
-    const getRandomIndex = (max: number): number => {
-      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-        const array = new Uint32Array(1);
-        crypto.getRandomValues(array);
-        return array[0] % max;
-      }
-      return Math.floor(Math.random() * max);
-    };
-    
-    while (randomDates.length < numDates && usedIndices.size < allDates.length) {
-      const randomIndex = getRandomIndex(allDates.length);
-      if (!usedIndices.has(randomIndex)) {
-        usedIndices.add(randomIndex);
-        randomDates.push(allDates[randomIndex]);
-      }
+    for (let i = 0; i < totalMonths; i++) {
+      const currentMonth = new Date(startYear, startMonth + i, 1);
+      const nextMonth = new Date(startYear, startMonth + i + 1, 0); // Last day of current month
+      
+      // Ensure we don't go beyond the end date
+      const monthEnd = nextMonth > end ? end : nextMonth;
+      const monthStart = currentMonth < start ? start : currentMonth;
+      
+      // Generate a random day within this month
+      const daysInMonth = Math.floor((monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const randomDay = Math.floor(Math.random() * daysInMonth);
+      const randomDate = new Date(monthStart);
+      randomDate.setDate(monthStart.getDate() + randomDay);
+      
+      randomDates.push(randomDate);
     }
     
     // Sort dates chronologically for better UX
