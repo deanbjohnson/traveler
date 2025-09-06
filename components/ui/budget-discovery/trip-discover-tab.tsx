@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Chat } from "@/components/ui/chat";
+import { FlightResultsAdapter } from './flight-results-adapter';
 import { FlightResultsDisplay } from '../flight-results-display';
 import { FlightSearchForm } from '../flight-search-form';
 import { ModeToggle } from './mode-toggle';
@@ -143,11 +144,46 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
 
   // Helper function to convert FlightResult to the format expected by FlightResultsDisplay
   const convertFlightResult = (flight: FlightResult): import('../flight-results-display').FlightResult => {
-    return {
+    console.log('🔄 Converting flight result for display:', {
+      id: flight.id,
+      airline: flight.airline,
+      airlines: flight.airlines,
+      route: flight.route,
+      dates: flight.dates,
+      duration: flight.duration,
+      price: flight.price
+    });
+
+    // Extract airline info with better fallbacks
+    const airlineName = flight.airline?.name || 
+                       flight.airlines?.[0] || 
+                       flight.offer?.owner?.name || 
+                       'Unknown Airline';
+    
+    const airlineCode = flight.airline?.code || 
+                       airlineName.substring(0, 2).toUpperCase() ||
+                       'UNK';
+
+    // Extract timing info with better fallbacks
+    const departureTime = flight.dates?.departure || 
+                         flight.timing?.departure || 
+                         flight.offer?.timelineData?.slices?.[0]?.segments?.[0]?.departing_at || '';
+    
+    const arrivalTime = flight.dates?.return || 
+                       flight.timing?.arrival || 
+                       flight.offer?.timelineData?.slices?.[0]?.segments?.[0]?.arriving_at || '';
+
+    // Extract duration with better fallbacks
+    const duration = flight.duration?.outbound || 
+                    flight.duration?.total || 
+                    flight.timing?.duration || 
+                    flight.offer?.timelineData?.slices?.[0]?.duration || '';
+
+    const converted = {
       id: flight.id,
       airline: {
-        name: flight.airline?.name || (flight.airlines?.[0] || 'Unknown Airline'),
-        code: flight.airline?.code || 'UNK',
+        name: airlineName,
+        code: airlineCode,
         logo: undefined
       },
       route: {
@@ -157,17 +193,20 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
         toCode: flight.route.destination
       },
       timing: {
-        departure: flight.dates?.departure || '',
-        arrival: flight.dates?.return || '',
-        duration: flight.duration?.outbound || flight.timing?.duration || ''
+        departure: departureTime,
+        arrival: arrivalTime,
+        duration: duration
       },
       price: {
         amount: flight.price.total,
         currency: flight.price.currency
       },
-      stops: flight.connections || 0,
+      stops: flight.connections || flight.stops || 0,
       cabinClass: flight.cabinClass || 'economy'
     };
+
+    console.log('✅ Converted flight result:', converted);
+    return converted;
   };
 
   // Wrapper function for adding flights to timeline from FlightResultsDisplay
@@ -302,7 +341,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
             ) : (
               // Show chat for trip discover mode
               <Chat
-                messages={[...messages, ...systemMessages.map(msg => ({
+                messages={[...messages, ...systemMessages.map((msg: any) => ({
                   role: 'assistant' as const,
                   content: msg.content,
                   id: msg.id,
@@ -391,31 +430,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 )}
               </div>
             ) : searchResults.length > 0 ? (
-              // Trip Discover Mode - Show search results
-              <div className="space-y-4">
-                {searchResults.map((flight) => (
-                  <div key={flight.id} className="border border-gray-700 rounded-lg p-4 bg-gray-800/50">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-gray-200">
-                          {flight.route.origin} → {flight.route.destination}
-                        </h3>
-                        <p className="text-sm text-gray-400">
-                          {flight.dates?.departure ? formatDate(flight.dates.departure) : 'N/A'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-green-400">
-                          {formatPrice(flight.price.total, flight.price.currency)}
-                        </p>
-                        <p className="text-sm text-gray-400">
-                          {flight.duration?.outbound ? formatDuration(flight.duration.outbound) : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              // Trip Discover Mode - Show search results using the rich display component
+              <FlightResultsDisplay
+                flights={searchResults.map(convertFlightResult)}
+                onAddToTrip={handleAddToTripFromDisplay}
+                isLoading={isLoading}
+              />
             ) : (
               <EmptyState mode="trip-discover" />
             )}
