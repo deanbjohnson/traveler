@@ -150,51 +150,31 @@ function formatDate(dateString: string): string {
   });
 }
 
-// Validation function to check if destinations make geographic sense
-function validateDestinations(destinations: any[], userQuery: string): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  const query = userQuery.toLowerCase();
-  
-  // Check for obvious geographic mismatches
-  const knownMismatches = [
-    { name: 'pinehurst', correctLocation: 'North Carolina, USA', wrongLocation: 'Spain' },
-    { name: 'pebble beach', correctLocation: 'California, USA', wrongLocation: 'France' },
-    { name: 'augusta', correctLocation: 'Georgia, USA', wrongLocation: 'Europe' },
-    { name: 'bandon', correctLocation: 'Oregon, USA', wrongLocation: 'Europe' }
-  ];
-  
-  destinations.forEach((dest, index) => {
-    const destName = dest.name.toLowerCase();
-    const destCountry = dest.country?.toLowerCase() || '';
-    
-    // Check for known mismatches
-    knownMismatches.forEach(mismatch => {
-      if (destName.includes(mismatch.name) && destCountry.includes(mismatch.wrongLocation.toLowerCase())) {
-        errors.push(`Destination ${index + 1}: "${dest.name}" is actually in ${mismatch.correctLocation}, not ${mismatch.wrongLocation}`);
-      }
-    });
-    
-    // Check for Europe-specific queries
-    if (query.includes('europe') && !destCountry.includes('europe') && !destCountry.includes('spain') && !destCountry.includes('france') && !destCountry.includes('italy') && !destCountry.includes('germany') && !destCountry.includes('portugal') && !destCountry.includes('ireland') && !destCountry.includes('scotland') && !destCountry.includes('england') && !destCountry.includes('uk')) {
-      errors.push(`Destination ${index + 1}: "${dest.name}" doesn't appear to be in Europe but user requested Europe`);
-    }
-  });
-  
-  return { valid: errors.length === 0, errors };
-}
 
 export const budgetDiscoveryTool = tool({
-  description: `AI-Powered Budget Discovery Flight Search. The model should provide EXACTLY 5 concrete destinations (city + primary IATA airport) based on the user's query. 
+  description: `AI-Powered Budget Discovery Flight Search. 
 
-IMPORTANT LOCATION INTELLIGENCE RULES:
+CRITICAL: Before suggesting destinations, you MUST think through your choices carefully:
+
+1. READ the user's request carefully - what region/continent did they specify?
+2. THINK about what destinations would actually make sense for their request
+3. VALIDATE your choices - ask yourself: "Do these destinations actually match what the user asked for?"
+4. DOUBLE-CHECK geographic accuracy - if they said "Europe", are ALL your destinations actually in Europe?
+
+COMMON MISTAKES TO AVOID:
+- Don't suggest "Pinehurst, Spain" - Pinehurst is in North Carolina, USA
+- Don't suggest "Pebble Beach, France" - Pebble Beach is in California, USA  
+- Don't suggest American golf courses when user asks for "golf in Europe"
+- Don't suggest destinations outside the specified region
+
+LOCATION INTELLIGENCE RULES:
 - If user mentions a specific region/continent (e.g., "Europe", "Asia", "South America"), ALL destinations must be in that region
-- If user mentions a specific country, prioritize destinations in that country
+- If user mentions a specific country, prioritize destinations in that country  
 - If user mentions an activity (e.g., "golf", "beach", "skiing"), suggest destinations KNOWN for that activity in the specified region
-- NEVER suggest destinations that don't match the geographic context (e.g., don't suggest "Pinehurst, Spain" - Pinehurst is in North Carolina, USA)
 - Use real, well-known destinations that travelers actually visit
 - Ensure airport codes are correct and correspond to the actual city/region
 
-This tool will then fetch the cheapest direct flight for each destination. DO NOT provide more than 5 destinations.`,
+Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool will then fetch the cheapest direct flight for each destination.`,
   parameters: z.object({
     from: z.string().describe("Origin airport code or 'anywhere' for flexible origin"),
     destinationSuggestion: z.string().describe("Natural language request that informed the AI's destination shortlist (for logging only)"),
@@ -232,16 +212,10 @@ This tool will then fetch the cheapest direct flight for each destination. DO NO
     passengers = 1, 
     cabinClass = "economy", 
     maxStops,
-    preferences = {} 
+    preferences = {}
   }: any) => {
     const toolCallId = Math.random().toString(36).substring(7);
-    // Validate destinations for geographic accuracy
-    const validation = validateDestinations(destinations, destinationSuggestion);
-    if (!validation.valid) {
-      console.warn(`[BUDGET-DISCOVERY-${toolCallId}] DESTINATION VALIDATION WARNINGS:`, validation.errors);
-      // Continue with search but log warnings
-    }
-
+    
     console.log(`[BUDGET-DISCOVERY-${toolCallId}] RECEIVED PARAMETERS:`, {
       from,
       destinationSuggestion,
