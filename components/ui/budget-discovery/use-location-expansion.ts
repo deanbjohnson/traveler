@@ -108,14 +108,28 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
       const data = await res.json();
       
       if (data?.success && Array.isArray(data.results)) {
-        let normalized = data.results.map((r: any) => normalizeFlightResult({
-          ...r,
+        // Flexible flight search results are already in FlightOption format with routing data
+        // We just need to convert them to FlightResult format without losing the routing
+        let normalized = data.results.map((r: any) => ({
+          id: r.searchId || `flight-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          searchId: r.searchId || '',
+          route: r.route,
+          dates: r.dates,
+          price: r.price,
+          duration: r.duration,
+          airlines: r.airlines,
+          connections: r.connections,
+          routing: r.routing, // This is the key - preserve the routing data!
+          offer: r.offer,
+          score: r.score,
           destinationContext: locationName,
           destinationAirport: { 
             iata_code: destinationAirport, 
             city_name: locationName, 
             country_name: '' 
           },
+          stops: r.connections, // Ensure stops matches connections
+          cabinClass: r.cabinClass || 'economy'
         }));
 
         // Apply client-side filters
