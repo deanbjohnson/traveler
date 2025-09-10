@@ -334,6 +334,7 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
             });
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] Cabin classes found for ${destination.name}:`, cabinClasses.slice(0, 5));
             
+            let validCount = 0;
             const validFlights = searchResult.data.offers.filter((offer: any) => {
               // Basic validation
               if (!offer.slices || offer.slices.length === 0 || 
@@ -367,9 +368,15 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
                 }
               }
               
-              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} passed all filters: $${parseFloat(offer.total_amount)}`);
+              // Only log first few offers to avoid spam
+              if (validCount < 5) {
+                console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} passed all filters: $${parseFloat(offer.total_amount)}`);
+              }
+              validCount++;
               return true;
             });
+            
+            console.log(`[BUDGET-DISCOVERY-${toolCallId}] Filtering complete for ${destination.name}: ${validFlights.length} valid flights out of ${searchResult.data.offers.length} total offers`);
             
             if (validFlights.length > 0) {
               // Find the cheapest flight among all valid offers
