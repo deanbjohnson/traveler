@@ -1,4 +1,36 @@
-import { FlightResult } from './types';
+import { FlightResult, FlightSegment } from './types';
+
+// Helper function to extract detailed routing from Duffel slices
+function extractDetailedRouting(slices: any[]): { outbound: FlightSegment[]; return?: FlightSegment[] } {
+  if (!slices.length) return { outbound: [] };
+  
+  const outbound = slices[0]?.segments?.map((segment: any) => ({
+    origin: segment.origin?.iata_code || '',
+    destination: segment.destination?.iata_code || '',
+    originName: segment.origin?.name,
+    destinationName: segment.destination?.name,
+    carrier: segment.marketing_carrier?.iata_code || segment.operating_carrier?.iata_code || '',
+    departureTime: segment.departing_at || segment.departure_datetime || '',
+    arrivalTime: segment.arriving_at || segment.arrival_datetime || '',
+    duration: segment.duration || '0:00'
+  })) || [];
+  
+  const returnRouting = slices[1]?.segments?.map((segment: any) => ({
+    origin: segment.origin?.iata_code || '',
+    destination: segment.destination?.iata_code || '',
+    originName: segment.origin?.name,
+    destinationName: segment.destination?.name,
+    carrier: segment.marketing_carrier?.iata_code || segment.operating_carrier?.iata_code || '',
+    departureTime: segment.departing_at || segment.departure_datetime || '',
+    arrivalTime: segment.arriving_at || segment.arrival_datetime || '',
+    duration: segment.duration || '0:00'
+  })) || [];
+  
+  return {
+    outbound,
+    return: returnRouting.length > 0 ? returnRouting : undefined
+  };
+}
 
 export const normalizeFlightResult = (raw: any): FlightResult => {
   console.log('🔍 normalizeFlightResult called with raw data:', {
@@ -77,6 +109,10 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
   const offer = raw.offer || null;
   const score = typeof raw.score === 'number' ? raw.score : 0;
 
+  // Extract detailed routing from slices
+  const slices = raw.slices || raw.timelineData?.slices || [];
+  const routing = extractDetailedRouting(slices);
+
   return {
     id,
     searchId: raw.searchId || '',
@@ -86,6 +122,7 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
     duration,
     airlines,
     connections,
+    routing,
     offer,
     score,
     destinationContext: raw.destinationContext || 'Unknown',
