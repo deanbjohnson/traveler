@@ -438,7 +438,7 @@ export function LocationGroupedResults({
                                 </div>
                                 
                                 {/* Detailed routing for outbound */}
-                                {flight.routing?.outbound && flight.routing.outbound.length > 0 && (
+                                {flight.routing?.outbound && flight.routing.outbound.length > 0 ? (
                                   <div className="mt-2 space-y-1">
                                     {flight.routing.outbound.map((segment, segmentIndex) => (
                                       <div key={segmentIndex} className="flex items-center space-x-2 text-xs text-gray-300">
@@ -463,6 +463,10 @@ export function LocationGroupedResults({
                                       </div>
                                     ))}
                                   </div>
+                                ) : (
+                                  <div className="mt-2 text-xs text-gray-500">
+                                    No detailed routing available (routing: {JSON.stringify(flight.routing)})
+                                  </div>
                                 )}
                               </div>
                             </CardContent>
@@ -484,7 +488,7 @@ export function LocationGroupedResults({
                                 </div>
                                 
                                 {/* Detailed routing for return */}
-                                {flight.routing?.return && flight.routing.return.length > 0 && (
+                                {flight.routing?.return && flight.routing.return.length > 0 ? (
                                   <div className="mt-2 space-y-1">
                                     {flight.routing.return.map((segment, segmentIndex) => (
                                       <div key={segmentIndex} className="flex items-center space-x-2 text-xs text-gray-300">
@@ -508,6 +512,10 @@ export function LocationGroupedResults({
                                         )}
                                       </div>
                                     ))}
+                                  </div>
+                                ) : (
+                                  <div className="mt-2 text-xs text-gray-500">
+                                    No detailed routing available for return
                                   </div>
                                 )}
                               </div>

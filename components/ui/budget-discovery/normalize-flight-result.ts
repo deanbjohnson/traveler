@@ -112,6 +112,17 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
   // Extract detailed routing from slices
   const slices = raw.slices || raw.timelineData?.slices || [];
   const routing = extractDetailedRouting(slices);
+  
+  // Debug logging for routing extraction
+  if (slices.length > 0) {
+    console.log('🔍 Routing extraction debug:', {
+      flightId: id,
+      slicesCount: slices.length,
+      firstSliceSegments: slices[0]?.segments?.length || 0,
+      extractedRouting: routing,
+      rawSlices: slices
+    });
+  }
 
   return {
     id,
