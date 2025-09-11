@@ -241,8 +241,8 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
     const dateRangesSearched = generateBudgetDiscoveryDates(timeFrame);
 
     try {
-      // Limit to 5 destinations to avoid timeout (reduced from 10)
-      const plannedDestinations = Math.min(5, destinations.length);
+      // Limit to 3 destinations per run to avoid 60s server timeouts
+      const plannedDestinations = Math.min(3, destinations.length);
       const limitedDestinations = destinations.slice(0, plannedDestinations);
 
       if (tripId) {
@@ -256,6 +256,7 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
       }
       
       let idx = 0;
+      const DEADLINE_MS = 55000; // Return partial results before Vercel 60s timeout
       for (const destination of limitedDestinations) {
         console.log(`[BUDGET-DISCOVERY-${toolCallId}] Searching flights to ${destination.name} (${destination.airport})`);
         if (tripId) {
@@ -417,8 +418,6 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
             });
           }
 
-          // Rate limiting delay (reduced from 3 seconds to 1 second)
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between calls
           idx += 1;
           if (tripId) {
             setProgress(tripId, {
@@ -426,6 +425,48 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
               total: plannedDestinations,
               message: `Completed ${idx}/${plannedDestinations}`,
             });
+          }
+
+          // Watchdog: if we're close to timeout, return partial results immediately
+          if (Date.now() - startTime > DEADLINE_MS) {
+            const sortedResults = locationResults
+              .slice(0, Math.min(5, locationResults.length))
+              .map(item => item.flight);
+
+            const searchDuration = Date.now() - startTime;
+            if (tripId) {
+              setProgress(tripId, {
+                current: idx,
+                total: plannedDestinations,
+                message: `Partial results returned to avoid timeout (${Math.round(searchDuration/1000)}s)`,
+                done: true,
+              });
+            }
+
+            return {
+              success: true,
+              results: sortedResults,
+              metadata: {
+                plannedDestinations,
+                totalSearches: destinations.length,
+                successfulSearches: destinationsSearched.length,
+                searchDurationMs: searchDuration,
+                resultsCount: sortedResults.length,
+                destinationsSearched,
+                dateRangesSearched,
+                searchParams: {
+                  from,
+                  destinationSuggestion,
+                  timeFrame,
+                  tripType,
+                  passengers,
+                  cabinClass,
+                  preferences,
+                },
+                aiSuggestedDestinations: destinations.map((d: {name: string}) => d.name),
+                partial: true,
+              },
+            };
           }
           
         } catch (error) {
