@@ -241,8 +241,8 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
     const dateRangesSearched = generateBudgetDiscoveryDates(timeFrame);
 
     try {
-      // Limit to 3 destinations per run to avoid 60s server timeouts
-      const plannedDestinations = Math.min(3, destinations.length);
+      // Process up to 5 destinations per run; watchdog will return partials if needed
+      const plannedDestinations = Math.min(5, destinations.length);
       const limitedDestinations = destinations.slice(0, plannedDestinations);
 
       if (tripId) {
@@ -335,57 +335,52 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
             });
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] Cabin classes found for ${destination.name}:`, cabinClasses.slice(0, 5));
             
-            let validCount = 0;
-            const validFlights = searchResult.data.offers.filter((offer: any) => {
-              // Basic validation
-              if (!offer.slices || offer.slices.length === 0 || 
-                  !offer.total_amount || parseFloat(offer.total_amount) <= 0) {
-                console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} failed basic validation:`, {
-                  hasSlices: !!offer.slices,
-                  slicesLength: offer.slices?.length,
-                  totalAmount: offer.total_amount,
-                  parsedAmount: parseFloat(offer.total_amount)
-                });
-                return false;
+            // Bounded top-K selection preferring direct, minimal checks only
+            const K_DIRECT = 5;
+            const K_ANY = 5;
+            const MAX_SCAN = 400; // cap per-destination scan for latency
+            let scanned = 0;
+            const direct: any[] = [];
+            const anyStops: any[] = [];
+
+            for (const offer of searchResult.data.offers) {
+              if (scanned++ >= MAX_SCAN) break;
+              // minimal checks to compare price
+              const priceStr = offer?.total_amount;
+              if (!priceStr) continue;
+              const price = parseFloat(priceStr);
+              if (!(price > 0)) continue;
+              const slices = offer?.slices;
+              if (!Array.isArray(slices) || slices.length === 0) continue;
+              const stopsFirstSlice = Math.max(0, (slices[0]?.segments?.length || 1) - 1);
+
+              // optional maxStops gate (cheap to compute)
+              if (typeof maxStops === 'number' && maxStops >= 0) {
+                const totalSegments = slices.reduce((t: number, s: any) => t + (s?.segments?.length || 0), 0);
+                const totalStops = totalSegments - slices.length;
+                if (totalStops > maxStops) continue;
               }
-              
-              // Filter by max stops if specified (only if maxStops is a number >= 0)
-              if (maxStops !== undefined && maxStops !== null && typeof maxStops === 'number' && maxStops >= 0) {
-                const totalSegments = offer.slices.reduce((total: number, slice: any) => 
-                  total + (slice.segments?.length || 0), 0);
-                const totalStops = totalSegments - offer.slices.length; // segments - slices = stops
-                if (totalStops > maxStops) {
-                  console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} failed stops filter: ${totalStops} stops > ${maxStops} max`);
-                  return false;
-                }
-              }
-              
-              // Filter by max budget if specified (only if maxBudget is a number > 0)
-              if (maxBudget !== undefined && maxBudget !== null && typeof maxBudget === 'number' && maxBudget > 0) {
-                const price = parseFloat(offer.total_amount);
-                if (price > maxBudget) {
-                  console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} failed budget filter: $${price} > $${maxBudget} max`);
-                  return false;
-                }
-              }
-              
-              // Only log first few offers to avoid spam
-              if (validCount < 5) {
-                console.log(`[BUDGET-DISCOVERY-${toolCallId}] Offer ${offer.id} passed all filters: $${parseFloat(offer.total_amount)}`);
-              }
-              validCount++;
-              return true;
-            });
-            
-            console.log(`[BUDGET-DISCOVERY-${toolCallId}] Filtering complete for ${destination.name}: ${validFlights.length} valid flights out of ${searchResult.data.offers.length} total offers`);
-            
-            if (validFlights.length > 0) {
-              // Find the cheapest flight among all valid offers
-              const cheapestFlight = validFlights.reduce((min: any, offer: any) => {
+
+              // place into direct or any list and keep lists sorted by price, truncated to K
+              const pushBounded = (arr: any[]) => {
+                arr.push(offer);
+                arr.sort((a: any, b: any) => parseFloat(a.total_amount) - parseFloat(b.total_amount));
+                if (arr.length > (arr === direct ? K_DIRECT : K_ANY)) arr.pop();
+              };
+
+              if (stopsFirstSlice === 0) pushBounded(direct); else pushBounded(anyStops);
+            }
+
+            const shortlist: any[] = [...direct, ...anyStops].slice(0, 10);
+            console.log(`[BUDGET-DISCOVERY-${toolCallId}] Shortlisted ${shortlist.length} offers (direct=${direct.length}, any=${anyStops.length}, scanned=${Math.min(scanned, searchResult.data.offers.length)}/${searchResult.data.offers.length})`);
+
+            if (shortlist.length > 0) {
+              // pick cheapest from shortlist
+              const cheapestFlight = shortlist.reduce((min: any, offer: any) => {
                 const price = parseFloat(offer.total_amount);
                 const minPrice = parseFloat(min.total_amount);
                 return price < minPrice ? offer : min;
-              }, validFlights[0]);
+              }, shortlist[0]);
               
               // Add destination context to the flight
               const enhancedFlight = {
