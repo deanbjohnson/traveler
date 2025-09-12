@@ -481,6 +481,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   });
                 }}
                 addedFlightIds={addedFlightIds}
+                onEditLeg={(flight, legType, message) => {
+                  // Send the message to the chat
+                  console.log('Edit leg request:', { flight, legType, message });
+                  // TODO: Integrate with chat system to send the message
+                  // For now, we'll just log it
+                }}
               />
             ) : (
               <EmptyState mode="trip-discover" />

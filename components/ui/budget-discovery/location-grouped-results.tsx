@@ -10,7 +10,10 @@ import {
   ChevronDown, 
   ChevronUp,
   Plus,
-  Check
+  Check,
+  Edit,
+  Search,
+  TrendingUp
 } from 'lucide-react';
 import { FlightResult } from './types';
 import { format } from 'date-fns';
@@ -24,6 +27,7 @@ interface LocationGroupedResultsProps {
   expandedLocations: Set<string>;
   onToggleLocation: (locationName: string) => void;
   addedFlightIds: Set<string>;
+  onEditLeg?: (flight: FlightResult, legType: 'outbound' | 'return', message: string) => void;
 }
 
 interface LocationGroup {
@@ -43,7 +47,8 @@ export function LocationGroupedResults({
   loadingMoreFlights,
   expandedLocations,
   onToggleLocation,
-  addedFlightIds
+  addedFlightIds,
+  onEditLeg
 }: LocationGroupedResultsProps) {
   const [locationSortBy, setLocationSortBy] = useState<Record<string, 'price' | 'duration' | 'date'>>({});
   const [expandedFlights, setExpandedFlights] = useState<Set<string>>(new Set());
@@ -59,6 +64,37 @@ export function LocationGroupedResults({
       }
       return newSet;
     });
+  };
+
+  // Handler functions for leg editing
+  const handleEditLeg = (flight: FlightResult, legType: 'outbound' | 'return') => {
+    console.log(`Edit ${legType} leg for flight:`, flight.id);
+    // TODO: Implement leg editing modal or chat integration
+    // For now, we'll trigger a chat message
+    const message = `I want to edit the ${legType} leg of this flight. Current: ${flight.route.origin} → ${flight.route.destination} on ${format(new Date(flight.dates.departure), 'MMM dd, yyyy')}.`;
+    
+    // Trigger chat message (this would need to be passed as a prop)
+    if (onEditLeg) {
+      onEditLeg(flight, legType, message);
+    }
+  };
+
+  const handleFindDirect = (flight: FlightResult, legType: 'outbound' | 'return') => {
+    console.log(`Find direct flight for ${legType} leg:`, flight.id);
+    const message = `Find me a direct flight for the ${legType} leg from ${flight.route.origin} to ${flight.route.destination}.`;
+    
+    if (onEditLeg) {
+      onEditLeg(flight, legType, message);
+    }
+  };
+
+  const handleUpgradeClass = (flight: FlightResult, legType: 'outbound' | 'return') => {
+    console.log(`Upgrade class for ${legType} leg:`, flight.id);
+    const message = `Upgrade the ${legType} leg to first class from ${flight.route.origin} to ${flight.route.destination}.`;
+    
+    if (onEditLeg) {
+      onEditLeg(flight, legType, message);
+    }
   };
 
   const isFlightExpanded = (flightId: string) => expandedFlights.has(flightId);
@@ -468,6 +504,28 @@ export function LocationGroupedResults({
                                     No detailed routing available (routing: {JSON.stringify(flight.routing)})
                                   </div>
                                 )}
+                                
+                                {/* Leg editing controls */}
+                                <div className="mt-3 flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                    onClick={() => handleEditLeg(flight, 'outbound')}
+                                  >
+                                    <Edit className="mr-1 h-3 w-3" />
+                                    Edit Leg
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30"
+                                    onClick={() => handleFindDirect(flight, 'outbound')}
+                                  >
+                                    <Search className="mr-1 h-3 w-3" />
+                                    Find Direct
+                                  </Button>
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
@@ -518,6 +576,28 @@ export function LocationGroupedResults({
                                     No detailed routing available for return
                                   </div>
                                 )}
+                                
+                                {/* Leg editing controls */}
+                                <div className="mt-3 flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                    onClick={() => handleEditLeg(flight, 'return')}
+                                  >
+                                    <Edit className="mr-1 h-3 w-3" />
+                                    Edit Leg
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30"
+                                    onClick={() => handleUpgradeClass(flight, 'return')}
+                                  >
+                                    <TrendingUp className="mr-1 h-3 w-3" />
+                                    Upgrade Class
+                                  </Button>
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
