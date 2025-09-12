@@ -482,14 +482,11 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   });
                 }}
                 addedFlightIds={addedFlightIds}
-                onEditLeg={async (flight, legType, message) => {
-                  // Send the message to the chat
-                  console.log('Edit leg request:', { flight, legType, message });
-                  try {
-                    await append({ role: 'user', content: message });
-                  } catch (error) {
-                    console.error('Failed to send edit leg message:', error);
-                  }
+                onReplaceLeg={(data) => {
+                  // Handle leg replacement
+                  console.log('Leg replacement request:', data);
+                  // TODO: Implement actual leg replacement logic
+                  // For now, just log the request
                 }}
               />
             ) : (

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { FlightResult } from './types';
 import { format } from 'date-fns';
+import { LegEditModal } from './leg-edit-modal';
 
 interface LocationGroupedResultsProps {
   flights: FlightResult[];
@@ -25,7 +26,7 @@ interface LocationGroupedResultsProps {
   expandedLocations: Set<string>;
   onToggleLocation: (locationName: string) => void;
   addedFlightIds: Set<string>;
-  onEditLeg?: (flight: FlightResult, legType: 'outbound' | 'return', message: string) => void;
+  onReplaceLeg?: (data: { flight: FlightResult, legType: 'outbound' | 'return', newLeg: any, originalLeg: any }) => void;
 }
 
 interface LocationGroup {
@@ -46,7 +47,7 @@ export function LocationGroupedResults({
   expandedLocations,
   onToggleLocation,
   addedFlightIds,
-  onEditLeg
+  onReplaceLeg
 }: LocationGroupedResultsProps) {
   const [locationSortBy, setLocationSortBy] = useState<Record<string, 'price' | 'duration' | 'date'>>({});
   const [expandedFlights, setExpandedFlights] = useState<Set<string>>(new Set());
@@ -64,21 +65,11 @@ export function LocationGroupedResults({
     });
   };
 
-  // Handler function for leg editing
-  const handleEditLeg = (flight: FlightResult, legType: 'outbound' | 'return') => {
-    console.log(`Edit ${legType} leg for flight:`, flight.id);
-    
-    // Create a comprehensive message that gives the AI context about what leg to edit
-    const legDate = legType === 'outbound' ? flight.dates.departure : flight.dates.return;
-    const legRoute = legType === 'outbound' 
-      ? `${flight.route.origin} → ${flight.route.destination}`
-      : `${flight.route.destination} → ${flight.route.origin}`;
-    
-    const message = `I want to edit the ${legType} leg of this flight. Current: ${legRoute} on ${format(new Date(legDate), 'MMM dd, yyyy')}. Please show me alternatives - I might want to change the date, upgrade to first class, find a direct flight, or try a different airline.`;
-    
-    // Trigger chat message
-    if (onEditLeg) {
-      onEditLeg(flight, legType, message);
+  // Handler function for leg replacement
+  const handleReplaceLeg = (data: { flight: FlightResult, legType: 'outbound' | 'return', newLeg: any, originalLeg: any }) => {
+    console.log('Replacing leg:', data);
+    if (onReplaceLeg) {
+      onReplaceLeg(data);
     }
   };
 
@@ -492,15 +483,20 @@ export function LocationGroupedResults({
                                 
                                 {/* Leg editing controls */}
                                 <div className="mt-3">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
-                                    onClick={() => handleEditLeg(flight, 'outbound')}
+                                  <LegEditModal
+                                    flight={flight}
+                                    legType="outbound"
+                                    onReplaceLeg={handleReplaceLeg}
                                   >
-                                    <Edit className="mr-1 h-3 w-3" />
-                                    Edit This Leg
-                                  </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                    >
+                                      <Edit className="mr-1 h-3 w-3" />
+                                      Edit This Leg
+                                    </Button>
+                                  </LegEditModal>
                                 </div>
                               </div>
                             </CardContent>
@@ -555,15 +551,20 @@ export function LocationGroupedResults({
                                 
                                 {/* Leg editing controls */}
                                 <div className="mt-3">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
-                                    onClick={() => handleEditLeg(flight, 'return')}
+                                  <LegEditModal
+                                    flight={flight}
+                                    legType="return"
+                                    onReplaceLeg={handleReplaceLeg}
                                   >
-                                    <Edit className="mr-1 h-3 w-3" />
-                                    Edit This Leg
-                                  </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                    >
+                                      <Edit className="mr-1 h-3 w-3" />
+                                      Edit This Leg
+                                    </Button>
+                                  </LegEditModal>
                                 </div>
                               </div>
                             </CardContent>
