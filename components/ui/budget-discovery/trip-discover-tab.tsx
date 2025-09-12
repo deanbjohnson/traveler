@@ -106,6 +106,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     progress,
     systemMessages,
     handleAddToTimeline,
+    append,
   } = useOptimizedChatSearch(tripId, chatMode, {
     tripType,
     passengers,
@@ -481,11 +482,14 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   });
                 }}
                 addedFlightIds={addedFlightIds}
-                onEditLeg={(flight, legType, message) => {
+                onEditLeg={async (flight, legType, message) => {
                   // Send the message to the chat
                   console.log('Edit leg request:', { flight, legType, message });
-                  // TODO: Integrate with chat system to send the message
-                  // For now, we'll just log it
+                  try {
+                    await append({ role: 'user', content: message });
+                  } catch (error) {
+                    console.error('Failed to send edit leg message:', error);
+                  }
                 }}
               />
             ) : (

@@ -11,9 +11,7 @@ import {
   ChevronUp,
   Plus,
   Check,
-  Edit,
-  Search,
-  TrendingUp
+  Edit
 } from 'lucide-react';
 import { FlightResult } from './types';
 import { format } from 'date-fns';
@@ -66,32 +64,19 @@ export function LocationGroupedResults({
     });
   };
 
-  // Handler functions for leg editing
+  // Handler function for leg editing
   const handleEditLeg = (flight: FlightResult, legType: 'outbound' | 'return') => {
     console.log(`Edit ${legType} leg for flight:`, flight.id);
-    // TODO: Implement leg editing modal or chat integration
-    // For now, we'll trigger a chat message
-    const message = `I want to edit the ${legType} leg of this flight. Current: ${flight.route.origin} → ${flight.route.destination} on ${format(new Date(flight.dates.departure), 'MMM dd, yyyy')}.`;
     
-    // Trigger chat message (this would need to be passed as a prop)
-    if (onEditLeg) {
-      onEditLeg(flight, legType, message);
-    }
-  };
-
-  const handleFindDirect = (flight: FlightResult, legType: 'outbound' | 'return') => {
-    console.log(`Find direct flight for ${legType} leg:`, flight.id);
-    const message = `Find me a direct flight for the ${legType} leg from ${flight.route.origin} to ${flight.route.destination}.`;
+    // Create a comprehensive message that gives the AI context about what leg to edit
+    const legDate = legType === 'outbound' ? flight.dates.departure : flight.dates.return;
+    const legRoute = legType === 'outbound' 
+      ? `${flight.route.origin} → ${flight.route.destination}`
+      : `${flight.route.destination} → ${flight.route.origin}`;
     
-    if (onEditLeg) {
-      onEditLeg(flight, legType, message);
-    }
-  };
-
-  const handleUpgradeClass = (flight: FlightResult, legType: 'outbound' | 'return') => {
-    console.log(`Upgrade class for ${legType} leg:`, flight.id);
-    const message = `Upgrade the ${legType} leg to first class from ${flight.route.origin} to ${flight.route.destination}.`;
+    const message = `I want to edit the ${legType} leg of this flight. Current: ${legRoute} on ${format(new Date(legDate), 'MMM dd, yyyy')}. Please show me alternatives - I might want to change the date, upgrade to first class, find a direct flight, or try a different airline.`;
     
+    // Trigger chat message
     if (onEditLeg) {
       onEditLeg(flight, legType, message);
     }
@@ -506,7 +491,7 @@ export function LocationGroupedResults({
                                 )}
                                 
                                 {/* Leg editing controls */}
-                                <div className="mt-3 flex gap-2">
+                                <div className="mt-3">
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -514,16 +499,7 @@ export function LocationGroupedResults({
                                     onClick={() => handleEditLeg(flight, 'outbound')}
                                   >
                                     <Edit className="mr-1 h-3 w-3" />
-                                    Edit Leg
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs bg-green-600/20 border-green-500/30 text-green-300 hover:bg-green-600/30"
-                                    onClick={() => handleFindDirect(flight, 'outbound')}
-                                  >
-                                    <Search className="mr-1 h-3 w-3" />
-                                    Find Direct
+                                    Edit This Leg
                                   </Button>
                                 </div>
                               </div>
@@ -578,7 +554,7 @@ export function LocationGroupedResults({
                                 )}
                                 
                                 {/* Leg editing controls */}
-                                <div className="mt-3 flex gap-2">
+                                <div className="mt-3">
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -586,16 +562,7 @@ export function LocationGroupedResults({
                                     onClick={() => handleEditLeg(flight, 'return')}
                                   >
                                     <Edit className="mr-1 h-3 w-3" />
-                                    Edit Leg
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30"
-                                    onClick={() => handleUpgradeClass(flight, 'return')}
-                                  >
-                                    <TrendingUp className="mr-1 h-3 w-3" />
-                                    Upgrade Class
+                                    Edit This Leg
                                   </Button>
                                 </div>
                               </div>
