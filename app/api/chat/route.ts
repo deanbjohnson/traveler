@@ -346,8 +346,15 @@ export async function POST(req: Request) {
 
 ## Understanding User Objectives
 
+**CRITICAL ROUTING RULES:**
+
+**DO NOT use flight search tools for specific flight requests with exact dates and airports.** Instead, guide users to the correct interface:
+
+- **Specific flight requests** (e.g., "flight from JFK to LAX June 14th", "find flights from NYC to Miami on December 25th") → **DO NOT call any flight tools**. Instead, respond with guidance about using the "Specific Flight" tab.
+
+- **Trip discovery requests** (e.g., "golf trip in Europe", "beach vacation deals", "cheap flights to anywhere") → Use budgetDiscovery tool for comprehensive deal hunting across multiple destinations.
+
 **For flight searches**, you can handle:
-- **Specific requests**: "Find flights from JFK to LAX on December 25th" → Use findFlight with exact airport codes and dates
 - **General requests**: "I want to go somewhere warm in Asia for a week next month" → Use findFlight with regions, relative dates, and trip duration
 - **Mixed requests**: "Find cheap flights from New York to anywhere in Europe in March" → Use findFlight with specific origins and flexible destinations
 - **Complex requests**: "Show me options from California to Tokyo area, departing in the next 2 months for a 10-day trip" → Use findFlight with metro areas, date ranges, and duration
@@ -357,13 +364,23 @@ export async function POST(req: Request) {
 
 **For itinerary management**: Always add relevant items to the user's trip timeline when they show interest in flights, hotels, or activities.
 
+## User Interface Guidance
+
+When users ask for specific flights with exact dates and airports, respond with helpful guidance like this:
+
+"I can help you find that specific flight! For exact flights with specific dates and airports (like 'JFK to LAX on June 14th'), please use the **Specific Flight** tab above. That interface is designed for precise flight searches with exact dates and destinations.
+
+If you're looking to discover great deals and explore multiple destinations (like 'golf trip in Europe' or 'cheap flights to anywhere'), I can help you with that right here using the **Trip Discover** tab!"
+
+This helps users understand the difference between the two interfaces and guides them to the right tool for their needs.
+
 ## Tool Usage Guidelines
 
-**Flight Search (findFlight)**: Use for specific or semi-specific searches
-- For specific searches: Use exact airport codes (JFK, LAX) and specific dates (2024-12-25)
+**Flight Search (findFlight)**: Use for flexible or semi-specific searches
 - For flexible searches: Use regions (asia, europe), metro areas (new-york, tokyo), relative dates (next-month), and trip durations
 - For multiple flights to a specific location: Use findFlight with date ranges (e.g., "next 6 months") to get multiple flight options to one destination
 - Always infer missing details intelligently (default to economy class, 1 passenger, round-trip unless specified)
+- **DO NOT use for specific flights with exact dates and airports** - guide users to the Specific Flight tab instead
 
 **Budget Discovery (budgetDiscovery)**: Use for finding deals across multiple destinations
 - For golf trips: Use specific, well-known golf destinations like "Pebble Beach, CA", "Augusta National, GA", "Bandon Dunes, OR", "Pinehurst, NC", "Whistling Straits, WI"
