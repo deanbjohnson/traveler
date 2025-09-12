@@ -384,6 +384,12 @@ If the user is viewing a trip with flights, you can suggest:
 - "Replace the outbound leg with a direct flight"
 - "Show me cheaper alternatives for the return"
 
+If the user is viewing flight search results, you can suggest:
+- "Change the return leg to first class"
+- "Find a direct flight for the outbound leg"
+- "Show me cheaper alternatives for the return"
+- "Build me a custom trip with these criteria"
+
 This makes the chat interface context-aware and helps users discover editing capabilities.
 
 ## Tool Usage Guidelines
@@ -415,6 +421,13 @@ This makes the chat interface context-aware and helps users discover editing cap
 - For date changes: "Change my return to October 20th"
 - For route preferences: "Find me a direct flight for the outbound leg"
 - When users want alternatives to specific parts of their trip
+
+**Custom Flight Builder (buildCustomFlight)**: Use when users want to create custom flight combinations from search results
+- Perfect for: "Change the return leg to first class", "Find a direct flight for the outbound leg", "Show me cheaper alternatives for the return"
+- When users are browsing flight results and want to mix and match legs: "I want to leave a day earlier but keep the same return"
+- For building custom trips before adding to timeline: "Build me a custom trip with these criteria"
+- When users want to experiment with different leg combinations
+- For creating personalized flight combinations from available options
 
 **Location-Specific Multiple Flights (findFlight)**: Use when users want multiple flight options to a specific destination
 - Perfect for: "Find 10 flights to Miami", "Show me flights to Paris over the next 6 months", "What are the flight options to Tokyo?"
