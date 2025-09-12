@@ -21,7 +21,7 @@ import {
   Check
 } from 'lucide-react';
 import { FlightResult } from './types';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { searchFlights } from '@/app/server/actions/flight-search';
 
 interface LegEditModalProps {
@@ -44,6 +44,21 @@ interface ReplacementOption {
   cabinClass: string;
   offer: any;
 }
+
+// Helper function to safely format dates
+const safeFormatDate = (dateString: string | undefined): string => {
+  if (!dateString) return 'Invalid date';
+  
+  try {
+    const date = parseISO(dateString);
+    if (isValid(date)) {
+      return format(date, 'MMM dd, yyyy');
+    }
+    return 'Invalid date';
+  } catch (error) {
+    return 'Invalid date';
+  }
+};
 
 export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEditModalProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -202,7 +217,7 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{legData.route}</Badge>
                     <span className="text-sm text-gray-400">
-                      {format(new Date(legData.date), 'MMM dd, yyyy')}
+                      {safeFormatDate(legData.date)}
                     </span>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-400">
@@ -291,7 +306,7 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">{option.route}</Badge>
                             <span className="text-sm text-gray-400">
-                              {format(new Date(option.departure), 'MMM dd, yyyy')}
+                              {safeFormatDate(option.departure)}
                             </span>
                           </div>
                           <div className="flex items-center gap-4 text-sm text-gray-400">
