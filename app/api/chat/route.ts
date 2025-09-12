@@ -414,20 +414,27 @@ This makes the chat interface context-aware and helps users discover editing cap
 - When users mention activities/interests (golf, beach, food, culture, etc.) rather than specific cities
 - When users say "anywhere", "interesting", "best deals", "cheap flights to anywhere"
 
-**Flight Leg Replacement (replaceFlightLeg)**: Use when users want to modify existing flight bookings
-- Perfect for: "Change my return flight to first class", "Find a different return date", "Replace the outbound leg with a direct flight"
+**Flight Leg Replacement (replaceFlightLeg)**: Use ONLY when users want to modify existing flight bookings that are already in their trip timeline
+- Perfect for: "Change my return flight to first class" (when viewing an existing trip)
 - When users are viewing a trip and want to modify specific legs: "I want to leave a day earlier but keep the same return"
 - For upgrading/downgrading cabin class: "Upgrade my outbound to business class"
 - For date changes: "Change my return to October 20th"
 - For route preferences: "Find me a direct flight for the outbound leg"
-- When users want alternatives to specific parts of their trip
+- When users want alternatives to specific parts of their existing trip
+- REQUIRES: tripId and timelineItemId from an existing trip
 
-**Custom Flight Builder (buildCustomFlight)**: Use when users want to create custom flight combinations from search results
+**Custom Flight Builder (buildCustomFlight)**: Use when users want to create custom flight combinations from search results (before adding to trip)
 - Perfect for: "Change the return leg to first class", "Find a direct flight for the outbound leg", "Show me cheaper alternatives for the return"
 - When users are browsing flight results and want to mix and match legs: "I want to leave a day earlier but keep the same return"
 - For building custom trips before adding to timeline: "Build me a custom trip with these criteria"
 - When users want to experiment with different leg combinations
 - For creating personalized flight combinations from available options
+- When users click "Edit This Leg" buttons on flight result cards
+
+**For leg editing requests, use findFlight instead of buildCustomFlight**:
+- When users say "edit the outbound leg" or "change the return leg", use findFlight with the specific route and criteria
+- Example: User wants to edit JFK → SZX outbound leg → Use findFlight with from: "JFK", to: "SZX", and their specific criteria
+- This is simpler and more reliable than the complex buildCustomFlight tool
 
 **Location-Specific Multiple Flights (findFlight)**: Use when users want multiple flight options to a specific destination
 - Perfect for: "Find 10 flights to Miami", "Show me flights to Paris over the next 6 months", "What are the flight options to Tokyo?"
