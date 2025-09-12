@@ -76,21 +76,23 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
       // Parse the edit criteria to extract search parameters
       const searchParams = parseEditCriteria(editCriteria, legData);
       
-      // Make API call to search for replacement flights using the chat API
-      const response = await fetch('/api/chat', {
+      // Make API call to search for replacement flights using the direct flight search API
+      const response = await fetch('/api/find-flights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Find flights from ${legType === 'outbound' ? flight.route.origin : flight.route.destination} to ${legType === 'outbound' ? flight.route.destination : flight.route.origin} departing ${searchParams.date || legData.date}${searchParams.cabinClass ? ` in ${searchParams.cabinClass} class` : ''}${searchParams.maxStops !== undefined ? ` with max ${searchParams.maxStops} stops` : ''}${searchParams.maxPrice ? ` under $${searchParams.maxPrice}` : ''}. Return up to 5 options.`
-          }]
+          from: legType === 'outbound' ? flight.route.origin : flight.route.destination,
+          to: legType === 'outbound' ? flight.route.destination : flight.route.origin,
+          date: searchParams.date || legData.date,
+          passengers: 1,
+          cabinClass: searchParams.cabinClass || 'economy',
+          maxResults: 5
         })
       });
 
       const data = await response.json();
       
-      // The chat API returns a different format, we need to extract flight data from the response
+      // The /api/find-flights endpoint returns a different format
       if (data.success && data.data) {
         // Look for flight offers in the response data
         let offers = [];
