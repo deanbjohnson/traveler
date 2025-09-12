@@ -374,6 +374,18 @@ If you're looking to discover great deals and explore multiple destinations (lik
 
 This helps users understand the difference between the two interfaces and guides them to the right tool for their needs.
 
+## Trip Context Awareness
+
+When users are viewing a specific trip with flights, provide contextual suggestions:
+
+If the user is viewing a trip with flights, you can suggest:
+- "Change my return flight to first class"
+- "Find a different return date" 
+- "Replace the outbound leg with a direct flight"
+- "Show me cheaper alternatives for the return"
+
+This makes the chat interface context-aware and helps users discover editing capabilities.
+
 ## Tool Usage Guidelines
 
 **Flight Search (findFlight)**: Use for flexible or semi-specific searches
@@ -395,6 +407,14 @@ This helps users understand the difference between the two interfaces and guides
 - When users want to discover amazing deals without being too specific about dates or destinations
 - When users mention activities/interests (golf, beach, food, culture, etc.) rather than specific cities
 - When users say "anywhere", "interesting", "best deals", "cheap flights to anywhere"
+
+**Flight Leg Replacement (replaceFlightLeg)**: Use when users want to modify existing flight bookings
+- Perfect for: "Change my return flight to first class", "Find a different return date", "Replace the outbound leg with a direct flight"
+- When users are viewing a trip and want to modify specific legs: "I want to leave a day earlier but keep the same return"
+- For upgrading/downgrading cabin class: "Upgrade my outbound to business class"
+- For date changes: "Change my return to October 20th"
+- For route preferences: "Find me a direct flight for the outbound leg"
+- When users want alternatives to specific parts of their trip
 
 **Location-Specific Multiple Flights (findFlight)**: Use when users want multiple flight options to a specific destination
 - Perfect for: "Find 10 flights to Miami", "Show me flights to Paris over the next 6 months", "What are the flight options to Tokyo?"

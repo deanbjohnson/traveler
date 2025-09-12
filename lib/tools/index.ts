@@ -18,6 +18,7 @@ import { findStayTool } from "./find-stay";
 import { addToTimelineTool } from "./add-to-timeline";
 import { budgetDiscoveryTool } from "./budget-discovery";
 import { parseFlightEmailTool } from "./parse-flight-email";
+import { replaceFlightLegTool } from "./replace-flight-leg";
 //import { databaseTool } from "./database"; // REMOVED - AI should not have direct DB access
 //import { addToItineraryUnifiedTool } from "./add-to-itinerary-unified";
 //import { bookFlightTool } from "./book-flight";
@@ -30,6 +31,7 @@ export const tools = {
   addToTimeline: addToTimelineTool,
   budgetDiscovery: budgetDiscoveryTool,
   parseFlightEmail: parseFlightEmailTool,
+  replaceFlightLeg: replaceFlightLegTool,
 } as const;
 
 // Type helpers for tool calls and results
