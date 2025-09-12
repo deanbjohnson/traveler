@@ -50,6 +50,7 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
   const [isSearching, setIsSearching] = useState(false);
   const [replacementOptions, setReplacementOptions] = useState<ReplacementOption[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const legData = legType === 'outbound' 
     ? {
@@ -69,44 +70,57 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
     setIsSearching(true);
     setReplacementOptions([]);
     setSelectedOption(null);
+    setHasSearched(true);
 
     try {
       // Parse the edit criteria to extract search parameters
       const searchParams = parseEditCriteria(editCriteria, legData);
       
-      // Make API call to search for replacement flights
-      const response = await fetch('/api/find-flights', {
+      // Make API call to search for replacement flights using the chat API
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: legType === 'outbound' ? flight.route.origin : flight.route.destination,
-          to: legType === 'outbound' ? flight.route.destination : flight.route.origin,
-          departure: searchParams.date || legData.date,
-          passengers: 1,
-          cabinClass: searchParams.cabinClass || 'economy',
-          maxStops: searchParams.maxStops,
-          ...searchParams
+          messages: [{
+            role: 'user',
+            content: `Find flights from ${legType === 'outbound' ? flight.route.origin : flight.route.destination} to ${legType === 'outbound' ? flight.route.destination : flight.route.origin} departing ${searchParams.date || legData.date}${searchParams.cabinClass ? ` in ${searchParams.cabinClass} class` : ''}${searchParams.maxStops !== undefined ? ` with max ${searchParams.maxStops} stops` : ''}${searchParams.maxPrice ? ` under $${searchParams.maxPrice}` : ''}. Return up to 5 options.`
+          }]
         })
       });
 
       const data = await response.json();
       
-      if (data.success && data.data?.offers) {
-        const options = data.data.offers.slice(0, 5).map((offer: any) => ({
-          id: offer.id,
-          price: offer.total_amount,
-          currency: offer.total_currency,
-          airline: offer.owner?.name || 'Unknown',
-          route: `${offer.slices[0]?.origin?.iata_code} → ${offer.slices[0]?.destination?.iata_code}`,
-          departure: offer.slices[0]?.departure_datetime,
-          arrival: offer.slices[0]?.arrival_datetime,
-          duration: offer.slices[0]?.duration,
-          stops: (offer.slices[0]?.segments?.length || 1) - 1,
-          cabinClass: searchParams.cabinClass || 'economy',
-          offer
-        }));
+      // The chat API returns a different format, we need to extract flight data from the response
+      if (data.success && data.data) {
+        // Look for flight offers in the response data
+        let offers = [];
+        if (data.data.offers) {
+          offers = data.data.offers;
+        } else if (data.data.flights) {
+          offers = data.data.flights;
+        } else if (Array.isArray(data.data)) {
+          offers = data.data;
+        }
         
-        setReplacementOptions(options);
+        if (offers.length > 0) {
+          const options = offers.slice(0, 5).map((offer: any) => ({
+            id: offer.id || Math.random().toString(),
+            price: offer.total_amount || offer.price || 'N/A',
+            currency: offer.total_currency || offer.currency || 'USD',
+            airline: offer.owner?.name || offer.airline || 'Unknown',
+            route: `${offer.slices?.[0]?.origin?.iata_code || offer.origin} → ${offer.slices?.[0]?.destination?.iata_code || offer.destination}`,
+            departure: offer.slices?.[0]?.departure_datetime || offer.departure,
+            arrival: offer.slices?.[0]?.arrival_datetime || offer.arrival,
+            duration: offer.slices?.[0]?.duration || offer.duration,
+            stops: (offer.slices?.[0]?.segments?.length || offer.segments?.length || 1) - 1,
+            cabinClass: searchParams.cabinClass || offer.cabinClass || 'economy',
+            offer
+          }));
+          
+          setReplacementOptions(options);
+        } else {
+          setReplacementOptions([]);
+        }
       } else {
         setReplacementOptions([]);
       }
@@ -166,7 +180,16 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) {
+        // Reset state when modal closes
+        setEditCriteria('');
+        setReplacementOptions([]);
+        setSelectedOption(null);
+        setHasSearched(false);
+      }
+    }}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -322,7 +345,7 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
             </Card>
           )}
 
-          {replacementOptions.length === 0 && !isSearching && editCriteria && (
+          {replacementOptions.length === 0 && !isSearching && hasSearched && (
             <Card>
               <CardContent className="text-center py-8">
                 <p className="text-gray-400">No replacement options found. Try different criteria.</p>
