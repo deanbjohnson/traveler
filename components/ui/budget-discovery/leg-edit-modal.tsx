@@ -50,12 +50,20 @@ const safeFormatDate = (dateString: string | undefined): string => {
   if (!dateString) return 'Invalid date';
   
   try {
-    const date = parseISO(dateString);
+    // Try parsing as ISO first, then as regular date
+    let date = parseISO(dateString);
+    if (!isValid(date)) {
+      date = new Date(dateString);
+    }
+    
     if (isValid(date)) {
       return format(date, 'MMM dd, yyyy');
     }
+    
+    console.log('Invalid date string:', dateString);
     return 'Invalid date';
   } catch (error) {
+    console.log('Date parsing error:', error, 'for string:', dateString);
     return 'Invalid date';
   }
 };

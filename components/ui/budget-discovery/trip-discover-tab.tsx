@@ -102,6 +102,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
     status,
     stop,
     searchResults,
+    setSearchResults,
     isLoading,
     progress,
     systemMessages,
@@ -485,8 +486,50 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 onReplaceLeg={(data) => {
                   // Handle leg replacement
                   console.log('Leg replacement request:', data);
-                  // TODO: Implement actual leg replacement logic
-                  // For now, just log the request
+                  
+                  // Create a new flight result with the replaced leg
+                  const { flight, legType, newLeg, originalLeg } = data;
+                  
+                  // Create a new flight result by replacing the specified leg
+                  const updatedFlight = {
+                    ...flight,
+                    // Update the specific leg data
+                    ...(legType === 'outbound' ? {
+                      dates: {
+                        ...flight.dates,
+                        departure: newLeg.departure
+                      },
+                      duration: {
+                        ...flight.duration,
+                        outbound: newLeg.duration
+                      },
+                      price: {
+                        ...flight.price,
+                        total: parseFloat(newLeg.price) + (legType === 'outbound' ? 0 : flight.price.total - parseFloat(originalLeg.price || '0'))
+                      }
+                    } : {
+                      dates: {
+                        ...flight.dates,
+                        return: newLeg.departure
+                      },
+                      duration: {
+                        ...flight.duration,
+                        return: newLeg.duration
+                      },
+                      price: {
+                        ...flight.price,
+                        total: parseFloat(newLeg.price) + (legType === 'return' ? 0 : flight.price.total - parseFloat(originalLeg.price || '0'))
+                      }
+                    })
+                  };
+                  
+                  // Update the flight results with the new flight
+                  setSearchResults((prevResults: any) => 
+                    prevResults.map((f: any) => f.id === flight.id ? updatedFlight : f)
+                  );
+                  
+                  // Show success message
+                  console.log('Leg replaced successfully:', updatedFlight);
                 }}
               />
             ) : (
