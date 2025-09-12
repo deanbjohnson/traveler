@@ -460,7 +460,7 @@ export async function flexibleFlightSearch(
             successfulSearches++;
             const offers = result.data.offers as DuffelOffer[];
 
-            return offers.slice(0, 2).map((offer: DuffelOffer) => {
+            return offers.slice(0, 1).map((offer: DuffelOffer) => {
               // Debug: Log the actual offer structure and segments
               console.log('🔍 Duffel offer structure:', {
                 offerId: offer.id,
