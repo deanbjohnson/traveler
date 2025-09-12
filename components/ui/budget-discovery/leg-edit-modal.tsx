@@ -81,7 +81,7 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
       const data = await searchFlights({
         from: legType === 'outbound' ? flight.route.origin : flight.route.destination,
         to: legType === 'outbound' ? flight.route.destination : flight.route.origin,
-        date: searchParams.date || legData.date,
+        date: (searchParams.date || legData.date).split('T')[0], // Convert to YYYY-MM-DD format
         passengers: 1,
         cabinClass: searchParams.cabinClass || 'economy'
       });
