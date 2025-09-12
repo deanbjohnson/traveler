@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { FlightResult } from './types';
 import { format } from 'date-fns';
+import { searchFlights } from '@/app/server/actions/flight-search';
 
 interface LegEditModalProps {
   flight: FlightResult;
@@ -76,46 +77,32 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
       // Parse the edit criteria to extract search parameters
       const searchParams = parseEditCriteria(editCriteria, legData);
       
-      // Make API call to search for replacement flights using the direct flight search API
-      const response = await fetch('/api/find-flights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: legType === 'outbound' ? flight.route.origin : flight.route.destination,
-          to: legType === 'outbound' ? flight.route.destination : flight.route.origin,
-          date: searchParams.date || legData.date,
-          passengers: 1,
-          cabinClass: searchParams.cabinClass || 'economy',
-          maxResults: 5
-        })
+      // Use server action to search for replacement flights
+      const data = await searchFlights({
+        from: legType === 'outbound' ? flight.route.origin : flight.route.destination,
+        to: legType === 'outbound' ? flight.route.destination : flight.route.origin,
+        date: searchParams.date || legData.date,
+        passengers: 1,
+        cabinClass: searchParams.cabinClass || 'economy'
       });
-
-      const data = await response.json();
       
-      // The /api/find-flights endpoint returns a different format
+      // The server action returns a different format
       if (data.success && data.data) {
-        // Look for flight offers in the response data
-        let offers = [];
-        if (data.data.offers) {
-          offers = data.data.offers;
-        } else if (data.data.flights) {
-          offers = data.data.flights;
-        } else if (Array.isArray(data.data)) {
-          offers = data.data;
-        }
+        // The server action returns offers directly in data.data
+        const offers = data.data.offers || [];
         
         if (offers.length > 0) {
           const options = offers.slice(0, 5).map((offer: any) => ({
             id: offer.id || Math.random().toString(),
-            price: offer.total_amount || offer.price || 'N/A',
-            currency: offer.total_currency || offer.currency || 'USD',
-            airline: offer.owner?.name || offer.airline || 'Unknown',
-            route: `${offer.slices?.[0]?.origin?.iata_code || offer.origin} → ${offer.slices?.[0]?.destination?.iata_code || offer.destination}`,
-            departure: offer.slices?.[0]?.departure_datetime || offer.departure,
-            arrival: offer.slices?.[0]?.arrival_datetime || offer.arrival,
-            duration: offer.slices?.[0]?.duration || offer.duration,
-            stops: (offer.slices?.[0]?.segments?.length || offer.segments?.length || 1) - 1,
-            cabinClass: searchParams.cabinClass || offer.cabinClass || 'economy',
+            price: offer.total_amount || 'N/A',
+            currency: offer.total_currency || 'USD',
+            airline: offer.owner?.name || 'Unknown',
+            route: `${offer.slices?.[0]?.origin?.iata_code} → ${offer.slices?.[0]?.destination?.iata_code}`,
+            departure: offer.slices?.[0]?.departure_datetime,
+            arrival: offer.slices?.[0]?.arrival_datetime,
+            duration: offer.slices?.[0]?.duration,
+            stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
+            cabinClass: searchParams.cabinClass || 'economy',
             offer
           }));
           
