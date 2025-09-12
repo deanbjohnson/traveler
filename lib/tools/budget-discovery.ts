@@ -255,17 +255,11 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
         });
       }
       
-      let idx = 0;
       const DEADLINE_MS = 55000; // Return partial results before Vercel 60s timeout
-      for (const destination of limitedDestinations) {
+      
+      // Process destinations in parallel for much faster results
+      const searchPromises = limitedDestinations.map(async (destination: any, idx: number) => {
         console.log(`[BUDGET-DISCOVERY-${toolCallId}] Searching flights to ${destination.name} (${destination.airport})`);
-        if (tripId) {
-          setProgress(tripId, {
-            current: idx,
-            total: plannedDestinations,
-            message: `Searching ${destination.name} (${idx + 1}/${plannedDestinations})`,
-          });
-        }
         
         try {
           // Try multiple dates to increase chances of finding flights
@@ -299,7 +293,7 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
           
           if (!searchResult) {
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] No search result for ${destination.name} - all date attempts failed`);
-            continue;
+            return null;
           }
 
           console.log(`[BUDGET-DISCOVERY-${toolCallId}] Search result for ${destination.name}:`, {
@@ -393,16 +387,16 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
                 },
               };
               
-              locationResults.push({
+              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest flight to ${destination.name}: $${enhancedFlight.total_amount}`);
+              
+              return {
                 destination,
                 flight: enhancedFlight,
                 price: parseFloat(enhancedFlight.total_amount),
-              });
-              
-              destinationsSearched.push(destination.name);
-              console.log(`[BUDGET-DISCOVERY-${toolCallId}] Found cheapest flight to ${destination.name}: $${enhancedFlight.total_amount}`);
+              };
             } else {
               console.log(`[BUDGET-DISCOVERY-${toolCallId}] No valid flights found to ${destination.name} after filtering - API returned ${searchResult.data.offers.length} offers but none passed filters`);
+              return null;
             }
           } else {
             console.log(`[BUDGET-DISCOVERY-${toolCallId}] No flights found to ${destination.name} - API returned:`, {
@@ -411,64 +405,26 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
               offersCount: searchResult.data?.offers?.length || 0,
               error: searchResult.error
             });
-          }
-
-          idx += 1;
-          if (tripId) {
-            setProgress(tripId, {
-              current: idx,
-              total: plannedDestinations,
-              message: `Completed ${idx}/${plannedDestinations}`,
-            });
-          }
-
-          // Watchdog: if we're close to timeout, return partial results immediately
-          if (Date.now() - startTime > DEADLINE_MS) {
-            const sortedResults = locationResults
-              .slice(0, Math.min(5, locationResults.length))
-              .map(item => item.flight);
-
-            const searchDuration = Date.now() - startTime;
-            if (tripId) {
-              setProgress(tripId, {
-                current: idx,
-                total: plannedDestinations,
-                message: `Partial results returned to avoid timeout (${Math.round(searchDuration/1000)}s)`,
-                done: true,
-              });
-            }
-
-            return {
-              success: true,
-              results: sortedResults,
-              metadata: {
-                plannedDestinations,
-                totalSearches: destinations.length,
-                successfulSearches: destinationsSearched.length,
-                searchDurationMs: searchDuration,
-                resultsCount: sortedResults.length,
-                destinationsSearched,
-                dateRangesSearched,
-                searchParams: {
-                  from,
-                  destinationSuggestion,
-                  timeFrame,
-                  tripType,
-                  passengers,
-                  cabinClass,
-                  preferences,
-                },
-                aiSuggestedDestinations: destinations.map((d: {name: string}) => d.name),
-                partial: true,
-              },
-            };
+            return null;
           }
           
         } catch (error) {
           console.error(`[BUDGET-DISCOVERY-${toolCallId}] Error searching ${destination.name}:`, error);
-          // Continue with next destination instead of failing completely
+          return null;
         }
-      }
+      });
+
+      // Wait for all searches to complete in parallel
+      const searchResults = await Promise.all(searchPromises);
+      
+      // Filter out null results and add to locationResults
+      const validResults = searchResults.filter(result => result !== null);
+      validResults.forEach(result => {
+        if (result) {
+          locationResults.push(result);
+          destinationsSearched.push(result.destination.name);
+        }
+      });
 
       // Maintain original destination order, but each location shows its cheapest direct flight
       const sortedResults = locationResults
@@ -480,7 +436,7 @@ Provide EXACTLY 5 concrete destinations (city + primary IATA airport). This tool
         setProgress(tripId, {
           current: plannedDestinations,
           total: plannedDestinations,
-          message: `Search complete in ${Math.round(searchDuration/1000)}s`,
+          message: `Search complete in ${Math.round(searchDuration/1000)}s - found ${validResults.length}/${plannedDestinations} destinations`,
           done: true,
         });
       }
