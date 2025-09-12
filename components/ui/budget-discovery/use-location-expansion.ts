@@ -52,9 +52,33 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(`bd-loc-results-${tripId}-${chatMode}`, JSON.stringify(locationFlightResults));
+        // Compress the data by only storing essential fields to prevent quota issues
+        const compressedResults = locationFlightResults.map(result => ({
+          id: result.id,
+          route: result.route,
+          dates: result.dates,
+          price: result.price,
+          duration: result.duration,
+          airline: result.airline,
+          stops: result.stops
+        }));
+        
+        const dataString = JSON.stringify(compressedResults);
+        if (dataString.length > 1024 * 1024) { // 1MB limit
+          console.warn('Location flight results too large, truncating to prevent quota issues');
+          const truncatedResults = compressedResults.slice(0, 10); // Keep only first 10 results
+          localStorage.setItem(`bd-loc-results-${tripId}-${chatMode}`, JSON.stringify(truncatedResults));
+        } else {
+          localStorage.setItem(`bd-loc-results-${tripId}-${chatMode}`, dataString);
+        }
       } catch (error) {
         console.warn('Failed to save location flight results:', error);
+        // Clear old data to make space
+        try {
+          localStorage.removeItem(`bd-loc-results-${tripId}-${chatMode}`);
+        } catch (clearError) {
+          console.warn('Failed to clear old location results:', clearError);
+        }
       }
     }
   }, [locationFlightResults, tripId, chatMode]);

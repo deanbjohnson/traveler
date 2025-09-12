@@ -490,6 +490,11 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   // Create a new flight result with the replaced leg
                   const { flight, legType, newLeg, originalLeg } = data;
                   
+                  // Calculate the price difference
+                  const originalLegPrice = parseFloat(originalLeg.price || '0');
+                  const newLegPrice = parseFloat(newLeg.price || '0');
+                  const priceDifference = newLegPrice - originalLegPrice;
+                  
                   // Create a new flight result by replacing the specified leg
                   const updatedFlight = {
                     ...flight,
@@ -505,7 +510,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                       },
                       price: {
                         ...flight.price,
-                        total: parseFloat(newLeg.price) + (legType === 'outbound' ? 0 : flight.price.total - parseFloat(originalLeg.price || '0'))
+                        total: flight.price.total + priceDifference
                       }
                     } : {
                       dates: {
@@ -518,15 +523,29 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                       },
                       price: {
                         ...flight.price,
-                        total: parseFloat(newLeg.price) + (legType === 'return' ? 0 : flight.price.total - parseFloat(originalLeg.price || '0'))
+                        total: flight.price.total + priceDifference
                       }
                     })
                   };
                   
                   // Update the flight results with the new flight
-                  setSearchResults((prevResults: any) => 
-                    prevResults.map((f: any) => f.id === flight.id ? updatedFlight : f)
-                  );
+                  setSearchResults((prevResults: any) => {
+                    const updatedResults = prevResults.map((f: any) => {
+                      if (f.id === flight.id) {
+                        console.log('Found matching flight to update:', f.id, 'with new data:', updatedFlight);
+                        return updatedFlight;
+                      }
+                      return f;
+                    });
+                    
+                    // Check if we actually found and updated a flight
+                    const wasUpdated = updatedResults.some((f: any) => f.id === flight.id && f.price.total === updatedFlight.price.total);
+                    if (!wasUpdated) {
+                      console.warn('No matching flight found to update! Flight ID:', flight.id, 'Available IDs:', prevResults.map((f: any) => f.id));
+                    }
+                    
+                    return updatedResults;
+                  });
                   
                   // Show success message
                   console.log('Leg replaced successfully:', updatedFlight);
