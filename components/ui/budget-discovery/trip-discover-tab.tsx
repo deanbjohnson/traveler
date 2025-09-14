@@ -538,6 +538,9 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   
                   // Update the flight results with the new flight
                   setSearchResults((prevResults: any) => {
+                    console.log('🔍 Current search results IDs:', prevResults.map((f: any) => f.id));
+                    console.log('🔍 Looking for flight ID:', flight.id);
+                    
                     // Try multiple ID matching strategies since the IDs might be different
                     let matchingFlight = null;
                     let matchingIndex = -1;

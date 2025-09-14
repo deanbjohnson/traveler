@@ -486,7 +486,11 @@ export function LocationGroupedResults({
                                   <LegEditModal
                                     flight={flight}
                                     legType="outbound"
-                                    onReplaceLeg={handleReplaceLeg}
+                                    onReplaceLeg={(data) => {
+                                      console.log('🔍 Modal calling onReplaceLeg with flight ID:', data.flight.id);
+                                      console.log('🔍 Modal flight data:', data.flight);
+                                      handleReplaceLeg(data);
+                                    }}
                                   >
                                     <Button
                                       variant="outline"
@@ -554,7 +558,11 @@ export function LocationGroupedResults({
                                   <LegEditModal
                                     flight={flight}
                                     legType="return"
-                                    onReplaceLeg={handleReplaceLeg}
+                                    onReplaceLeg={(data) => {
+                                      console.log('🔍 Modal calling onReplaceLeg with flight ID:', data.flight.id);
+                                      console.log('🔍 Modal flight data:', data.flight);
+                                      handleReplaceLeg(data);
+                                    }}
                                   >
                                     <Button
                                       variant="outline"
