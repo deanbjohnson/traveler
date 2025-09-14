@@ -35,11 +35,14 @@ function extractDetailedRouting(slices: any[]): { outbound: FlightSegment[]; ret
 export const normalizeFlightResult = (raw: any): FlightResult => {
   console.log('🔍 normalizeFlightResult called with raw data:', {
     id: raw.id,
+    offerId: raw.offer?.id,
+    searchId: raw.searchId,
     hasOffer: !!raw.offer,
     hasSlices: !!raw.slices,
     hasPrice: !!raw.price,
     hasTotalAmount: !!raw.total_amount,
-    rawKeys: Object.keys(raw)
+    rawKeys: Object.keys(raw),
+    fullRawData: raw
   });
   
   // Preserve the original ID - don't generate a new one unless absolutely necessary

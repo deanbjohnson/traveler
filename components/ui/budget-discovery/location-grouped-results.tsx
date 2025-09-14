@@ -489,6 +489,7 @@ export function LocationGroupedResults({
                                     onReplaceLeg={(data) => {
                                       console.log('🔍 Modal calling onReplaceLeg with flight ID:', data.flight.id);
                                       console.log('🔍 Modal flight data:', data.flight);
+                                      console.log('🔍 Original flight from search results:', flight);
                                       handleReplaceLeg(data);
                                     }}
                                   >
@@ -561,6 +562,7 @@ export function LocationGroupedResults({
                                     onReplaceLeg={(data) => {
                                       console.log('🔍 Modal calling onReplaceLeg with flight ID:', data.flight.id);
                                       console.log('🔍 Modal flight data:', data.flight);
+                                      console.log('🔍 Original flight from search results:', flight);
                                       handleReplaceLeg(data);
                                     }}
                                   >
