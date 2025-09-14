@@ -53,15 +53,17 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
     if (typeof window !== 'undefined') {
       try {
         // Compress the data by only storing essential fields to prevent quota issues
-        const compressedResults = locationFlightResults.map(result => ({
-          id: result.id,
-          route: result.route,
-          dates: result.dates,
-          price: result.price,
-          duration: result.duration,
-          airline: result.airline,
-          stops: result.stops
-        }));
+        const compressedResults = Array.isArray(locationFlightResults) 
+          ? locationFlightResults.map(result => ({
+              id: result.id,
+              route: result.route,
+              dates: result.dates,
+              price: result.price,
+              duration: result.duration,
+              airline: result.airline,
+              stops: result.stops
+            }))
+          : [];
         
         const dataString = JSON.stringify(compressedResults);
         if (dataString.length > 1024 * 1024) { // 1MB limit
