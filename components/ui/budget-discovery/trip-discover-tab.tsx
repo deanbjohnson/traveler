@@ -541,17 +541,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                     console.log('🔍 Current search results IDs:', prevResults.map((f: any) => f.id));
                     console.log('🔍 Looking for flight ID:', flight.id);
                     
-                    // Use route and date matching as the primary strategy since IDs are inconsistent
-                    const matchingIndex = prevResults.findIndex((f: any) => 
-                      f.route?.from === flight.route?.from && 
-                      f.route?.to === flight.route?.to &&
-                      f.dates?.departure === flight.dates?.departure &&
-                      f.dates?.return === flight.dates?.return
-                    );
+                    // Use exact ID matching now that we've fixed the ID preservation issue
+                    const matchingIndex = prevResults.findIndex((f: any) => f.id === flight.id);
                     
                     if (matchingIndex !== -1) {
                       const matchingFlight = prevResults[matchingIndex];
-                      console.log('✅ Found route/date match:', matchingFlight.id);
+                      console.log('✅ Found exact ID match:', matchingFlight.id);
                       
                       // Create updated flight with new leg data
                       const updatedFlight = {

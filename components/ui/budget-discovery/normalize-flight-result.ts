@@ -42,7 +42,17 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
     rawKeys: Object.keys(raw)
   });
   
-  const id: string = raw.id || raw.offer?.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  // Preserve the original ID - don't generate a new one unless absolutely necessary
+  const id: string = raw.id || raw.offer?.id || raw.searchId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  
+  // Debug ID preservation
+  if (raw.id && raw.id !== id) {
+    console.warn('🚨 ID was changed during normalization:', { original: raw.id, new: id });
+  } else if (raw.id) {
+    console.log('✅ ID preserved during normalization:', id);
+  } else {
+    console.log('⚠️ No original ID found, generated new one:', id);
+  }
 
   const route = raw.route || {
     origin: raw.slices?.[0]?.origin?.iata_code || raw.timelineData?.slices?.[0]?.origin?.iata_code || "",
