@@ -541,43 +541,70 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                     console.log('🔍 Current search results IDs:', prevResults.map((f: any) => f.id));
                     console.log('🔍 Looking for flight ID:', flight.id);
                     
-                    // Try multiple ID matching strategies since the IDs might be different
-                    let matchingFlight = null;
-                    let matchingIndex = -1;
+                    // Use route and date matching as the primary strategy since IDs are inconsistent
+                    const matchingIndex = prevResults.findIndex((f: any) => 
+                      f.route?.from === flight.route?.from && 
+                      f.route?.to === flight.route?.to &&
+                      f.dates?.departure === flight.dates?.departure &&
+                      f.dates?.return === flight.dates?.return
+                    );
                     
-                    // First try exact ID match
-                    matchingIndex = prevResults.findIndex((f: any) => f.id === flight.id);
                     if (matchingIndex !== -1) {
-                      matchingFlight = prevResults[matchingIndex];
-                    }
-                    
-                    // If no exact match, try matching by route and dates (fallback)
-                    if (!matchingFlight) {
-                      matchingIndex = prevResults.findIndex((f: any) => 
-                        f.route?.from === flight.route?.from && 
-                        f.route?.to === flight.route?.to &&
-                        f.dates?.departure === flight.dates?.departure
-                      );
-                      if (matchingIndex !== -1) {
-                        matchingFlight = prevResults[matchingIndex];
-                        console.log('Found flight by route/date match:', matchingFlight.id, 'for flight:', flight.id);
-                      }
-                    }
-                    
-                    if (matchingFlight) {
+                      const matchingFlight = prevResults[matchingIndex];
+                      console.log('✅ Found route/date match:', matchingFlight.id);
+                      
+                      // Create updated flight with new leg data
+                      const updatedFlight = {
+                        ...matchingFlight,
+                        // Update the specific leg data
+                        ...(legType === 'outbound' ? {
+                          dates: {
+                            ...matchingFlight.dates,
+                            departure: newLeg.departure
+                          },
+                          duration: {
+                            ...matchingFlight.duration,
+                            outbound: newLeg.duration
+                          },
+                          price: {
+                            ...matchingFlight.price,
+                            total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
+                          }
+                        } : {
+                          dates: {
+                            ...matchingFlight.dates,
+                            return: newLeg.departure
+                          },
+                          duration: {
+                            ...matchingFlight.duration,
+                            return: newLeg.duration
+                          },
+                          price: {
+                            ...matchingFlight.price,
+                            total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
+                          }
+                        })
+                      };
+                      
+                      // Update the flight in the results
                       const updatedResults = [...prevResults];
                       updatedResults[matchingIndex] = updatedFlight;
-                      console.log('Successfully updated flight:', matchingFlight.id, 'with new data:', updatedFlight);
+                      
+                      console.log('✅ Leg replaced successfully:', updatedFlight);
                       return updatedResults;
                     } else {
-                      console.warn('No matching flight found to update! Flight ID:', flight.id, 'Available IDs:', prevResults.map((f: any) => f.id));
-                      console.warn('Flight route:', flight.route, 'Flight dates:', flight.dates);
+                      console.warn('❌ No matching flight found to update! Flight route:', flight.route, 'Flight dates:', flight.dates);
+                      console.warn('Available flights:', prevResults.map((f: any) => ({ 
+                        id: f.id, 
+                        route: f.route, 
+                        dates: f.dates 
+                      })));
                       return prevResults;
                     }
                   });
                   
                   // Show success message
-                  console.log('Leg replaced successfully:', updatedFlight);
+                  console.log('Leg replacement process completed');
                 }}
               />
             ) : (

@@ -205,12 +205,15 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="leg-edit-description">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plane className="h-5 w-5" />
             Edit {legType === 'outbound' ? 'Outbound' : 'Return'} Leg
           </DialogTitle>
+          <p id="leg-edit-description" className="text-sm text-gray-500">
+            Describe how you want to change this flight leg (e.g., "change date to September 16th, upgrade to first class")
+          </p>
         </DialogHeader>
 
         <div className="space-y-6">
