@@ -27,7 +27,8 @@ import { searchFlights } from '@/app/server/actions/flight-search';
 interface LegEditModalProps {
   flight: FlightResult;
   legType: 'outbound' | 'return';
-  onReplaceLeg: (newLeg: any) => void;
+  flightIndex: number;
+  onReplaceLeg: (data: { flight: FlightResult, legType: 'outbound' | 'return', newLeg: any, originalLeg: any, flightIndex: number }) => void;
   children: React.ReactNode;
 }
 
@@ -68,7 +69,7 @@ const safeFormatDate = (dateString: string | undefined): string => {
   }
 };
 
-export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEditModalProps) {
+export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, children }: LegEditModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editCriteria, setEditCriteria] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -153,7 +154,8 @@ export function LegEditModal({ flight, legType, onReplaceLeg, children }: LegEdi
         flight,
         legType,
         newLeg: option,
-        originalLeg: legData
+        originalLeg: legData,
+        flightIndex
       });
       setIsOpen(false);
     }

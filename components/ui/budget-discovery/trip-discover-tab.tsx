@@ -488,7 +488,7 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   console.log('Leg replacement request:', data);
                   
                   // Create a new flight result with the replaced leg
-                  const { flight, legType, newLeg, originalLeg } = data;
+                  const { flight, legType, newLeg, originalLeg, flightIndex } = data;
                   
                   // Debug: Log the flight data structure
                   console.log('Flight data structure:', {
@@ -538,14 +538,12 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                   
                   // Update the flight results with the new flight
                   setSearchResults((prevResults: any) => {
-                    console.log('🔍 Current search results IDs:', prevResults.map((f: any) => f.id));
-                    console.log('🔍 Looking for flight ID:', flight.id);
+                    console.log('🔍 Using flight index for replacement:', flightIndex);
+                    console.log('🔍 Total search results:', prevResults.length);
                     
-                    // Use exact ID matching - IDs should be consistent
-                    const matchingIndex = prevResults.findIndex((f: any) => f.id === flight.id);
-                    
-                    if (matchingIndex !== -1) {
-                      const matchingFlight = prevResults[matchingIndex];
+                    // Use index-based matching - much more reliable than ID matching
+                    if (flightIndex >= 0 && flightIndex < prevResults.length) {
+                      const matchingFlight = prevResults[flightIndex];
                       
                       // Create updated flight with new leg data
                       const updatedFlight = {
@@ -582,18 +580,13 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                       
                       // Update the flight in the results
                       const updatedResults = [...prevResults];
-                      updatedResults[matchingIndex] = updatedFlight;
+                      updatedResults[flightIndex] = updatedFlight;
                       
                       console.log('✅ Leg replaced successfully:', updatedFlight);
                       return updatedResults;
                     } else {
-                      console.warn('❌ No matching flight found to update! Flight route:', flight.route, 'Flight dates:', flight.dates);
-                      console.warn('Available flights:', prevResults.map((f: any) => ({ 
-                        id: f.id, 
-                        route: f.route, 
-                        dates: f.dates,
-                        offerId: f.offer?.id
-                      })));
+                      console.warn('❌ Invalid flight index! Index:', flightIndex, 'Total flights:', prevResults.length);
+                      console.warn('Flight route:', flight.route, 'Flight dates:', flight.dates);
                       return prevResults;
                     }
                   });

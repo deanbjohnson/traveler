@@ -486,8 +486,9 @@ export function LocationGroupedResults({
                                   <LegEditModal
                                     flight={flight}
                                     legType="outbound"
+                                    flightIndex={index}
                                     onReplaceLeg={(data) => {
-                                      console.log('🔍 Modal calling onReplaceLeg with flight ID:', data.flight.id);
+                                      console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
                                       console.log('🔍 Modal flight data:', data.flight);
                                       console.log('🔍 Original flight from search results:', flight);
                                       handleReplaceLeg(data);
@@ -559,8 +560,9 @@ export function LocationGroupedResults({
                                   <LegEditModal
                                     flight={flight}
                                     legType="return"
+                                    flightIndex={index}
                                     onReplaceLeg={(data) => {
-                                      console.log('🔍 Modal calling onReplaceLeg with flight ID:', data.flight.id);
+                                      console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
                                       console.log('🔍 Modal flight data:', data.flight);
                                       console.log('🔍 Original flight from search results:', flight);
                                       handleReplaceLeg(data);
