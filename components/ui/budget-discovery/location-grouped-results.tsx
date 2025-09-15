@@ -329,6 +329,9 @@ export function LocationGroupedResults({
                                     'Unknown Airline';
                   const isRoundTrip = flight.dates?.return && flight.duration?.return;
                   const isFlightExpandedState = isFlightExpanded(flight.id);
+                  
+                  // Find the actual index in the main search results array
+                  const actualIndex = flights.findIndex(f => f.id === flight.id);
 
                   return (
                     <div key={flight.id} className="space-y-2">
@@ -486,7 +489,7 @@ export function LocationGroupedResults({
                                   <LegEditModal
                                     flight={flight}
                                     legType="outbound"
-                                    flightIndex={index}
+                                    flightIndex={actualIndex}
                                     onReplaceLeg={(data) => {
                                       console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
                                       console.log('🔍 Modal flight data:', data.flight);
@@ -560,7 +563,7 @@ export function LocationGroupedResults({
                                   <LegEditModal
                                     flight={flight}
                                     legType="return"
-                                    flightIndex={index}
+                                    flightIndex={actualIndex}
                                     onReplaceLeg={(data) => {
                                       console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
                                       console.log('🔍 Modal flight data:', data.flight);
