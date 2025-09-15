@@ -23,6 +23,7 @@ import {
 import { FlightResult } from './types';
 import { format, isValid, parseISO } from 'date-fns';
 import { searchFlights } from '@/app/server/actions/flight-search';
+import { debugServerActionResponse, debugOfferStructure, debugLegData } from './debug-utils';
 
 interface LegEditModalProps {
   flight: FlightResult;
@@ -112,24 +113,36 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
       
       // The server action returns a different format
       if (data.success && data.data) {
+        // Debug the server action response
+        debugServerActionResponse(data, 'Server Action Response');
+        
         // The server action returns offers directly in data.data
         const offers = data.data.offers || [];
         
         if (offers.length > 0) {
+          // Debug the first offer structure
+          debugOfferStructure(offers[0], 'First Offer from Server Action');
           
-          const options = offers.slice(0, 5).map((offer: any) => ({
-            id: offer.id || Math.random().toString(),
-            price: offer.total_amount || 'N/A',
-            currency: offer.total_currency || 'USD',
-            airline: offer.owner?.name || 'Unknown',
-            route: `${offer.slices?.[0]?.origin?.iata_code} → ${offer.slices?.[0]?.destination?.iata_code}`,
-            departure: offer.slices?.[0]?.departing_at,
-            arrival: offer.slices?.[0]?.arriving_at,
-            duration: offer.slices?.[0]?.duration,
-            stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
-            cabinClass: searchParams.cabinClass || 'economy',
-            offer
-          }));
+          const options = offers.slice(0, 5).map((offer: any, index: number) => {
+            const option = {
+              id: offer.id || Math.random().toString(),
+              price: offer.total_amount || 'N/A',
+              currency: offer.total_currency || 'USD',
+              airline: offer.owner?.name || 'Unknown',
+              route: `${offer.slices?.[0]?.origin?.iata_code} → ${offer.slices?.[0]?.destination?.iata_code}`,
+              departure: offer.slices?.[0]?.departing_at,
+              arrival: offer.slices?.[0]?.arriving_at,
+              duration: offer.slices?.[0]?.duration,
+              stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
+              cabinClass: searchParams.cabinClass || 'economy',
+              offer
+            };
+            
+            // Debug each option as it's created
+            debugLegData(option, `Option ${index + 1}`);
+            
+            return option;
+          });
           
           setReplacementOptions(options);
         } else {
@@ -151,6 +164,11 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
     
     const option = replacementOptions.find(opt => opt.id === selectedOption);
     if (option) {
+      // Debug the replacement data
+      console.log('🔍 handleReplaceLeg called with option:', option);
+      debugLegData(option, 'Replacement Option');
+      debugLegData(legData, 'Original Leg Data');
+      
       onReplaceLeg({
         flight,
         legType,
