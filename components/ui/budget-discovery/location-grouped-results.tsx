@@ -332,6 +332,10 @@ export function LocationGroupedResults({
                   
                   // Find the actual index in the main search results array
                   const actualIndex = flights.findIndex(f => f.id === flight.id);
+                  
+                  // If flight not found in main results (expanded flight), disable editing
+                  const finalIndex = actualIndex !== -1 ? actualIndex : -1;
+                  const isExpandedFlight = actualIndex === -1;
 
                   return (
                     <div key={flight.id} className="space-y-2">
@@ -484,29 +488,31 @@ export function LocationGroupedResults({
                                   </div>
                                 )}
                                 
-                                {/* Leg editing controls */}
-                                <div className="mt-3">
-                                  <LegEditModal
-                                    flight={flight}
-                                    legType="outbound"
-                                    flightIndex={actualIndex}
-                                    onReplaceLeg={(data) => {
-                                      console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
-                                      console.log('🔍 Modal flight data:', data.flight);
-                                      console.log('🔍 Original flight from search results:', flight);
-                                      handleReplaceLeg(data);
-                                    }}
-                                  >
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                {/* Leg editing controls - only for main search results */}
+                                {!isExpandedFlight && (
+                                  <div className="mt-3">
+                                    <LegEditModal
+                                      flight={flight}
+                                      legType="outbound"
+                                      flightIndex={finalIndex}
+                                      onReplaceLeg={(data) => {
+                                        console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
+                                        console.log('🔍 Modal flight data:', data.flight);
+                                        console.log('🔍 Original flight from search results:', flight);
+                                        handleReplaceLeg(data);
+                                      }}
                                     >
-                                      <Edit className="mr-1 h-3 w-3" />
-                                      Edit This Leg
-                                    </Button>
-                                  </LegEditModal>
-                                </div>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                      >
+                                        <Edit className="mr-1 h-3 w-3" />
+                                        Edit This Leg
+                                      </Button>
+                                    </LegEditModal>
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
@@ -558,29 +564,31 @@ export function LocationGroupedResults({
                                   </div>
                                 )}
                                 
-                                {/* Leg editing controls */}
-                                <div className="mt-3">
-                                  <LegEditModal
-                                    flight={flight}
-                                    legType="return"
-                                    flightIndex={actualIndex}
-                                    onReplaceLeg={(data) => {
-                                      console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
-                                      console.log('🔍 Modal flight data:', data.flight);
-                                      console.log('🔍 Original flight from search results:', flight);
-                                      handleReplaceLeg(data);
-                                    }}
-                                  >
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                {/* Leg editing controls - only for main search results */}
+                                {!isExpandedFlight && (
+                                  <div className="mt-3">
+                                    <LegEditModal
+                                      flight={flight}
+                                      legType="return"
+                                      flightIndex={finalIndex}
+                                      onReplaceLeg={(data) => {
+                                        console.log('🔍 Modal calling onReplaceLeg with flight index:', data.flightIndex);
+                                        console.log('🔍 Modal flight data:', data.flight);
+                                        console.log('🔍 Original flight from search results:', flight);
+                                        handleReplaceLeg(data);
+                                      }}
                                     >
-                                      <Edit className="mr-1 h-3 w-3" />
-                                      Edit This Leg
-                                    </Button>
-                                  </LegEditModal>
-                                </div>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs bg-blue-600/20 border-blue-500/30 text-blue-300 hover:bg-blue-600/30"
+                                      >
+                                        <Edit className="mr-1 h-3 w-3" />
+                                        Edit This Leg
+                                      </Button>
+                                    </LegEditModal>
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
