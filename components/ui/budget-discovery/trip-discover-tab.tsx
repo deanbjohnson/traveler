@@ -580,11 +580,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                             ...matchingFlight.price,
                             total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
                           },
-                          // Update routing information for outbound leg
-                          routing: {
-                            ...matchingFlight.routing,
-                            outbound: newLeg.route
-                          }
+                          // Keep original routing - it's complex and route field already has the summary
+                          routing: matchingFlight.routing
                         } : {
                           dates: {
                             ...matchingFlight.dates,
@@ -598,11 +595,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                             ...matchingFlight.price,
                             total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
                           },
-                          // Update routing information for return leg
-                          routing: {
-                            ...matchingFlight.routing,
-                            return: newLeg.route
-                          }
+                          // Keep original routing - it's complex and route field already has the summary
+                          routing: matchingFlight.routing
                         })
                       };
                       

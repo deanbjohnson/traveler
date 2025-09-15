@@ -116,9 +116,6 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
         const offers = data.data.offers || [];
         
         if (offers.length > 0) {
-          // Debug: Log the first offer structure
-          console.log('🔍 First offer structure:', offers[0]);
-          console.log('🔍 First slice structure:', offers[0]?.slices?.[0]);
           
           const options = offers.slice(0, 5).map((offer: any) => ({
             id: offer.id || Math.random().toString(),
@@ -126,8 +123,8 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
             currency: offer.total_currency || 'USD',
             airline: offer.owner?.name || 'Unknown',
             route: `${offer.slices?.[0]?.origin?.iata_code} → ${offer.slices?.[0]?.destination?.iata_code}`,
-            departure: offer.slices?.[0]?.departure_datetime,
-            arrival: offer.slices?.[0]?.arrival_datetime,
+            departure: offer.slices?.[0]?.departing_at,
+            arrival: offer.slices?.[0]?.arriving_at,
             duration: offer.slices?.[0]?.duration,
             stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
             cabinClass: searchParams.cabinClass || 'economy',
