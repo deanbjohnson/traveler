@@ -545,6 +545,24 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                     if (flightIndex >= 0 && flightIndex < prevResults.length) {
                       const matchingFlight = prevResults[flightIndex];
                       
+                      // Debug: Log the flight structure before update
+                      console.log('🔍 Original flight structure:', {
+                        id: matchingFlight.id,
+                        route: matchingFlight.route,
+                        dates: matchingFlight.dates,
+                        duration: matchingFlight.duration,
+                        routing: matchingFlight.routing,
+                        isRoundTrip: !!(matchingFlight.dates?.return && matchingFlight.duration?.return)
+                      });
+                      
+                      console.log('🔍 New leg data:', {
+                        route: newLeg.route,
+                        departure: newLeg.departure,
+                        duration: newLeg.duration,
+                        price: newLeg.price,
+                        legType
+                      });
+                      
                       // Create updated flight with new leg data
                       const updatedFlight = {
                         ...matchingFlight,
@@ -561,6 +579,11 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                           price: {
                             ...matchingFlight.price,
                             total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
+                          },
+                          // Update routing information for outbound leg
+                          routing: {
+                            ...matchingFlight.routing,
+                            outbound: newLeg.route
                           }
                         } : {
                           dates: {
@@ -574,9 +597,24 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                           price: {
                             ...matchingFlight.price,
                             total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
+                          },
+                          // Update routing information for return leg
+                          routing: {
+                            ...matchingFlight.routing,
+                            return: newLeg.route
                           }
                         })
                       };
+                      
+                      // Debug: Log the updated flight structure
+                      console.log('🔍 Updated flight structure:', {
+                        id: updatedFlight.id,
+                        route: updatedFlight.route,
+                        dates: updatedFlight.dates,
+                        duration: updatedFlight.duration,
+                        routing: updatedFlight.routing,
+                        isRoundTrip: !!(updatedFlight.dates?.return && updatedFlight.duration?.return)
+                      });
                       
                       // Update the flight in the results
                       const updatedResults = [...prevResults];
