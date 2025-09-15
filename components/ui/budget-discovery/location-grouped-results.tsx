@@ -321,7 +321,7 @@ export function LocationGroupedResults({
             {/* Expanded flights */}
             {isExpanded && (
               <div className="p-4 bg-gray-800/30 space-y-3">
-                {sortedFlights.map((flight) => {
+                {sortedFlights.map((flight, index) => {
                   const isAdded = addedFlightIds.has(flight.id);
                   const airlineName = flight.offer?.owner?.name || 
                                     flight.airlines?.[0] || 
