@@ -179,6 +179,13 @@ export const useFlightSearch = (tripId: string, chatMode: ChatMode) => {
 
                   const firstResult = flightData[0];
                   if (firstResult && (firstResult.price || firstResult.route || firstResult.id || firstResult.total_amount || firstResult.slices)) {
+                    // Clear cached location flight data when new search results come in
+                    if (typeof window !== 'undefined') {
+                      localStorage.removeItem(`bd-loc-results-${tripId}-${chatMode}`);
+                      localStorage.removeItem(`bd-loc-expanded-${tripId}-${chatMode}`);
+                      console.log('🧹 Cleared cached location flight data to prevent stale data issues');
+                    }
+                    
                     const normalized = flightData.map(normalizeFlightResult);
                     mergeResults(normalized);
                     console.log(`✅ Extracted flight results from ${toolCall.toolName} tool call:`, flightData.length);
