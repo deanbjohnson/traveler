@@ -116,6 +116,10 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
         const offers = data.data.offers || [];
         
         if (offers.length > 0) {
+          // Debug: Log the first offer structure
+          console.log('🔍 First offer structure:', offers[0]);
+          console.log('🔍 First slice structure:', offers[0]?.slices?.[0]);
+          
           const options = offers.slice(0, 5).map((offer: any) => ({
             id: offer.id || Math.random().toString(),
             price: offer.total_amount || 'N/A',
