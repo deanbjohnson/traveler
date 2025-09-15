@@ -216,7 +216,9 @@ export const useOptimizedChatSearch = (
                     if (typeof window !== 'undefined') {
                       localStorage.removeItem(`bd-loc-results-${tripId}-${chatMode}`);
                       localStorage.removeItem(`bd-loc-expanded-${tripId}-${chatMode}`);
-                      console.log('🧹 Cleared cached location flight data to prevent stale data issues');
+                      // Also clear any other potential cached flight data
+                      localStorage.removeItem(`budget-discovery-results-${tripId}-${chatMode}`);
+                      console.log('🧹 Cleared all cached flight data to prevent stale data issues');
                     }
                     
                     const normalized = flightData.map(normalizeFlightResult);
