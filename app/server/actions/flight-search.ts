@@ -20,8 +20,8 @@ interface DuffelSlice {
     iata_code: string;
     name: string;
   };
-  departure_datetime: string;
-  arrival_datetime: string;
+  departing_at: string;
+  arriving_at: string;
   duration: string;
   segments: Array<{
     id: string;
@@ -45,8 +45,8 @@ interface DuffelSlice {
       iata_code: string;
       name: string;
     };
-    departure_datetime: string;
-    arrival_datetime: string;
+    departing_at: string;
+    arriving_at: string;
   }>;
 }
 
