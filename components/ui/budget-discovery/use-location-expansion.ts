@@ -137,7 +137,7 @@ export const useLocationExpansion = ({ tripId, chatMode }: UseLocationExpansionP
         // Flexible flight search results are already in FlightOption format with routing data
         // We just need to convert them to FlightResult format without losing the routing
         let normalized = data.results.map((r: any) => ({
-          id: r.searchId || `flight-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id: r.id || r.searchId || `flight-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           searchId: r.searchId || '',
           route: r.route,
           dates: r.dates,
