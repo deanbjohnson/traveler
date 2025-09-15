@@ -130,8 +130,9 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
               currency: offer.total_currency || 'USD',
               airline: offer.owner?.name || 'Unknown',
               route: `${offer.slices?.[0]?.origin?.iata_code} → ${offer.slices?.[0]?.destination?.iata_code}`,
-              departure: offer.slices?.[0]?.departing_at,
-              arrival: offer.slices?.[0]?.arriving_at,
+              // Extract departure/arrival from the first segment, not the slice
+              departure: offer.slices?.[0]?.segments?.[0]?.departing_at,
+              arrival: offer.slices?.[0]?.segments?.[0]?.arriving_at,
               duration: offer.slices?.[0]?.duration,
               stops: (offer.slices?.[0]?.segments?.length || 1) - 1,
               cabinClass: searchParams.cabinClass || 'economy',

@@ -8,6 +8,10 @@ export const debugOfferStructure = (offer: any, label: string) => {
   console.log(`🔍 ${label} - First slice arriving_at:`, offer?.slices?.[0]?.arriving_at);
   console.log(`🔍 ${label} - First slice departure_datetime:`, offer?.slices?.[0]?.departure_datetime);
   console.log(`🔍 ${label} - First slice arrival_datetime:`, offer?.slices?.[0]?.arrival_datetime);
+  console.log(`🔍 ${label} - First slice segments:`, offer?.slices?.[0]?.segments);
+  console.log(`🔍 ${label} - First segment:`, offer?.slices?.[0]?.segments?.[0]);
+  console.log(`🔍 ${label} - First segment departing_at:`, offer?.slices?.[0]?.segments?.[0]?.departing_at);
+  console.log(`🔍 ${label} - First segment arriving_at:`, offer?.slices?.[0]?.segments?.[0]?.arriving_at);
 };
 
 export const debugLegData = (legData: any, label: string) => {
