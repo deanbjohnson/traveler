@@ -40,7 +40,7 @@ export const convertOffersToFlightResults = (offers: any[], searchParams: Flight
     if (offer.route && offer.timing && offer.airline) {
       console.log(`🔧 Converting offer ${index} using new API format`);
       return {
-        id: offer.id || `flight-${index}`,
+        id: offer.id, // Preserve original Duffel ID
         searchId: `search-${Date.now()}`,
         route: {
           origin: offer.route.from?.code || offer.route.from || searchParams.origin,
@@ -84,7 +84,7 @@ export const convertOffersToFlightResults = (offers: any[], searchParams: Flight
       const secondSegment = secondSlice?.segments?.[0];
       
       return {
-        id: offer.id || `flight-${index}`,
+        id: offer.id, // Preserve original Duffel ID
         searchId: `search-${Date.now()}`,
         route: {
           origin: firstSlice?.origin?.iata_code || searchParams.origin,
@@ -123,7 +123,7 @@ export const convertOffersToFlightResults = (offers: any[], searchParams: Flight
     else {
       console.log(`🔧 Converting offer ${index} using fallback format`);
       return {
-        id: offer.id || `flight-${index}`,
+        id: offer.id, // Preserve original Duffel ID
         searchId: `search-${Date.now()}`,
         route: {
           origin: searchParams.origin,

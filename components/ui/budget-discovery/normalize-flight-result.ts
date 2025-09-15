@@ -45,8 +45,13 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
     fullRawData: raw
   });
   
-  // Preserve the original ID - don't generate a new one unless absolutely necessary
-  const id: string = raw.id || raw.offer?.id || raw.searchId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  // Preserve the original ID - fail if no ID is found rather than generating a new one
+  const id: string = raw.id || raw.offer?.id || raw.searchId;
+  
+  if (!id) {
+    console.error('🚨 CRITICAL: No ID found in flight data!', raw);
+    throw new Error('Flight data missing required ID field');
+  }
   
   // Debug ID preservation
   if (raw.id && raw.id !== id) {
