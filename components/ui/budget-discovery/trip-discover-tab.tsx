@@ -541,12 +541,42 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                     console.log('🔍 Current search results IDs:', prevResults.map((f: any) => f.id));
                     console.log('🔍 Looking for flight ID:', flight.id);
                     
-                    // Use exact ID matching now that we've fixed the ID preservation issue
-                    const matchingIndex = prevResults.findIndex((f: any) => f.id === flight.id);
+                    // Try multiple matching strategies since IDs are inconsistent
+                    let matchingIndex = -1;
+                    
+                    // Strategy 1: Try exact ID match first
+                    matchingIndex = prevResults.findIndex((f: any) => f.id === flight.id);
+                    if (matchingIndex !== -1) {
+                      console.log('✅ Found exact ID match:', prevResults[matchingIndex].id);
+                    }
+                    
+                    // Strategy 2: Try matching by route and dates if ID doesn't work
+                    if (matchingIndex === -1) {
+                      console.log('🔄 Trying route and date matching...');
+                      matchingIndex = prevResults.findIndex((f: any) => 
+                        f.route?.origin === flight.route?.origin && 
+                        f.route?.destination === flight.route?.destination &&
+                        f.dates?.departure === flight.dates?.departure &&
+                        f.dates?.return === flight.dates?.return
+                      );
+                      if (matchingIndex !== -1) {
+                        console.log('✅ Found route/date match:', prevResults[matchingIndex].id);
+                      }
+                    }
+                    
+                    // Strategy 3: Try matching by offer ID if available
+                    if (matchingIndex === -1 && flight.offer?.id) {
+                      console.log('🔄 Trying offer ID matching...');
+                      matchingIndex = prevResults.findIndex((f: any) => 
+                        f.offer?.id === flight.offer?.id
+                      );
+                      if (matchingIndex !== -1) {
+                        console.log('✅ Found offer ID match:', prevResults[matchingIndex].id);
+                      }
+                    }
                     
                     if (matchingIndex !== -1) {
                       const matchingFlight = prevResults[matchingIndex];
-                      console.log('✅ Found exact ID match:', matchingFlight.id);
                       
                       // Create updated flight with new leg data
                       const updatedFlight = {
@@ -592,7 +622,8 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                       console.warn('Available flights:', prevResults.map((f: any) => ({ 
                         id: f.id, 
                         route: f.route, 
-                        dates: f.dates 
+                        dates: f.dates,
+                        offerId: f.offer?.id
                       })));
                       return prevResults;
                     }
