@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { searchFlights } from "@/app/server/actions/flight-search";
+import { searchFlights } from "@/app/actions/flight-search";
 import { setProgress, resetProgress } from "@/lib/progress";
 import { eachDayOfInterval, addMonths, startOfMonth, endOfMonth } from "date-fns";
 

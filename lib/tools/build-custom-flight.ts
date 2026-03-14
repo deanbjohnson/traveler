@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { searchFlights } from "@/app/server/actions/flight-search";
+import { searchFlights } from "@/app/actions/flight-search";
 
 export const buildCustomFlightTool = tool({
   description: `

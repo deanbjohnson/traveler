@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { searchStays } from "@/app/server/actions/stay-search";
+import { searchStays } from "@/app/actions/stay-search";
 
 export const findStayTool = tool({
   description:

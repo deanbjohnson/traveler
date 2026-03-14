@@ -7,9 +7,8 @@ This directory contains all AI tools used by the chat API. Tools are organized u
 ```
 lib/tools/
 ├── index.ts          # Central export file for all tools
-├── foobar.ts         # Example placeholder tool
 ├── calculator.ts     # Example calculator tool
-└── README.md         # This documentation
+└── README.md        # This documentation
 ```
 
 ## Adding a New Tool
@@ -52,7 +51,6 @@ import { weatherTool } from "./weather";
 
 // Add to tools object
 export const tools = {
-  foobar: foobarTool,
   calculator: calculatorTool,
   weather: weatherTool, // <- Add here
 } as const;
@@ -79,5 +77,4 @@ That's it! The tool will automatically be available to the AI model.
 
 See the existing tools for reference:
 
-- **`foobar.ts`**: Basic placeholder tool with string processing
 - **`calculator.ts`**: Mathematical expression evaluation with error handling

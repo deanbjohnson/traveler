@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { searchFlights } from '@/app/server/actions/flight-search';
+import { searchFlights } from '@/app/actions/flight-search';
 
 // Cache for API responses
 const apiCache = new Map<string, { data: any, timestamp: number }>();

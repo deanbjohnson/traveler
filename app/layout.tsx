@@ -58,6 +58,9 @@ export default function RootLayout({
                     <Button variant="ghost">Discover</Button>
                   </Link>
                   <SignedIn>
+                    <Link href="/profile">
+                      <Button variant="ghost">Profile</Button>
+                    </Link>
                     <PendingFlightsNotification />
                   </SignedIn>
                   <div className="flex items-center space-x-2">

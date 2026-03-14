@@ -484,29 +484,14 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                 }}
                 addedFlightIds={addedFlightIds}
                 onReplaceLeg={(data) => {
-                  // Handle leg replacement
-                  console.log('Leg replacement request:', data);
-                  
-                  // Create a new flight result with the replaced leg
+                  // Replace outbound or return leg; use flightIndex since IDs can differ across search sources
                   const { flight, legType, newLeg, originalLeg, flightIndex } = data;
-                  
-                  // Debug: Log the flight data structure
-                  console.log('Flight data structure:', {
-                    id: flight.id,
-                    route: flight.route,
-                    dates: flight.dates,
-                    price: flight.price
-                  });
-                  
-                  // Calculate the price difference
                   const originalLegPrice = parseFloat(originalLeg.price || '0');
                   const newLegPrice = parseFloat(newLeg.price || '0');
                   const priceDifference = newLegPrice - originalLegPrice;
                   
-                  // Create a new flight result by replacing the specified leg
                   const updatedFlight = {
                     ...flight,
-                    // Update the specific leg data
                     ...(legType === 'outbound' ? {
                       dates: {
                         ...flight.dates,
@@ -536,37 +521,11 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                     })
                   };
                   
-                  // Update the flight results with the new flight
                   setSearchResults((prevResults: any) => {
-                    console.log('🔍 Using flight index for replacement:', flightIndex);
-                    console.log('🔍 Total search results:', prevResults.length);
-                    
-                    // Use index-based matching - much more reliable than ID matching
                     if (flightIndex >= 0 && flightIndex < prevResults.length) {
                       const matchingFlight = prevResults[flightIndex];
-                      
-                      // Debug: Log the flight structure before update
-                      console.log('🔍 Original flight structure:', {
-                        id: matchingFlight.id,
-                        route: matchingFlight.route,
-                        dates: matchingFlight.dates,
-                        duration: matchingFlight.duration,
-                        routing: matchingFlight.routing,
-                        isRoundTrip: !!(matchingFlight.dates?.return && matchingFlight.duration?.return)
-                      });
-                      
-                      console.log('🔍 New leg data:', {
-                        route: newLeg.route,
-                        departure: newLeg.departure,
-                        duration: newLeg.duration,
-                        price: newLeg.price,
-                        legType
-                      });
-                      
-                      // Create updated flight with new leg data
                       const updatedFlight = {
                         ...matchingFlight,
-                        // Update the specific leg data
                         ...(legType === 'outbound' ? {
                           dates: {
                             ...matchingFlight.dates,
@@ -580,7 +539,6 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                             ...matchingFlight.price,
                             total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
                           },
-                          // Keep original routing - it's complex and route field already has the summary
                           routing: matchingFlight.routing
                         } : {
                           dates: {
@@ -595,36 +553,15 @@ export function TripDiscoverTab({ tripId, timeline }: TripDiscoverTabProps) {
                             ...matchingFlight.price,
                             total: matchingFlight.price.total - parseFloat(originalLeg.price || '0') + parseFloat(newLeg.price)
                           },
-                          // Keep original routing - it's complex and route field already has the summary
                           routing: matchingFlight.routing
                         })
                       };
-                      
-                      // Debug: Log the updated flight structure
-                      console.log('🔍 Updated flight structure:', {
-                        id: updatedFlight.id,
-                        route: updatedFlight.route,
-                        dates: updatedFlight.dates,
-                        duration: updatedFlight.duration,
-                        routing: updatedFlight.routing,
-                        isRoundTrip: !!(updatedFlight.dates?.return && updatedFlight.duration?.return)
-                      });
-                      
-                      // Update the flight in the results
                       const updatedResults = [...prevResults];
                       updatedResults[flightIndex] = updatedFlight;
-                      
-                      console.log('✅ Leg replaced successfully:', updatedFlight);
                       return updatedResults;
-                    } else {
-                      console.warn('❌ Invalid flight index! Index:', flightIndex, 'Total flights:', prevResults.length);
-                      console.warn('Flight route:', flight.route, 'Flight dates:', flight.dates);
-                      return prevResults;
                     }
+                    return prevResults;
                   });
-                  
-                  // Show success message
-                  console.log('Leg replacement process completed');
                 }}
               />
             ) : (

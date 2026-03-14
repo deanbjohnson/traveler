@@ -33,7 +33,6 @@ export function ChatDemo({ tripId, onToolCallFinished }: ChatDemoProps) {
       );
       
       if (hasTimelineUpdate) {
-        console.log('✅ Timeline update detected - refreshing with router.refresh()');
         router.refresh();
       }
     },
@@ -49,7 +48,6 @@ export function ChatDemo({ tripId, onToolCallFinished }: ChatDemoProps) {
       
       if (messageAny?.role === "tool" || 
           messageAny?.toolInvocations?.length > 0) {
-        console.log('🔧 Tool message detected');
         onToolCallFinished?.();
       }
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     Timeline,
@@ -206,19 +206,6 @@ function TimelineItemComponent({
     const [showFlightDetails, setShowFlightDetails] = useState(false);
     const [isActionsHover, setIsActionsHover] = useState(false);
 
-    // DEBUG: Log individual item details (only to console, not in render)
-    useEffect(() => {
-        console.log(`🔍 TIMELINE-ITEM DEBUG - Rendering item:`, {
-            id: item.id,
-            type: item.type,
-            title: item.title,
-            level: level,
-            hasFlightData: !!item.flightData,
-            hasChildren: !!(item.children && item.children.length > 0),
-            source: 'INDIVIDUAL_ITEM_RENDER'
-        });
-    }, [item.id, item.type, item.title, level, item.flightData, item.children]);
-
     const Icon = typeIconMap[item.type];
     const hasChildren = item.children && item.children.length > 0;
     const isRoundTripGroup = false; // hide parent grouping visually
@@ -422,32 +409,14 @@ export default function MainTimeline({
     tripId,
     onItemAdded,
 }: MainTimelineProps) {
-    // HYDRATION-SAFE: Use useEffect for all console logging
-    const [isClient, setIsClient] = useState(false);
     const router = useRouter();
-    
-    useEffect(() => {
-        setIsClient(true);
-        
-        // All debug logging moved to useEffect (client-only)
-        console.log(`\n🔍 MAIN-TIMELINE DEBUG - Component mount`);
-        console.log(`🔍 Timestamp:`, new Date().toISOString());
-        console.log(`🔍 Props timeline:`, !!propTimeline);
-        console.log(`🔍 Timeline items count:`, propTimeline?.items?.length || 0);
-    }, [propTimeline]);
-
-    // SIMPLIFIED: Just use props timeline (no context)
     const timeline = propTimeline;
-
     const [selectedMood, setSelectedMood] = useState(timeline?.mood || "");
 
-    // Manual refresh function for debugging
-    const handleManualRefresh = async () => {
-        console.log(`🔍 Manual refresh triggered - reloading page`);
+    const handleManualRefresh = () => {
         window.location.reload();
     };
 
-    // Example: Call router.refresh() after adding a new item
     const handleItemAdded = () => {
         if (onItemAdded) {
             onItemAdded();
@@ -471,44 +440,28 @@ export default function MainTimeline({
         );
     }
 
-    // Group items by hierarchy (top-level items first) and sort by start time
-    // Flatten: show only non-parent items, but maintain chronological order.
-    // We keep children (level>0) visible and hide LOCATION_CHANGE parents for a cleaner look.
+    // Hide LOCATION_CHANGE parents (level 0) - they're structural markers; children show the actual move
     const topLevelItems = (timeline.items || [])
         .filter((item: TimelineItemData) => !(item.level === 0 && item.type === 'LOCATION_CHANGE'))
         .sort((a: TimelineItemData, b: TimelineItemData) => {
-            // Sort by start time first
             const timeComparison = a.startTime.getTime() - b.startTime.getTime();
             if (timeComparison !== 0) return timeComparison;
-            // If times are equal, fall back to order
             return a.order - b.order;
         });
 
     const handleItemUpdate = (itemId: string, updates: Partial<TimelineItemData>) => {
-        if (isClient) {
-            console.log(`🔍 Item update requested:`, { itemId, updates });
-        }
         onUpdateItem?.(itemId, updates);
     };
 
     const handleItemDelete = (itemId: string) => {
-        if (isClient) {
-            console.log(`🔍 Item delete requested:`, itemId);
-        }
         onDeleteItem?.(itemId);
     };
 
     const handleAlternativeSelect = (itemId: string, alternativeId: string) => {
-        if (isClient) {
-            console.log(`🔍 Alternative select requested:`, { itemId, alternativeId });
-        }
         onSelectAlternative?.(itemId, alternativeId);
     };
 
     const handleMoodChange = (mood: string) => {
-        if (isClient) {
-            console.log(`🔍 Mood change requested:`, mood);
-        }
         setSelectedMood(mood);
         onChangeMood?.(mood);
     };
@@ -568,10 +521,6 @@ export default function MainTimeline({
                 </div>
             )}
 
-            {/* HYDRATION SAFE: No dynamic timestamps in render */}
-            <div className="text-xs text-gray-400 mt-8">
-                Debug: main-timeline | Status: {isClient ? 'Client Ready' : 'Server Rendered'}
-            </div>
         </div>
     )
 }

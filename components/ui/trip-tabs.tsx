@@ -11,8 +11,8 @@ import { TripMap } from "@/components/ui/trip-map";
 import { TripDiscoverTab } from "@/components/ui/budget-discovery-tab";
 import { FlightDetailsModal } from "@/components/ui/flight-details-modal";
 import { BookingFormModal } from "@/components/ui/booking-form-modal";
-import { deleteTimelineItemAction } from "@/app/server/actions/delete-timeline-item";
-import { bookTimelineFlight, bookAllTimelineFlights } from "@/app/server/actions/book-timeline-flight";
+import { deleteTimelineItemAction } from "@/app/actions/delete-timeline-item";
+import { bookTimelineFlight, bookAllTimelineFlights } from "@/app/actions/book-timeline-flight";
 import type { TimelineData } from "@/components/main-timeline";
 
 interface TripTabsProps {

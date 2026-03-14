@@ -1,10 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { searchFlights, DuffelOffer } from "@/app/server/actions/flight-search";
+import { searchFlights, DuffelOffer } from "@/app/actions/flight-search";
 import {
   flexibleFlightSearch,
   FlexibleSearchParams,
-} from "@/app/server/actions/flexible-flight-search";
+} from "@/app/actions/flexible-flight-search";
 
 // Helper to clean and sanitize Duffel offers for timeline
 function cleanDuffelOffer(offer: any) {

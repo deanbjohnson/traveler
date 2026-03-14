@@ -1,5 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Prisma schema for Travelers. Core entities: User (Clerk-synced), Trip, Timeline (1:1 with Trip),
+// TimelineItem (hierarchical: flights, stays, activities), Booking, PendingFlight (email-parsed).
+// See ARCHITECTURE.md for data flow.
 
 generator client {
   provider = "prisma-client-js"

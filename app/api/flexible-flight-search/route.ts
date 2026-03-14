@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { flexibleFlightSearch } from '@/app/server/actions/flexible-flight-search';
+import { flexibleFlightSearch } from '@/app/actions/flexible-flight-search';
 
 // No caching for flexible flight search to ensure fresh random dates
 

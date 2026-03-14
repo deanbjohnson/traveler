@@ -29,17 +29,8 @@ export function AITripSummary({ timeline, tripData, tripId }: AITripSummaryProps
     }
     return '';
   });
-  const [isGenerating, setIsGenerating] = useState(false); // Prevent multiple simultaneous calls
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Debug component lifecycle
-  useEffect(() => {
-    console.log("🤖 AITripSummary component MOUNTED - VERSION", VERSION);
-    return () => {
-      console.log("🤖 AITripSummary component UNMOUNTED");
-    };
-  }, []);
-
-  // Generate a hash of the timeline to detect changes
   const generateTimelineHash = (timeline: any) => {
     if (!timeline?.items) return "";
     
@@ -270,9 +261,7 @@ Be conversational and mention destination, key flights with dates, and any notab
     }
   };
 
-  // Effect to generate summary when timeline changes
   useEffect(() => {
-    console.log("🤖 useEffect triggered - timeline changed");
     generateAISummary();
   }, [timeline?.id, timeline?.items?.length, tripId]);
 

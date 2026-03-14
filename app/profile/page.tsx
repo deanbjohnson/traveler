@@ -11,24 +11,24 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-white mb-8">Profile Settings</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-8">Profile Settings</h1>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Clerk Profile Section */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-white mb-4">Account Information</h2>
-              <div className="bg-white rounded-lg">
+            <div className="bg-card rounded-lg p-6 border border-border">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Account Information</h2>
+              <div className="bg-background rounded-lg">
                 <UserProfile />
               </div>
             </div>
 
             {/* Booking Information Section */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-white mb-4">Booking Information</h2>
-              <p className="text-gray-400 mb-6">
+            <div className="bg-card rounded-lg p-6 border border-border">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Booking Information</h2>
+              <p className="text-muted-foreground mb-6">
                 Save your passenger and payment details to expedite future bookings.
               </p>
               <BookingInfoForm userId={userId} />

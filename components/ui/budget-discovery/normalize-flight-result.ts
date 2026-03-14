@@ -1,6 +1,6 @@
 import { FlightResult, FlightSegment } from './types';
 
-// Helper function to extract detailed routing from Duffel slices
+/** Extract per-segment routing from Duffel slices. Handles both single-slice (one-way) and two-slice (round-trip) offers. */
 function extractDetailedRouting(slices: any[]): { outbound: FlightSegment[]; return?: FlightSegment[] } {
   if (!slices.length) return { outbound: [] };
   
@@ -32,36 +32,17 @@ function extractDetailedRouting(slices: any[]): { outbound: FlightSegment[]; ret
   };
 }
 
+const DEBUG = process.env.NODE_ENV === "development";
+
 export const normalizeFlightResult = (raw: any): FlightResult => {
-  console.log('🔍 normalizeFlightResult called with raw data:', {
-    id: raw.id,
-    offerId: raw.offer?.id,
-    searchId: raw.searchId,
-    hasOffer: !!raw.offer,
-    hasSlices: !!raw.slices,
-    hasPrice: !!raw.price,
-    hasTotalAmount: !!raw.total_amount,
-    rawKeys: Object.keys(raw),
-    fullRawData: raw
-  });
-  
-  // Preserve the original ID - fail if no ID is found rather than generating a new one
   const id: string = raw.id || raw.offer?.id || raw.searchId;
   
   if (!id) {
-    console.error('🚨 CRITICAL: No ID found in flight data!', raw);
+    if (DEBUG) console.error('No ID found in flight data:', raw);
     throw new Error('Flight data missing required ID field');
   }
-  
-  // Debug ID preservation
-  if (raw.id && raw.id !== id) {
-    console.warn('🚨 ID was changed during normalization:', { original: raw.id, new: id });
-  } else if (raw.id) {
-    console.log('✅ ID preserved during normalization:', id);
-  } else {
-    console.log('⚠️ No original ID found, generated new one:', id);
-  }
 
+  // Route can come from raw.route or from first slice (budget discovery vs findFlight formats)
   const route = raw.route || {
     origin: raw.slices?.[0]?.origin?.iata_code || raw.timelineData?.slices?.[0]?.origin?.iata_code || "",
     destination: raw.slices?.[0]?.destination?.iata_code || raw.timelineData?.slices?.[0]?.destination?.iata_code || "",
@@ -130,17 +111,6 @@ export const normalizeFlightResult = (raw: any): FlightResult => {
   // Extract detailed routing from slices
   const slices = raw.slices || raw.timelineData?.slices || [];
   const routing = extractDetailedRouting(slices);
-  
-  // Debug logging for routing extraction
-  if (slices.length > 0) {
-    console.log('🔍 Routing extraction debug:', {
-      flightId: id,
-      slicesCount: slices.length,
-      firstSliceSegments: slices[0]?.segments?.length || 0,
-      extractedRouting: routing,
-      rawSlices: slices
-    });
-  }
 
   return {
     id,

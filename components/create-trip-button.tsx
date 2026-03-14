@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { createNewTrip } from "@/app/server/actions/create-trip";
+import { createNewTrip } from "@/app/actions/create-trip";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";

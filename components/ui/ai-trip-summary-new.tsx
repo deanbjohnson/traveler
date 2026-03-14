@@ -17,17 +17,8 @@ export function AITripSummaryNew({ timeline, tripData, tripId }: AITripSummaryPr
   const [error, setError] = useState<string>("");
   const [cachedSummary, setCachedSummary] = useState<string | null>(null);
   const [timelineHash, setTimelineHash] = useState<string>("");
-  const [isGenerating, setIsGenerating] = useState(false); // Prevent multiple simultaneous calls
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Debug component lifecycle
-  useEffect(() => {
-    console.log("🤖 AITripSummaryNew component MOUNTED - VERSION", VERSION);
-    return () => {
-      console.log("🤖 AITripSummaryNew component UNMOUNTED");
-    };
-  }, []);
-
-  // Generate a hash of the timeline to detect changes
   const generateTimelineHash = (timeline: any) => {
     if (!timeline?.items) return "";
     

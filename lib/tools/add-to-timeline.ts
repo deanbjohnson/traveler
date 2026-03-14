@@ -1,8 +1,9 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { addToTimeline } from "@/app/server/actions/add-to-timeline";
+import { addToTimeline } from "@/app/actions/add-to-timeline";
 import { Duffel } from "@duffel/api";
 
+/** AI tool: add flight from search results to timeline. Hydrates partial offers from Duffel when slices are missing (e.g. round-trip). */
 export const addToTimelineTool = tool({
   description: `
     Add flights to a user's trip timeline. Use this when a user wants to add a specific flight.

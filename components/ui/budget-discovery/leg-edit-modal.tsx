@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { FlightResult } from './types';
 import { format, isValid, parseISO } from 'date-fns';
-import { searchFlights } from '@/app/server/actions/flight-search';
+import { searchFlights } from '@/app/actions/flight-search';
 import { debugServerActionResponse, debugOfferStructure, debugLegData } from './debug-utils';
 
 interface LegEditModalProps {
@@ -62,10 +62,14 @@ const safeFormatDate = (dateString: string | undefined): string => {
       return format(date, 'MMM dd, yyyy');
     }
     
-    console.log('Invalid date string:', dateString);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Invalid date string:', dateString);
+    }
     return 'Invalid date';
   } catch (error) {
-    console.log('Date parsing error:', error, 'for string:', dateString);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Date parsing error:', error, 'for string:', dateString);
+    }
     return 'Invalid date';
   }
 };
@@ -111,18 +115,12 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
         cabinClass: searchParams.cabinClass || 'economy'
       });
       
-      // The server action returns a different format
       if (data.success && data.data) {
-        // Debug the server action response
         debugServerActionResponse(data, 'Server Action Response');
-        
-        // The server action returns offers directly in data.data
         const offers = data.data.offers || [];
         
         if (offers.length > 0) {
-          // Debug the first offer structure
           debugOfferStructure(offers[0], 'First Offer from Server Action');
-          
           const options = offers.slice(0, 5).map((offer: any, index: number) => {
             const option = {
               id: offer.id || Math.random().toString(),
@@ -138,10 +136,7 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
               cabinClass: searchParams.cabinClass || 'economy',
               offer
             };
-            
-            // Debug each option as it's created
             debugLegData(option, `Option ${index + 1}`);
-            
             return option;
           });
           
@@ -165,11 +160,8 @@ export function LegEditModal({ flight, legType, flightIndex, onReplaceLeg, child
     
     const option = replacementOptions.find(opt => opt.id === selectedOption);
     if (option) {
-      // Debug the replacement data
-      console.log('🔍 handleReplaceLeg called with option:', option);
       debugLegData(option, 'Replacement Option');
       debugLegData(legData, 'Original Leg Data');
-      
       onReplaceLeg({
         flight,
         legType,

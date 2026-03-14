@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "airports:build": "node scripts/build-airports.mjs",
+    "airports:comprehensive": "npx tsx lib/build-airport-database.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

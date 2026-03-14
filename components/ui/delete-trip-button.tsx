@@ -1,7 +1,7 @@
 "use client";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteTrip } from "@/app/server/actions/delete-trip";
+import { deleteTrip } from "@/app/actions/delete-trip";
 import { Trash2 } from "lucide-react";
 
 export function DeleteTripButton({ tripId }: { tripId: string }) {

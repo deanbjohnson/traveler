@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { bookFlight } from "@/app/server/actions/flight-booking";
+import { bookFlight } from "@/app/actions/flight-booking";
 
 export const bookFlightTool = tool({
   description:

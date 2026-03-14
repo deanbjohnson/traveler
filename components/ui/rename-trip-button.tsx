@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { renameTrip } from "@/app/server/actions/rename-trip";
+import { renameTrip } from "@/app/actions/rename-trip";
 import { Pencil } from "lucide-react";
 
 export function RenameTripButton({ tripId, currentTitle, onOptimisticTitle }: { tripId: string, currentTitle: string, onOptimisticTitle?: (newTitle: string) => void }) {

@@ -69,7 +69,7 @@ export function TripDashboard({ trips }: { trips: Trip[] }) {
     if (newTitle !== titles[tripId]) {
       handleTitleChange(tripId, newTitle.trim());
       // Call the rename function
-      const { renameTrip } = await import("@/app/server/actions/rename-trip");
+      const { renameTrip } = await import("@/app/actions/rename-trip");
       await renameTrip(tripId, newTitle.trim());
       // Refresh the page to get updated data
       window.location.reload();
